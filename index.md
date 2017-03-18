@@ -38,4 +38,3 @@ User Manual
 - [Features](features.md)
 - [Notes And Acknowledgement](notes_and_acknowledgement.md)
 - [Sponsors](sponsors.md)
-
