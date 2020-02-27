@@ -7,17 +7,21 @@
 Introduction
 ============
 
+*ANNOUNCEMENT: SPECFEM3D\_GLOBE can now perform gravity field calculations in addition (or instead of) seismic wave propagation only. See flag `GRAVITY_INTEGRALS` in file `setup/constants.h.in`. Please also refer to <http://komatitsch.free.fr/preprints/GJI_Martin_gravimetry_2017.pdf>. And yes, that is the reason why I added a gravity observation satellite on the cover of the manual :-)*
+
 The software package SPECFEM3D\_GLOBE simulates three-dimensional global and regional seismic wave propagation and performs full waveform imaging (FWI) or adjoint tomography based upon the spectral-element method (SEM). The SEM is a continuous Galerkin technique (Tromp, Komatitsch, and Liu 2008; Peter et al. 2011), which can easily be made discontinuous (Bernardi, Maday, and Patera 1994; Chaljub 2000; Kopriva, Woodruff, and Hussaini 2002; Chaljub, Capdeville, and Vilotte 2003; Legay, Wang, and Belytschko 2005; Kopriva 2006; Wilcox et al. 2010; Acosta Minolia and Kopriva 2011); it is then close to a particular case of the discontinuous Galerkin technique (Reed and Hill 1973; Lesaint and Raviart 1974; Arnold 1982; Johnson and Pitkäranta 1986; Bourdel, Mazet, and Helluy 1991; Falk and Richter 1999; Hu, Hussaini, and Rasetarinera 1999; Cockburn, Karniadakis, and Shu 2000; Giraldo, Hesthaven, and Warburton 2002; Rivière and Wheeler 2003; Monk and Richter 2005; Grote, Schneebeli, and Schötzau 2006; Ainsworth, Monk, and Muniz 2006; Bernacki, Lanteri, and Piperno 2006; Dumbser and Käser 2006; De Basabe, Sen, and Wheeler 2008; Puente, Ampuero, and Käser 2009; Wilcox et al. 2010; <span>De Basabe</span> and Sen 2010; Étienne et al. 2010), with optimized efficiency because of its tensorized basis functions (Wilcox et al. 2010; Acosta Minolia and Kopriva 2011). In particular, it can accurately handle very distorted mesh elements (Oliveira and Seriani 2011).
 
 It has very good accuracy and convergence properties (Maday and Patera 1989; Seriani and Priolo 1994; Deville, Fischer, and Mund 2002; Cohen 2002; <span>De Basabe</span> and Sen 2007; Seriani and Oliveira 2008; Ainsworth and Wajid 2009; Ainsworth and Wajid 2010; Melvin, Staniforth, and Thuburn 2012). The spectral element approach admits spectral rates of convergence and allows exploiting \(hp\)-convergence schemes. It is also very well suited to parallel implementation on very large supercomputers (Komatitsch et al. 2003; Tsuboi et al. 2003; Komatitsch, Labarta, and Michéa 2008; Carrington et al. 2008; Komatitsch, Vinnik, and Chevrot 2010) as well as on clusters of GPU accelerating graphics cards (Komatitsch 2011; Michéa and Komatitsch 2010; Komatitsch, Michéa, and Erlebacher 2009; Komatitsch et al. 2010). Tensor products inside each element can be optimized to reach very high efficiency (Deville, Fischer, and Mund 2002), and mesh point and element numbering can be optimized to reduce processor cache misses and improve cache reuse (Komatitsch, Labarta, and Michéa 2008). The SEM can also handle triangular (in 2D) or tetrahedral (in 3D) elements (Wingate and Boyd 1996; Taylor and Wingate 2000; Komatitsch et al. 2001; Cohen 2002; Mercerat, Vilotte, and Sánchez-Sesma 2006) as well as mixed meshes, although with increased cost and reduced accuracy in these elements, as in the discontinuous Galerkin method.
 
-Note that in many geological models in the context of seismic wave propagation studies (except for instance for fault dynamic rupture studies, in which very high frequencies or supershear rupture need to be modeled near the fault, see e.g. Benjemaa et al. (2007; Benjemaa et al. 2009; Puente, Ampuero, and Käser 2009; Tago et al. 2010)) a continuous formulation is sufficient because material property contrasts are not drastic and thus conforming mesh doubling bricks can efficiently handle mesh size variations (D. Komatitsch and Tromp 2002a; Komatitsch et al. 2004; Lee et al. 2008; Shiann Jong Lee et al. 2009; S. J. Lee et al. 2009). This is particularly true at the scale of the full Earth.
+Note that in many geological models in the context of seismic wave propagation studies (except for instance for fault dynamic rupture studies, in which very high frequencies or supershear rupture need to be modeled near the fault, see e.g. Benjemaa et al. (2007; Benjemaa et al. 2009; Puente, Ampuero, and Käser 2009; Tago et al. 2010)) a continuous formulation is sufficient because material property contrasts are not drastic and thus conforming mesh doubling bricks can efficiently handle mesh size variations (D. Komatitsch and Tromp 2002a; Komatitsch et al. 2004; Lee et al. 2008; Lee, Chan, et al. 2009; Lee, Komatitsch, et al. 2009). This is particularly true at the scale of the full Earth.
 
 For a detailed introduction to the SEM as applied to global and regional seismic wave propagation, please consult Tromp, Komatitsch, and Liu (2008; Peter et al. 2011; Komatitsch and Vilotte 1998; Komatitsch and Tromp 1999; Chaljub 2000; D. Komatitsch and Tromp 2002a; D. Komatitsch and Tromp 2002b; Komatitsch, Ritsema, and Tromp 2002; Chaljub, Capdeville, and Vilotte 2003; Capdeville et al. 2003; Chaljub and Valette 2004; Chaljub et al. 2007). A detailed theoretical analysis of the dispersion and stability properties of the SEM is available in Cohen (2002), <span>De Basabe</span> and Sen (2007), Seriani and Oliveira (2007), Seriani and Oliveira (2008) and Melvin, Staniforth, and Thuburn (2012).
 
 Effects due to lateral variations in compressional-wave speed, shear-wave speed, density, a 3D crustal model, ellipticity, topography and bathymetry, the oceans, rotation, and self-gravitation are included. The package can accommodate full 21-parameter anisotropy (Chen and Tromp 2007) as well as lateral variations in attenuation (Savage, Komatitsch, and Tromp 2010). Adjoint capabilities and finite-frequency kernel simulations are also included (Tromp, Komatitsch, and Liu 2008; Peter et al. 2011; Liu and Tromp 2006; Liu and Tromp 2008; Fichtner et al. 2009; Virieux and Operto 2009).
 
 The SEM was originally developed in computational fluid dynamics (Patera 1984; Maday and Patera 1989) and has been successfully adapted to address problems in seismic wave propagation. Early seismic wave propagation applications of the SEM, utilizing Legendre basis functions and a perfectly diagonal mass matrix, include Cohen, Joly, and Tordjman (1993), Komatitsch (1997), Faccioli et al. (1997), Casadei and Gabellini (1997), Komatitsch and Vilotte (1998) and Komatitsch and Tromp (1999), whereas applications involving Chebyshev basis functions and a nondiagonal mass matrix include Seriani and Priolo (1994), Priolo, Carcione, and Seriani (1994) and Seriani, Priolo, and Pregarz (1995). In the Legendre version that we use in SPECFEM the mass matrix is purposely slightly inexact but diagonal (but can be made exact if needed, see Teukolsky (2015)), while in the Chebyshev version it is exact but non diagonal.
+
+*Beware that, in a spectral-element method, some spurious modes (that have some similarities with classical so-called “Hourglass modes” in finite-element techniques, although in the SEM they are not zero-energy modes) can appear in some (but not all) cases in the spectral element in which the source is located. Fortunately, they do not propagate away from the source element. However, this means that if you put a receiver in the same spectral element as a source, the recorded signals may in some cases be wrong, typically exhibiting some spurious oscillations, which are often even non causal. If that is the case, an easy option is to slightly change the mesh in the source region in order to get rid of these Hourglass-like spurious modes, as explained in Duczek et al. (2014), in which this phenomenon is described in details, and in which practical solutions to avoid it are suggested.*
 
 All SPECFEM3D\_GLOBE software is written in Fortran2003 with full portability in mind, and conforms strictly to the Fortran2003 standard. It uses no obsolete or obsolescent features of Fortran. The package uses parallel programming based upon the Message Passing Interface (MPI) (Gropp, Lusk, and Skjellum 1994; Pacheco 1997).
 
@@ -34,7 +38,7 @@ Citation
 
 You can find all the references below in format in file `doc/USER_MANUAL/bibliography.bib`.
 
-If you use SPECFEM3D\_GLOBE for your own research, please cite at least one of the following articles: Komatitsch et al. (2016; Tromp, Komatitsch, and Liu 2008; Peter et al. 2011; Vai et al. 1999; Lee et al. 2008; Shiann Jong Lee et al. 2009; S. J. Lee et al. 2009; Komatitsch, Michéa, and Erlebacher 2009; Komatitsch et al. 2010; Wijk et al. 2004; Komatitsch et al. 2004; Chaljub et al. 2007; Madec, Komatitsch, and Diaz 2009; Komatitsch, Vinnik, and Chevrot 2010; Carrington et al. 2008; Tromp et al. 2010; Komatitsch, Ritsema, and Tromp 2002; D. Komatitsch and Tromp 2002a; D. Komatitsch and Tromp 2002b; Komatitsch and Tromp 1999) or Komatitsch and Vilotte (1998).
+If you use SPECFEM3D\_GLOBE for your own research, please cite at least one of the following articles: Komatitsch et al. (2016; Tromp, Komatitsch, and Liu 2008; Peter et al. 2011; Vai et al. 1999; Lee et al. 2008; Lee, Chan, et al. 2009; Lee, Komatitsch, et al. 2009; Komatitsch, Michéa, and Erlebacher 2009; Komatitsch et al. 2010; Wijk et al. 2004; Komatitsch et al. 2004; Chaljub et al. 2007; Madec, Komatitsch, and Diaz 2009; Komatitsch, Vinnik, and Chevrot 2010; Carrington et al. 2008; Tromp et al. 2010; Komatitsch, Ritsema, and Tromp 2002; D. Komatitsch and Tromp 2002a; D. Komatitsch and Tromp 2002b; Komatitsch and Tromp 1999) or Komatitsch and Vilotte (1998).
 
 If you use the C-PML absorbing layer capabilities of the code, please cite at least one article written by the developers of the package, for instance:
 
@@ -66,7 +70,7 @@ If you use this new version, which has non blocking MPI for much better performa
 
 If you use GPU graphics card acceleration please cite e.g. Komatitsch (2011), Michéa and Komatitsch (2010), Komatitsch, Michéa, and Erlebacher (2009), and/or Komatitsch et al. (2010).
 
-If you work on geophysical applications, you may be interested in citing some of these application articles as well, among others: Wijk et al. (2004; Ji et al. 2005; Krishnan et al. 2006a; Krishnan et al. 2006b; Lee et al. 2008; Shiann Jong Lee et al. 2009; S. J. Lee et al. 2009; Chevrot, Favier, and Komatitsch 2004; Favier, Chevrot, and Komatitsch 2004; Ritsema et al. 2002; Godinho et al. 2009; Tromp and Komatitsch 2000; Savage, Komatitsch, and Tromp 2010). If you use 3D mantle model S20RTS, please cite Ritsema, <span>Van Heijst</span>, and Woodhouse (1999).
+If you work on geophysical applications, you may be interested in citing some of these application articles as well, among others: Wijk et al. (2004; Ji et al. 2005; Krishnan et al. 2006a; Krishnan et al. 2006b; Lee et al. 2008; Lee, Chan, et al. 2009; Lee, Komatitsch, et al. 2009; Chevrot, Favier, and Komatitsch 2004; Favier, Chevrot, and Komatitsch 2004; Ritsema et al. 2002; Godinho et al. 2009; Tromp and Komatitsch 2000; Savage, Komatitsch, and Tromp 2010). If you use 3D mantle model S20RTS, please cite Ritsema, <span>Van Heijst</span>, and Woodhouse (1999).
 
 Domain decomposition is explained in detail in Martin et al. (2008), and excellent scaling up to 150,000 processor cores in shown for instance in Carrington et al. (2008; Komatitsch, Labarta, and Michéa 2008; Martin et al. 2008; Komatitsch et al. 2010; Komatitsch 2011).
 
@@ -100,7 +104,7 @@ Bernardi, C., Y. Maday, and A. T. Patera. 1994. “A New Nonconforming Approach 
 
 Blanc, Émilie, Dimitri Komatitsch, Emmanuel Chaljub, Bruno Lombard, and Zhinan Xie. 2016. “Highly Accurate Stability-Preserving Optimization of the Zener Viscoelastic Model, with Application to Wave Propagation in the Presence of Strong Attenuation.” *Geophys. J. Int.* 205 (1): 427–39. doi:[10.1093/gji/ggw024](http://dx.doi.org/10.1093/gji/ggw024).
 
-Bourdel, Françoise, Pierre-Alain Mazet, and Philippe Helluy. 1991. “Resolution of the Non-Stationary or Harmonic Maxwell Equations by a Discontinuous Finite Element Method: Application to an E.M.I. (Electromagnetic Impulse) Case.” In *Proceedings of the 10th International Conference on Computing Methods in Applied Sciences and Engineering*, 405–22. Commack, NY, USA: Nova Science Publishers, Inc.
+Bourdel, Françoise, Pierre-Alain Mazet, and Philippe Helluy. 1991. “Resolution of the Non-Stationary or Harmonic Maxwell Equations by a Discontinuous Finite Element Method: Application to an E.M.I. (Electromagnetic Impulse) Case.” In *Proceedings of the 10th International Conference on Computing Methods in Applied Sciences and Engineering*, 405–22. Commack, NY, USA: Nova Science Publishers.
 
 Capdeville, Y., E. Chaljub, J. P. Vilotte, and J. P. Montagner. 2003. “Coupling the Spectral Element Method with a Modal Solution for Elastic Wave Propagation in Global Earth Models.” *Geophys. J. Int.* 152: 34–67.
 
@@ -133,6 +137,8 @@ De Basabe, J. D., M. K. Sen, and M. F. Wheeler. 2008. “The Interior Penalty Di
 ———. 2010. “Stability of the High-Order Finite Elements for Acoustic or Elastic Wave Propagation with High-Order Time Stepping.” *Geophys. J. Int.* 181 (1): 577–90. doi:[10.1111/j.1365-246X.2010.04536.x](http://dx.doi.org/10.1111/j.1365-246X.2010.04536.x).
 
 Deville, M. O., P. F. Fischer, and E. H. Mund. 2002. *High-Order Methods for Incompressible Fluid Flow*. Cambridge, United Kingdom: Cambridge University Press.
+
+Duczek, Sascha, Steffen Liefold, David Schmicker, and Ulrich Gabbert. 2014. “Wave Propagation Analysis Using High-Order Finite Element Methods: Spurious Oscillations Excited by Internal Element Eigenfrequencies.” *Technische Mechanik* 34: 51–71.
 
 Dumbser, M., and M. Käser. 2006. “An Arbitrary High-Order Discontinuous Galerkin Method for Elastic Waves on Unstructured Meshes-II. The Three-Dimensional Isotropic Case.” *Geophys. J. Int.* 167 (1): 319–36. doi:[10.1111/j.1365-246X.2006.03120.x](http://dx.doi.org/10.1111/j.1365-246X.2006.03120.x).
 
@@ -200,15 +206,15 @@ Krishnan, Swaminathan, Chen Ji, Dimitri Komatitsch, and Jeroen Tromp. 2006a. “
 
 ———. 2006b. “Performance of Two 18-Story Steel Moment-Frame Buildings in Southern California During Two Large Simulated San Andreas Earthquakes.” *Earthquake Spectra* 22 (4): 1035–61. doi:[10.1193/1.2360698](http://dx.doi.org/10.1193/1.2360698).
 
-Lee, S. J., Dimitri Komatitsch, B. S. Huang, and J. Tromp. 2009. “Effects of Topography on Seismic Wave Propagation: An Example from Northern Taiwan.” *Bull. Seism. Soc. Am.* 99 (1): 314–25. doi:[10.1785/0120080020](http://dx.doi.org/10.1785/0120080020).
-
 Lee, Shiann Jong, Yu Chang Chan, Dimitri Komatitsch, Bor Shouh Huang, and Jeroen Tromp. 2009. “Effects of Realistic Surface Topography on Seismic Ground Motion in the Yangminshan Region of Taiwan Based Upon the Spectral-Element Method and LiDAR DTM.” *Bull. Seism. Soc. Am.* 99 (2A): 681–93. doi:[10.1785/0120080264](http://dx.doi.org/10.1785/0120080264).
 
 Lee, Shiann Jong, How Wei Chen, Qinya Liu, Dimitri Komatitsch, Bor Shouh Huang, and Jeroen Tromp. 2008. “Three-Dimensional Simulations of Seismic Wave Propagation in the Taipei Basin with Realistic Topography Based Upon the Spectral-Element Method.” *Bull. Seism. Soc. Am.* 98 (1): 253–64. doi:[10.1785/0120070033](http://dx.doi.org/10.1785/0120070033).
 
+Lee, Shiann Jong, Dimitri Komatitsch, Bor Shouh Huang, and Jeroen Tromp. 2009. “Effects of Topography on Seismic Wave Propagation: An Example from Northern Taiwan.” *Bull. Seism. Soc. Am.* 99 (1): 314–25. doi:[10.1785/0120080020](http://dx.doi.org/10.1785/0120080020).
+
 Legay, A., H. W. Wang, and T. Belytschko. 2005. “Strong and Weak Arbitrary Discontinuities in Spectral Finite Elements.” *Int. J. Numer. Methods Eng.* 64 (8): 991–1008. doi:[10.1002/nme.1388](http://dx.doi.org/10.1002/nme.1388).
 
-Lesaint, P., and P. A. Raviart. 1974. “On a Finite Element Method for Solving the Neutron Transport Equation (Proc. Symposium, Mathematical Research Center).” In *Mathematical Aspects of Finite Elements in Partial Differential Equations*, edited by Univ. of Wisconsin-Madison, 33:89–123. New York, USA: Academic Press.
+Lesaint, P., and P. A. Raviart. 1974. “On a Finite-Element Method for Solving the Neutron Transport Equation (Proc. Symposium, Mathematical Research Center).” In *Mathematical Aspects of Finite Elements in Partial Differential Equations*, edited by Univ. of Wisconsin-Madison, 33:89–123. New York, USA: Academic Press.
 
 Liu, Q., and J. Tromp. 2008. “Finite-Frequency Sensitivity Kernels for Global Seismic Wave Propagation Based Upon Adjoint Methods.” *Geophys. J. Int.* 174 (1): 265–86. doi:[10.1111/j.1365-246X.2008.03798.x](http://dx.doi.org/10.1111/j.1365-246X.2008.03798.x).
 
@@ -242,7 +248,7 @@ Oliveira, S. P., and G. Seriani. 2011. “Effect of Element Distortion on the Nu
 
 Pacheco, P. S. 1997. *Parallel Programming with MPI*. San Francisco, USA: Morgan Kaufmann Press.
 
-Patera, A. T. 1984. “A Spectral Element Method for Fluid Dynamics: Laminar Flow in a Channel Expansion.” *J. Comput. Phys.* 54: 468–88.
+Patera, Anthony T. 1984. “A Spectral Element Method for Fluid Dynamics: Laminar Flow in a Channel Expansion.” *J. Comput. Phys.* 54 (3): 468–88. doi:[10.1016/0021-9991(84)90128-1](http://dx.doi.org/10.1016/0021-9991(84)90128-1).
 
 Peter, Daniel, Dimitri Komatitsch, Yang Luo, Roland Martin, Nicolas <span>Le Goff</span>, Emanuele Casarotti, Pieyre <span>Le Loher</span>, et al. 2011. “Forward and Adjoint Simulations of Seismic Wave Propagation on Fully Unstructured Hexahedral Meshes.” *Geophys. J. Int.* 186 (2): 721–39. doi:[10.1111/j.1365-246X.2011.05044.x](http://dx.doi.org/10.1111/j.1365-246X.2011.05044.x).
 
@@ -299,4 +305,5 @@ Xie, Zhinan, René Matzen, Paul Cristini, Dimitri Komatitsch, and Roland Martin.
 -----
 > This documentation has been automatically generated by [pandoc](http://www.pandoc.org)
 > based on the User manual (LaTeX version) in folder doc/USER_MANUAL/
+> (Feb 27, 2020)
 
