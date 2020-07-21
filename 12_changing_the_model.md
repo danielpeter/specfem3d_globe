@@ -59,12 +59,12 @@ All output needs to be non-dimensionalized according to the convention summarize
 
 Part of the file `model_crust.f90` is the subroutine `model_crust_broadcast`. The call to this routine takes argument `CM_V` and is used to once-and-for-all read in the databases related to Crust2.0 and broadcast the model to all parallel processes. If you replace the file `model_crust.f90` with your own implementation, you *must* provide a `model_crust_broadcast` routine, even if it does nothing. Model constants and variables read by the routine `model_crust_broadcast` are passed to the subroutine `read_crust_model` through the structure `CM_V`. An alternative crustal model could use the same construct. Please feel free to contribute subroutines for new models and send them to us so that they can be included in future releases of the software.
 
-> **NOTE:** If you decide to create your own version of file `model_crust.f90`, you must add calls to `MPI_BCAST` in the subroutine `model_crust_broadcast` after the call to the `read_crust_model` subroutine that reads the isotropic mantle model once and for all in the mesher. This is done in order to read the (potentially large) model data files on the master node (which is the processor of rank 0 in our code) only and then send a copy to all the other nodes using an MPI broadcast, rather than using an implementation in which all the nodes would read the same model data files from a remotely-mounted home file system, which could create a bottleneck on the network in the case of a large number of nodes. For example, in the current call to that routine from `model_crust.f90,` we write:
+> **NOTE:** If you decide to create your own version of file `model_crust.f90`, you must add calls to `MPI_BCAST` in the subroutine `model_crust_broadcast` after the call to the `read_crust_model` subroutine that reads the isotropic mantle model once and for all in the mesher. This is done in order to read the (potentially large) model data files on the main node (which is the processor of rank 0 in our code) only and then send a copy to all the other nodes using an MPI broadcast, rather than using an implementation in which all the nodes would read the same model data files from a remotely-mounted home file system, which could create a bottleneck on the network in the case of a large number of nodes. For example, in the current call to that routine from `model_crust.f90,` we write:
 >
 >     ! the variables read are declared and stored in structure CM_V
 >       if(myrank == 0) call read_crust_model(CM_V)
 >
->     ! broadcast the information read on the master to the nodes
+>     ! broadcast the information read on the main node to all the nodes
 >       call MPI_BCAST(CM_V%thlr,NKEYS_CRUST*NLAYERS_CRUST,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ier)
 >       call MPI_BCAST(CM_V%velocp,NKEYS_CRUST*NLAYERS_CRUST,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ier)
 >       call MPI_BCAST(CM_V%velocs,NKEYS_CRUST*NLAYERS_CRUST,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ier)
@@ -112,12 +112,12 @@ You can replace the `model_s20rts.f90` file with your own version *provided you 
 
 Part of the file `model_s20rts.f90` is the subroutine `model_s20rts_broadcast`. The call to this routine takes argument` D3MM_V` and is used to once-and-for-all read in the databases related to S20RTS. If you replace the file `model_s20rts.f90` with your own implementation, you *must* provide a `model_s20rts_broadcast` routine, even if it does nothing. Model constants and variables read by the routine `model_s20rts_broadcast` are passed to the subroutine `read_model_s20rts` through the structure `D3MM_V.` An alternative mantle model should use the same construct.
 
-> **NOTE:** If you decide to create your own version of file `model_s20rts.f90`, you must add calls to `MPI_BCAST` in the subroutine `model_s20rts_broadcast` after the call to the `read_model_s20rts` subroutine that reads the isotropic mantle model once and for all in the mesher. This is done in order to read the (potentially large) model data files on the master node (which is the processor of rank 0 in our code) only and then send a copy to all the other nodes using an MPI broadcast, rather than using an implementation in which all the nodes would read the same model data files from a remotely-mounted home file system, which could create a bottleneck on the network in the case of a large number of nodes. For example, in the current call to that routine from `model_s20rts.f90,` we write:
+> **NOTE:** If you decide to create your own version of file `model_s20rts.f90`, you must add calls to `MPI_BCAST` in the subroutine `model_s20rts_broadcast` after the call to the `read_model_s20rts` subroutine that reads the isotropic mantle model once and for all in the mesher. This is done in order to read the (potentially large) model data files on the main node (which is the processor of rank 0 in our code) only and then send a copy to all the other nodes using an MPI broadcast, rather than using an implementation in which all the nodes would read the same model data files from a remotely-mounted home file system, which could create a bottleneck on the network in the case of a large number of nodes. For example, in the current call to that routine from `model_s20rts.f90,` we write:
 >
 >     ! the variables read are declared and stored in structure D3MM_V
 >       if(myrank == 0) call read_model_s20rts(D3MM_V)
 >
->     ! broadcast the information read on the master to the nodes
+>     ! broadcast the information read on the main node to all the nodes
 >       call MPI_BCAST(D3MM_V%dvs_a,(NK+1)*(NS+1)*(NS+1),MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ier)
 >       call MPI_BCAST(D3MM_V%dvs_b,(NK+1)*(NS+1)*(NS+1),MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ier)
 >       call MPI_BCAST(D3MM_V%dvp_a,(NK+1)*(NS+1)*(NS+1),MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ier)
@@ -162,12 +162,12 @@ Fortran structure that contains the parameters, variables and arrays that descri
 
 You can replace the `model_aniso_mantle.f90` file by your own version *provided you do not change the call structure of the routine*, i.e., the new routine should take exactly the same input and produce the required relative output. Part of the file `model_aniso_mantle.f90` is the subroutine `model_aniso_mantle_broadcast`. The call to this routine takes argument `AMM_V` and is used to once-and-for-all read in the static databases related to the anisotropic model. When you choose to replace the file `model_aniso_mantle.f90` with your own implementation you *must* provide a `model_aniso_mantle_broadcast` routine, even if it does nothing. Model constants and variables read by the routine `model_aniso_mantle_broadcast` are passed through the structure `AMM_V`. An alternative anisotropic mantle model should use the same construct.
 
-> **NOTE:** If you decide to create your own version of file `model_aniso_mantle.f90`, you must add calls to `MPI_BCAST` in file `model_aniso_mantle.f90` after the call to the `read_aniso_mantle_model` subroutine that reads the anisotropic mantle model once and for all in the mesher. This is done in order to read the (potentially large) model data files on the master node (which is the processor of rank 0 in our code) only and then send a copy to all the other nodes using an MPI broadcast, rather than using an implementation in which all the nodes would read the same model data files from a remotely-mounted home file system, which could create a bottleneck on the network in the case of a large number of nodes. For example, in the current call to that routine from `model_aniso_mantle.f90,` we write:
+> **NOTE:** If you decide to create your own version of file `model_aniso_mantle.f90`, you must add calls to `MPI_BCAST` in file `model_aniso_mantle.f90` after the call to the `read_aniso_mantle_model` subroutine that reads the anisotropic mantle model once and for all in the mesher. This is done in order to read the (potentially large) model data files on the main node (which is the processor of rank 0 in our code) only and then send a copy to all the other nodes using an MPI broadcast, rather than using an implementation in which all the nodes would read the same model data files from a remotely-mounted home file system, which could create a bottleneck on the network in the case of a large number of nodes. For example, in the current call to that routine from `model_aniso_mantle.f90,` we write:
 >
 >     ! the variables read are declared and stored in structure AMM_V
 >       if(myrank == 0) call read_aniso_mantle_model(AMM_V)
 >
->     ! broadcast the information read on the master to the nodes
+>     ! broadcast the information read on the main node to all the nodes
 >       call MPI_BCAST(AMM_V%npar1,1,MPI_INTEGER,0,MPI_COMM_WORLD,ier)
 >       call MPI_BCAST(AMM_V%beta,14*34*37*73,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ier)
 >       call MPI_BCAST(AMM_V%pro,47,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ier)
@@ -235,5 +235,5 @@ Ritsema, J., H. J. <span>Van Heijst</span>, and J. H. Woodhouse. 1999. “Comple
 -----
 > This documentation has been automatically generated by [pandoc](http://www.pandoc.org)
 > based on the User manual (LaTeX version) in folder doc/USER_MANUAL/
-> (Feb 27, 2020)
+> (Jul 21, 2020)
 
