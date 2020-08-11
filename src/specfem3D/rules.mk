@@ -11,7 +11,7 @@
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
+# the Free Software Foundation; either version 3 of the License, or
 # (at your option) any later version.
 #
 # This program is distributed in the hope that it will be useful,
@@ -42,6 +42,7 @@ specfem3D_OBJECTS = \
 	$O/force_ftz.cc.o \
 	$O/get_backazimuth.solver.o \
 	$O/get_cmt.solver.o \
+	$O/get_force.solver.o \
 	$O/get_event_info.solver.o \
 	$O/make_gravity.solver.o \
 	$O/netlib_specfun_erf.solver.o \
@@ -84,7 +85,19 @@ specfem3D_OBJECTS += \
 	$O/locate_sources.solverstatic.o \
 	$O/multiply_arrays_source.solverstatic.o \
 	$O/noise_tomography.solverstatic.o \
+	$O/prepare_attenuation.solverstatic.o \
+	$O/prepare_elastic_elements.solverstatic.o \
+	$O/prepare_gpu.solverstatic.o \
+	$O/prepare_gravity.solverstatic.o \
+	$O/prepare_movie.solverstatic.o \
+	$O/prepare_noise.solverstatic.o \
+	$O/prepare_oceans.solverstatic.o \
+	$O/prepare_optimized_arrays.solverstatic.o \
+	$O/prepare_stacey.solverstatic.o \
 	$O/prepare_timerun.solverstatic.o \
+	$O/prepare_vtk_window.solverstatic.o \
+	$O/prepare_wavefields.solverstatic.o \
+	$O/print_stf_file.solverstatic.o \
 	$O/read_adjoint_sources.solverstatic.o \
 	$O/read_arrays_solver.solverstatic.o \
 	$O/read_forward_arrays.solverstatic.o \
@@ -108,17 +121,19 @@ specfem3D_OBJECTS += \
 specfem3D_MODULES = \
 	$(FC_MODDIR)/asdf_data.$(FC_MODEXT) \
 	$(FC_MODDIR)/constants_solver.$(FC_MODEXT) \
+	$(FC_MODDIR)/manager_adios_par.$(FC_MODEXT) \
 	$(FC_MODDIR)/specfem_par.$(FC_MODEXT) \
 	$(FC_MODDIR)/specfem_par_crustmantle.$(FC_MODEXT) \
 	$(FC_MODDIR)/specfem_par_innercore.$(FC_MODEXT) \
 	$(FC_MODDIR)/specfem_par_outercore.$(FC_MODEXT) \
+	$(FC_MODDIR)/specfem_par_noise.$(FC_MODEXT) \
 	$(FC_MODDIR)/specfem_par_movie.$(FC_MODEXT) \
-	$(FC_MODDIR)/write_seismograms_mod.$(FC_MODEXT) \
 	$(EMPTY_MACRO)
 
 # These files come from the shared directory
 specfem3D_SHARED_OBJECTS = \
 	$O/shared_par.shared_module.o \
+	$O/adios_manager.shared_adios_module.o \
 	$O/auto_ner.shared.o \
 	$O/binary_c_io.cc.o \
 	$O/broadcast_computed_parameters.shared.o \
@@ -134,6 +149,7 @@ specfem3D_SHARED_OBJECTS = \
 	$O/get_timestep_and_layers.shared.o \
 	$O/gll_library.shared.o \
 	$O/hex_nodes.shared.o \
+	$O/init_openmp.shared.o \
 	$O/intgrl.shared.o \
 	$O/lagrange_poly.shared.o \
 	$O/make_ellipticity.shared.o \
@@ -159,7 +175,7 @@ gpu_specfem3D_STUBS = \
 	$O/specfem3D_gpu_method_stubs.cc.o \
 	$(EMPTY_MACRO)
 
-ifdef NO_GPU  
+ifdef NO_GPU
 specfem3D_OBJECTS += $(gpu_specfem3D_STUBS)
 else
 specfem3D_OBJECTS += $(gpu_specfem3D_OBJECTS)
@@ -176,18 +192,12 @@ adios_specfem3D_OBJECTS = \
 	$O/read_mesh_databases_adios.solverstatic_adios.o \
 	$O/save_forward_arrays_adios.solverstatic_adios.o \
 	$O/save_kernels_adios.solverstatic_adios.o \
-	$O/write_specfem_adios_header.solverstatic_adios.o \
-	$O/write_output_ASDF.solverstatic_adios.o \
 	$(EMPTY_MACRO)
 
 adios_specfem3D_SHARED_OBJECTS = \
 	$O/adios_helpers_definitions.shared_adios_module.o \
 	$O/adios_helpers_writers.shared_adios_module.o \
 	$O/adios_helpers.shared_adios.o \
-	$O/adios_manager.shared_adios.o \
-	$(EMPTY_MACRO)
-
-adios_specfem3D_STUBS = \
 	$(EMPTY_MACRO)
 
 adios_specfem3D_SHARED_STUBS = \
@@ -199,10 +209,39 @@ ifeq ($(ADIOS),yes)
 specfem3D_OBJECTS += $(adios_specfem3D_OBJECTS)
 specfem3D_SHARED_OBJECTS += $(adios_specfem3D_SHARED_OBJECTS)
 else
-specfem3D_OBJECTS += $(adios_specfem3D_STUBS)
 specfem3D_SHARED_OBJECTS += $(adios_specfem3D_SHARED_STUBS)
 endif
 
+###
+### ASDF
+###
+
+asdf_specfem3D_OBJECTS = \
+	$O/write_output_ASDF.solverstatic.o \
+	$O/read_adjoint_sources_ASDF.solverstatic.o \
+	$(EMPTY_MACRO)
+
+asdf_specfem3D_SHARED_OBJECTS = \
+	$O/asdf_manager.shared_asdf.o \
+	$(EMPTY_MACRO)
+
+asdf_specfem3D_STUBS = \
+	$(EMPTY_MACRO)
+
+asdf_specfem3D_SHARED_STUBS = \
+	$O/asdf_method_stubs.cc.o \
+	$(EMPTY_MACRO)
+
+# conditional asdf linking
+ifeq ($(ASDF),yes)
+specfem3D_OBJECTS += $(asdf_specfem3D_OBJECTS)
+specfem3D_SHARED_OBJECTS += $(asdf_specfem3D_SHARED_OBJECTS)
+else
+specfem3D_OBJECTS += $(asdf_specfem3D_STUBS)
+specfem3D_SHARED_OBJECTS += ${asdf_specfem3D_SHARED_STUBS}
+endif
+
+#
 # conditional CEM model
 ifeq ($(CEM),yes)
 specfem3D_OBJECTS += $O/read_write_netcdf.checknetcdf.o
@@ -227,6 +266,13 @@ else
 specfem3D_OBJECTS += $(vtk_specfem3D_STUBS)
 endif
 
+###
+### LIBXSMM
+###
+# conditional module
+ifeq ($(XSMM),yes)
+specfem3D_MODULES += $(FC_MODDIR)/my_libxsmm.$(FC_MODEXT)
+endif
 
 #######################################
 
@@ -236,19 +282,29 @@ endif
 
 specfem3D_ALL_OBJECTS = $(specfem3D_OBJECTS) $(specfem3D_SHARED_OBJECTS)
 
+ifeq ($(CUDA),yes)
+SPECFEM_LINK_FLAGS = $(LDFLAGS) $(MPILIBS) $(CUDA_LINK) $(LIBS)
+else
+SPECFEM_LINK_FLAGS = $(LDFLAGS) $(MPILIBS) $(LIBS)
+endif
+
+# non-gpu or opencl
+ifeq ($(ASDF),yes)
+SPECFEM_LINK_FLAGS += $(ASDF_LIBS) -lhdf5hl_fortran -lhdf5_hl -lhdf5 -lstdc++
+endif
+
+
 ${E}/xspecfem3D: $(specfem3D_ALL_OBJECTS)
 	@echo ""
 	@echo "building xspecfem3D $(BUILD_VERSION_TXT)"
 	@echo ""
-ifeq ($(CUDA),yes)
-	${FCLINK} -o ${E}/xspecfem3D $(specfem3D_ALL_OBJECTS) $(LDFLAGS) $(MPILIBS) $(CUDA_LINK) $(LIBS)	
-else # non cuda (non-gpu or opencl)
+
+
 ## use MPI here
 ## DK DK add OpenMP compiler flag here if needed
 #	${MPIFCCOMPILE_CHECK} -qsmp=omp -o ${E}/xspecfem3D $(specfem3D_ALL_OBJECTS) $(LDFLAGS) $(MPILIBS) $(LIBS)
-	${MPIFCCOMPILE_CHECK} -o ${E}/xspecfem3D $(specfem3D_ALL_OBJECTS) $(LDFLAGS) $(MPILIBS) $(LIBS)
+	${FCLINK} -o ${E}/xspecfem3D $(specfem3D_ALL_OBJECTS) $(SPECFEM_LINK_FLAGS)
 	@echo ""
-endif
 
 #######################################
 
@@ -256,23 +312,21 @@ endif
 S := ${S_TOP}/src/specfem3D
 $(specfem3D_OBJECTS): S = ${S_TOP}/src/specfem3D
 
-####
-#### rule for each .o file below
-####
-
 ###
 ### additional dependencies
 ###
 
-$O/write_output_ASDF.solverstatic_adios.o: $O/asdf_data.solverstatic_module.o
-
-$O/write_seismograms.solverstatic.o: $O/asdf_data.solverstatic_module.o
-
+$O/write_output_ASDF.solverstatic.o: $O/asdf_data.solverstatic_module.o
 $O/compute_arrays_source.solverstatic.o: $O/write_seismograms.solverstatic.o
 $O/iterate_time.solverstatic.o: $O/write_seismograms.solverstatic.o
 $O/iterate_time_undoatt.solverstatic.o: $O/write_seismograms.solverstatic.o
 $O/locate_receivers.solverstatic.o: $O/write_seismograms.solverstatic.o
 $O/read_adjoint_sources.solverstatic.o: $O/write_seismograms.solverstatic.o
+
+$O/specfem3D_par.solverstatic_module.o: $O/adios_manager.shared_adios_module.o
+
+# Version file
+$O/initialize_simulation.solverstatic.o: ${SETUP}/version.fh
 
 ###
 ### specfem3D - optimized flags and dependence on values from mesher here
@@ -311,7 +365,7 @@ $O/%.solver.o: $S/%.F90 $O/shared_par.shared_module.o
 	${FCCOMPILE_CHECK} ${FCFLAGS_f90} -c -o $@ $<
 
 $O/%.cc.o: $S/%.c ${SETUP}/config.h
-	${CC} -c $(CPPFLAGS) $(CFLAGS) -o $@ $< 
+	${CC} -c $(CPPFLAGS) $(CFLAGS) -o $@ $<
 
 ###
 ### VTK compilation

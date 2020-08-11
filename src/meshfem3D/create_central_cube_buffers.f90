@@ -11,7 +11,7 @@
 !
 ! This program is free software; you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by
-! the Free Software Foundation; either version 2 of the License, or
+! the Free Software Foundation; either version 3 of the License, or
 ! (at your option) any later version.
 !
 ! This program is distributed in the hope that it will be useful,
@@ -29,7 +29,7 @@
 !--- create buffers to assemble with central cube
 !
 
-  subroutine create_central_cube_buffers(myrank,iproc_xi,iproc_eta,ichunk, &
+  subroutine create_central_cube_buffers(iproc_xi,iproc_eta,ichunk, &
                    NPROC_XI,NPROC_ETA,NCHUNKS, &
                    NSPEC_INNER_CORE,NGLOB_INNER_CORE, &
                    NSPEC2DMAX_XMIN_XMAX_INNER_CORE,NSPEC2DMAX_YMIN_YMAX_INNER_CORE, &
@@ -48,7 +48,7 @@
 
   implicit none
 
-  integer, intent(in) :: myrank,iproc_xi,iproc_eta,ichunk, &
+  integer, intent(in) :: iproc_xi,iproc_eta,ichunk, &
        NPROC_XI,NPROC_ETA,NCHUNKS,NSPEC_INNER_CORE,NGLOB_INNER_CORE, &
        NSPEC2DMAX_XMIN_XMAX_INNER_CORE,NSPEC2DMAX_YMIN_YMAX_INNER_CORE,NSPEC2D_BOTTOM_INNER_CORE
 
@@ -574,7 +574,7 @@
       nb_msgs_theor_in_cube = 5
     else
       ! case of a corner
-      if ((iproc_xi == 0 .or. iproc_xi == NPROC_XI-1).and. &
+      if ((iproc_xi == 0 .or. iproc_xi == NPROC_XI-1) .and. &
          (iproc_eta == 0 .or. iproc_eta == NPROC_ETA-1)) then
         ! slices on both "vertical" faces plus one slice at the bottom
         nb_msgs_theor_in_cube = 2*(nproc_xi_half_ceil) + 1
@@ -594,7 +594,7 @@
       nb_msgs_theor_in_cube = 5
     else
       ! case of a corner
-      if ((iproc_xi == 0 .or. iproc_xi == NPROC_XI-1).and. &
+      if ((iproc_xi == 0 .or. iproc_xi == NPROC_XI-1) .and. &
          (iproc_eta == 0 .or. iproc_eta == NPROC_ETA-1)) then
         ! slices on both "vertical" faces plus one slice at the bottom
         nb_msgs_theor_in_cube = 2*(nproc_xi_half_floor) + 1

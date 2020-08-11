@@ -11,7 +11,7 @@
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
+# the Free Software Foundation; either version 3 of the License, or
 # (at your option) any later version.
 #
 # This program is distributed in the hope that it will be useful,
@@ -46,6 +46,7 @@ gpu_specfem3D_OBJECTS = \
 	$O/compute_forces_inner_core_gpu.o \
 	$O/compute_forces_outer_core_gpu.o \
 	$O/compute_kernels_gpu.o \
+	$O/compute_seismograms_gpu.o \
 	$O/compute_stacey_acoustic_gpu.o \
 	$O/compute_stacey_elastic_gpu.o \
 	$O/compute_strain_gpu.o \
@@ -60,7 +61,7 @@ gpu_specfem3D_OBJECTS = \
 	$(EMPTY_MACRO)
 
 ifeq ($(CUDA),yes)
-  cuda_specfem3D_DEVICE_OBJ =  $O/cuda_device_obj.o 
+  cuda_specfem3D_DEVICE_OBJ =  $O/cuda_device_obj.o
   include $(BOAST_DIR)/kernel_cuda.mk # defines $(cuda_kernels_OBJS)
 endif
 
@@ -97,6 +98,16 @@ ifeq ($(CUDA),yes)
   ifeq ($(CUDA5),yes)
     BUILD_VERSION_TXT += (v5)
   endif
+  ifeq ($(CUDA6),yes)
+    BUILD_VERSION_TXT += (v6)
+  endif
+  ifeq ($(CUDA7),yes)
+    BUILD_VERSION_TXT += (v7)
+  endif
+  ifeq ($(CUDA8),yes)
+    BUILD_VERSION_TXT += (v8)
+  endif
+
 endif
 
 ifeq ($(GPU_CUDA_AND_OCL),yes)

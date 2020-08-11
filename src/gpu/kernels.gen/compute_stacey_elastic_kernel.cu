@@ -1,5 +1,5 @@
 //note: please do not modify this file manually!
-//      this file has been generated automatically by BOAST version 1.0.3
+//      this file has been generated automatically by BOAST version 2.1.0
 //      by: make boast_kernels
 
 /*
@@ -16,7 +16,7 @@
 !
 ! This program is free software; you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by
-! the Free Software Foundation; either version 2 of the License, or
+! the Free Software Foundation; either version 3 of the License, or
 ! (at your option) any later version.
 !
 ! This program is distributed in the hope that it will be useful,
@@ -84,7 +84,7 @@
 #define BLOCKSIZE_TRANSFER 256
 #endif
 
-__global__ void compute_stacey_elastic_kernel(const float * veloc, float * accel, const int interface_type, const int num_abs_boundary_faces, const int * abs_boundary_ispec, const int * nkmin_xi, const int * nkmin_eta, const int * njmin, const int * njmax, const int * nimin, const int * nimax, const float * abs_boundary_normal, const float * abs_boundary_jacobian2D, const float * wgllwgll, const int * ibool, const float * rho_vp, const float * rho_vs, const int SAVE_FORWARD, float * b_absorb_field){
+__global__ void compute_stacey_elastic_kernel(const float * veloc, float * accel, const int interface_type, const int num_abs_boundary_faces, const int * abs_boundary_ispec, const int * nkmin_xi, const int * nkmin_eta, const int * njmin, const int * njmax, const int * nimin, const int * nimax, const float * abs_boundary_normal, const float * abs_boundary_jacobian2D, const float * wgllwgll, const int * ibool, const float * rho_vp, const float * rho_vs, const int SAVE_STACEY, float * b_absorb_field){
   int igll;
   int iface;
   int i;
@@ -171,7 +171,7 @@ __global__ void compute_stacey_elastic_kernel(const float * veloc, float * accel
         }
         fac1 = wgllwgll[(k) * (NGLLX) + i];
         break;
-      }
+    }
     iglob = ibool[INDEX4(NGLLX, NGLLX, NGLLX, i, j, k, ispec)] - (1);
     vx = veloc[(iglob) * (3) + 0];
     vy = veloc[(iglob) * (3) + 1];
@@ -189,7 +189,7 @@ __global__ void compute_stacey_elastic_kernel(const float * veloc, float * accel
     atomicAdd(accel + (iglob) * (3) + 0, ( -(tx)) * (jacobianw));
     atomicAdd(accel + (iglob) * (3) + 1, ( -(ty)) * (jacobianw));
     atomicAdd(accel + (iglob) * (3) + 2, ( -(tz)) * (jacobianw));
-    if (SAVE_FORWARD) {
+    if (SAVE_STACEY) {
       b_absorb_field[INDEX3(NDIM, NGLL2, 0, igll, iface)] = (tx) * (jacobianw);
       b_absorb_field[INDEX3(NDIM, NGLL2, 1, igll, iface)] = (ty) * (jacobianw);
       b_absorb_field[INDEX3(NDIM, NGLL2, 2, igll, iface)] = (tz) * (jacobianw);

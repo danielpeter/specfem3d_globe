@@ -11,7 +11,7 @@
 !
 ! This program is free software; you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by
-! the Free Software Foundation; either version 2 of the License, or
+! the Free Software Foundation; either version 3 of the License, or
 ! (at your option) any later version.
 !
 ! This program is distributed in the hope that it will be useful,
@@ -186,6 +186,17 @@
   call read_value_integer(NTSTEP_BETWEEN_READ_ADJSRC, 'NTSTEP_BETWEEN_READ_ADJSRC', ier)
   if (ier /= 0) return
 
+  ! point force sourse
+  call read_value_logical(USE_FORCE_POINT_SOURCE, 'USE_FORCE_POINT_SOURCE', ier)
+  if (ier /= 0) stop 'an error occurred while reading the parameter file: USE_FORCE_POINT_SOURCE'
+
+  ! option to save strain seismograms
+  call read_value_logical(SAVE_SEISMOGRAMS_STRAIN, 'SAVE_SEISMOGRAMS_STRAIN', ier)
+  if (ier /= 0) stop 'an error occurred while reading the parameter file: SAVE_SEISMOGRAMS_STRAIN'
+
+  call read_value_logical(SAVE_SEISMOGRAMS_IN_ADJOINT_RUN, 'SAVE_SEISMOGRAMS_IN_ADJOINT_RUN', ier)
+  if (ier /= 0) stop 'an error occurred while reading the parameter file: SAVE_SEISMOGRAMS_IN_ADJOINT_RUN'
+
   ! seismogram output
   call read_value_logical(OUTPUT_SEISMOS_ASCII_TEXT, 'OUTPUT_SEISMOS_ASCII_TEXT', ier)
   if (ier /= 0) stop 'an error occurred while reading the parameter file: OUTPUT_SIESMOS_ASCII_TEXT'
@@ -209,6 +220,8 @@
   if (ier /= 0) stop 'an error occurred while reading the parameter file: PRINT_SOURCE_TIME_FUNCTION'
 
   ! adjoint kernels
+  call read_value_logical(READ_ADJSRC_ASDF, 'READ_ADJSRC_ASDF', ier)
+  if (ier /= 0) stop 'an error occured while reading the parameter file: READ_ADJSRC_ASDF'
   call read_value_logical(ANISOTROPIC_KL, 'ANISOTROPIC_KL', ier)
   if (ier /= 0) stop 'an error occurred while reading the parameter file: ANISOTROPIC_KL'
   call read_value_logical(SAVE_TRANSVERSE_KL_ONLY, 'SAVE_TRANSVERSE_KL_ONLY', ier)
@@ -227,8 +240,6 @@
   if (ier /= 0) stop 'Error reading Par_file parameter NUMBER_OF_SIMULTANEOUS_RUNS'
   call read_value_logical(BROADCAST_SAME_MESH_AND_MODEL, 'BROADCAST_SAME_MESH_AND_MODEL', ier)
   if (ier /= 0) stop 'Error reading Par_file parameter BROADCAST_SAME_MESH_AND_MODEL'
-  call read_value_logical(USE_FAILSAFE_MECHANISM, 'USE_FAILSAFE_MECHANISM', ier)
-  if (ier /= 0) stop 'Error reading Par_file parameter USE_FAILSAFE_MECHANISM'
 
   ! GPU simulations
   call read_value_logical(GPU_MODE, 'GPU_MODE', ier)
@@ -262,11 +273,30 @@
   call read_value_logical(ADIOS_FOR_UNDO_ATTENUATION, 'ADIOS_FOR_UNDO_ATTENUATION', ier)
   if (ier /= 0) stop 'an error occurred while reading the parameter file: ADIOS_FOR_UNDO_ATTENUATION'
 
+  ! ADIOS is very useful for very large simulations (say using 2000 MPI tasks or more)
+  ! but slows down the code if used for simulations that are small or medium size, because of the overhead any library has.
+  if (ADIOS_ENABLED .and. NCHUNKS * NPROC_XI_read * NPROC_ETA_read < 2000) then
+    print *
+    print *,'**************'
+    print *,'**************'
+    print *,'ADIOS significantly slows down small or medium-size runs, which is the case here, please consider turning it off'
+    print *,'**************'
+    print *,'**************'
+    print *
+  endif
+
   ! closes parameter file
   call close_parameter_file()
 
   ! ignore EXACT_MASS_MATRIX_FOR_ROTATION if rotation is not included in the simulations
   if (.not. ROTATION) EXACT_MASS_MATRIX_FOR_ROTATION = .false.
+
+  ! re-sets attenuation flags
+  if (.not. ATTENUATION) then
+    ! turns off both PARTIAL_PHYS_DISPERSION_ONLY and UNDO_ATTENUATION when ATTENUATION is off in the Par_file
+    PARTIAL_PHYS_DISPERSION_ONLY = .false.
+    UNDO_ATTENUATION = .false.
+  endif
 
   ! re-sets ADIOS flags
   if (.not. ADIOS_ENABLED) then
@@ -340,15 +370,9 @@
   if (USE_LDDRK .and. GPU_MODE ) &
     stop 'USE_LDDRK support not implemented yet for GPU simulations'
 
-  if (UNDO_ATTENUATION .and. NOISE_TOMOGRAPHY > 0 ) &
-    stop 'UNDO_ATTENUATION support not implemented yet for noise simulations'
   if (UNDO_ATTENUATION .and. MOVIE_VOLUME .and. MOVIE_VOLUME_TYPE == 4 ) &
     stop 'UNDO_ATTENUATION support not implemented yet for MOVIE_VOLUME_TYPE == 4 simulations'
   if (UNDO_ATTENUATION .and. SIMULATION_TYPE == 3 .and. (MOVIE_VOLUME .or. MOVIE_SURFACE) ) &
     stop 'UNDO_ATTENUATION support not implemented yet for SIMULATION_TYPE == 3 and movie simulations'
-
-  ! ASDF
-  if (OUTPUT_SEISMOS_ASDF .and. WRITE_SEISMOGRAMS_BY_MASTER ) &
-    stop 'OUTPUT_SEISMOS_ASDF support not implemented yet for WRITE_SEISMOGRAMS_BY_MASTER set to .true.'
 
   end subroutine read_parameter_file

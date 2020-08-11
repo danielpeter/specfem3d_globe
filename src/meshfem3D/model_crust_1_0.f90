@@ -11,7 +11,7 @@
 !
 ! This program is free software; you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by
-! the Free Software Foundation; either version 2 of the License, or
+! the Free Software Foundation; either version 3 of the License, or
 ! (at your option) any later version.
 !
 ! This program is distributed in the hope that it will be useful,
@@ -74,7 +74,7 @@
 !--------------------------------------------------------------------------------------------------
 !
 
-  subroutine model_crust_1_0_broadcast(myrank)
+  subroutine model_crust_1_0_broadcast()
 
 ! standard routine to setup model
 
@@ -83,7 +83,6 @@
 
   implicit none
 
-  integer :: myrank
   integer :: ier
 
   ! allocate crustal arrays
@@ -266,6 +265,7 @@
   write(IMAIN,*)
   write(IMAIN,*) 'incorporating crustal model: CRUST1.0'
   write(IMAIN,*)
+  call flush_IMAIN()
 
   ! allocates temporary array
   allocate(bnd(CRUST_NP,CRUST_NLA,CRUST_NLO),stat=ier)
@@ -315,17 +315,40 @@
   close(53)
   close(54)
 
+  h_moho_min = HUGEVAL
+  h_moho_max = -HUGEVAL
+
   ! determines layer thickness
   do j = 1,CRUST_NLA
     do i = 1,CRUST_NLO
       do k = 1,CRUST_NP - 1
         crust_thickness(k,j,i) = - (bnd(k+1,j,i) - bnd(k,j,i))
       enddo
+
+      ! thickness = ice (layer index 2) + sediment (index 3+4+5) + crystalline crust (index 6+7+8)
+      ! crustal thickness without ice
+      ! note: etopo1 has topography including ice ("ice surface" version) and at base of ice sheets ("bedrock" version)
+      !       see: http://www.ngdc.noaa.gov/mgg/global/global.html
+      moho = crust_thickness(3,j,i) + crust_thickness(4,j,i) + crust_thickness(5,j,i) &
+             + crust_thickness(6,j,i) + crust_thickness(7,j,i) + crust_thickness(8,j,i)
+
+      ! limit moho thickness
+      if (moho > h_moho_max) h_moho_max = moho
+      if (moho < h_moho_min) h_moho_min = moho
+
     enddo
   enddo
 
   ! frees memory
   deallocate(bnd)
+
+  ! user output
+  write(IMAIN,*) '  Moho crustal thickness (without ice) min/max = ',sngl(h_moho_min),sngl(h_moho_max),' km'
+  write(IMAIN,*)
+  call flush_IMAIN()
+
+  ! checks min/max
+  if (h_moho_min == HUGEVAL .or. h_moho_max == -HUGEVAL) stop 'incorrect moho depths in read_crust_1_0_model'
 
   ! output debug info if needed
   if (DEBUG_FILE_OUTPUT) then
@@ -342,9 +365,6 @@
     ! debug: file output for original data
     open(77,file='tmp-crust1.0.dat',status='unknown')
     write(77,*)'#crustal thickness: #lat (degree) #lon (degree) #crust (km) (including ice) #crust (w/out ice) #sediment #ice'
-
-    h_moho_min = HUGEVAL
-    h_moho_max = -HUGEVAL
 
     ! crustal thickness
     ! thickness = ice (layer index 2) + sediment (index 3+4+5) + crystalline crust (index 6+7+8)
@@ -464,10 +484,10 @@
   endif
 
   ! makes sure lat/lon are within crust1.0 range
-  if (lat==90.0d0) lat=89.9999d0
-  if (lat==-90.0d0) lat=-89.9999d0
-  if (lon==180.0d0) lon=179.9999d0
-  if (lon==-180.0d0) lon=-179.9999d0
+  if (lat == 90.0d0) lat=89.9999d0
+  if (lat == -90.0d0) lat=-89.9999d0
+  if (lon == 180.0d0) lon=179.9999d0
+  if (lon == -180.0d0) lon=-179.9999d0
 
   ! sets up smoothing points based on cap smoothing
   cap_degree = CAP_SMOOTHING_DEGREE_DEFAULT
@@ -487,7 +507,7 @@
   endif
 
   ! gets smoothing points and weights
-  call CAP_vardegree(lon,lat,xlon,xlat,weight,cap_degree,NTHETA,NPHI)
+  call smooth_weights_CAP_vardegree(lon,lat,xlon,xlat,weight,cap_degree,NTHETA,NPHI)
 
   ! initializes
   velp(:) = ZERO
@@ -508,7 +528,7 @@
     icolat = int(1 + (90.d0-xlat(i)) )
     if (icolat == 181) icolat = 180
     ! checks
-    if (icolat>180 .or. icolat<1) then
+    if (icolat > 180 .or. icolat < 1) then
       print *,'Error in lat/lon range: icolat = ',icolat
       stop 'Error in routine icolat/ilon crust1.0'
     endif
@@ -516,7 +536,7 @@
     ilon = int(1 + (180.d0+xlon(i)) )
     if (ilon == 361) ilon = 1
     ! checks
-    if (ilon<1 .or. ilon>360) then
+    if (ilon < 1 .or. ilon > 360) then
       print *,'Error in lat/lon range: ilon = ',ilon
       stop 'Error in routine icolat/ilon crust1.0'
     endif
@@ -573,7 +593,7 @@
   vptyp(:) = crust_vp(:,icolat,ilon)
   vstyp(:) = crust_vs(:,icolat,ilon)
   rhtyp(:) = crust_rho(:,icolat,ilon)
-  thtp(:) = crust_thickness(:,icolat,ilon)
+  thtp(:)  = crust_thickness(:,icolat,ilon)
 
   ! get distance to Moho from the bottom of the ocean or the ice
   ! value could be used for checking, but is unused so far...

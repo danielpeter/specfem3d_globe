@@ -11,7 +11,7 @@
 !
 ! This program is free software; you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by
-! the Free Software Foundation; either version 2 of the License, or
+! the Free Software Foundation; either version 3 of the License, or
 ! (at your option) any later version.
 !
 ! This program is distributed in the hope that it will be useful,
@@ -170,10 +170,10 @@ subroutine write_1D_global_array_adios_dims(adios_handle, myrank, local_dim, siz
 
   integer :: adios_err
   integer :: offset
-  integer :: global_dim
+  integer(kind=8) :: global_dim ! should be long for large cases.
 
   ! global dimension
-  global_dim = local_dim * sizeprocs
+  global_dim = int(local_dim, 8) * int(sizeprocs, 8)
 
   ! process offset
   ! note: assumes that myrank starts is within [0,sizeprocs-1]
@@ -618,8 +618,7 @@ subroutine write_adios_global_1d_integer_4d(adios_handle, myrank, sizeprocs, loc
   ! Variables
   integer :: adios_err
 
-  call write_1D_global_array_adios_dims(adios_handle, myrank, &
-      local_dim, sizeprocs, array_name)
+  call write_1D_global_array_adios_dims(adios_handle, myrank, local_dim, sizeprocs, array_name)
 
   call adios_write(adios_handle, array_name // "/array", array, adios_err)
   call check_adios_err(myrank,adios_err)

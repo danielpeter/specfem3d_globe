@@ -11,7 +11,7 @@
 !
 ! This program is free software; you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by
-! the Free Software Foundation; either version 2 of the License, or
+! the Free Software Foundation; either version 3 of the License, or
 ! (at your option) any later version.
 !
 ! This program is distributed in the hope that it will be useful,
@@ -26,14 +26,14 @@
 !=====================================================================
 
 ! create AVS or DX 3D data for the slice, to be recombined in postprocessing
-  subroutine write_AVS_DX_global_data(myrank,prname,nspec,ibool,idoubling, &
+  subroutine write_AVS_DX_global_data(prname,nspec,ibool,idoubling, &
                  xstore,ystore,zstore,num_ibool_AVS_DX,mask_ibool,npointot)
 
   use constants
 
   implicit none
 
-  integer nspec,myrank
+  integer nspec
   integer ibool(NGLLX,NGLLY,NGLLZ,nspec)
 
   integer idoubling(nspec)
@@ -200,7 +200,7 @@
 !> Hejun
 ! write material information for GLL points
   subroutine write_AVS_DX_global_data_gll(prname,nspec, &
-                 xstore,ystore,zstore,rhostore,kappavstore,muvstore,Qmustore,&
+                 xstore,ystore,zstore,rhostore,kappavstore,muvstore,Qmustore, &
                  ATTENUATION)
 
   use constants
@@ -246,7 +246,7 @@
         do j = 1,NGLLY
         do i = 1,NGLLX
                 numpoin = numpoin + 1
-                write(IOUT,*) numpoin,sngl(xstore(i,j,k,ispec)),&
+                write(IOUT,*) numpoin,sngl(xstore(i,j,k,ispec)), &
                               sngl(ystore(i,j,k,ispec)),sngl(zstore(i,j,k,ispec))
                 flag(i,j,k,ispec) = numpoin
         enddo
@@ -280,7 +280,7 @@
           iglob8=flag(i,j+1,k+1,ispec)
 
           write(IOUT,*) nelem,iglob1, &
-                        iglob2,iglob3,iglob4,&
+                        iglob2,iglob3,iglob4, &
                         iglob5,iglob6,iglob7,iglob8
         enddo
       enddo

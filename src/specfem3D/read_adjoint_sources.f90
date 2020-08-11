@@ -11,7 +11,7 @@
 !
 ! This program is free software; you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by
-! the Free Software Foundation; either version 2 of the License, or
+! the Free Software Foundation; either version 3 of the License, or
 ! (at your option) any later version.
 !
 ! This program is distributed in the hope that it will be useful,
@@ -36,8 +36,8 @@
 !       while the main processes can continue computing. we thus overlap file i/o with computations.
 !       in case the heavy computations take long enough, this overlap should perfectly hide the i/o latency.
 !
-!       the costs are then for the additional memory, i.e. buffer array (buffer_sourcearrays), and the
-!       copying operation of data from the buffer array to the actual adj_sourcearrays array.
+!       the costs are then for the additional memory, i.e. buffer array (buffer_source_adjoint), and the
+!       copying operation of data from the buffer array to the actual adj_source_adjoint array.
 
   use specfem_par
 
@@ -70,13 +70,13 @@
 
       ! first chunk of adjoint sources must ready at beginning, so we wait.
       ! waits for previous read to finish and
-      ! copy over buffered data into tmp_sourcearray
-      call sync_adj_io_thread(adj_sourcearrays)
+      ! copy over buffered data into tmp_source_adjoint
+      call sync_adj_io_thread(source_adjoint)
 
     else
       ! waits for previous read to finish and
-      ! copy over buffered data into tmp_sourcearray
-      call sync_adj_io_thread(adj_sourcearrays)
+      ! copy over buffered data into tmp_source_adjoint
+      call sync_adj_io_thread(source_adjoint)
     endif
 
     ! checks if next chunk necessary
@@ -92,7 +92,7 @@
     ! synchronous read routine
 
     ! reads in local adjoint sources
-    call read_adjoint_sources_local(adj_sourcearrays,nadj_rec_local,it_sub_adj)
+    call read_adjoint_sources_local(source_adjoint,nadj_rec_local,it_sub_adj)
 
   endif
 
@@ -106,24 +106,24 @@
 !-------------------------------------------------------------------------------------------------
 !
 
-  subroutine read_adjoint_sources_local(sourcearrays,nadj_rec_local,it_sub_adj)
+  subroutine read_adjoint_sources_local(source_adjoint,nadj_rec_local,it_sub_adj)
 
 ! reads in local adjoint source files
 
-  use specfem_par,only: myrank,NPROCTOT_VAL, &
+  use specfem_par, only: myrank,NPROCTOT_VAL, &
     nrec,islice_selected_rec,station_name,network_name, &
-    xi_receiver,eta_receiver,gamma_receiver,nu,xigll,yigll,zigll, &
+    nu, &
     iadjsrc_len,iadjsrc,NSTEP_SUB_ADJ, &
-    DT,CUSTOM_REAL,NDIM,NGLLX,NGLLY,NGLLZ,NTSTEP_BETWEEN_READ_ADJSRC,MAX_STRING_LEN
+    DT,CUSTOM_REAL,NDIM,NGLLX,NGLLY,NGLLZ,NTSTEP_BETWEEN_READ_ADJSRC,MAX_STRING_LEN,READ_ADJSRC_ASDF
 
   implicit none
 
   integer,intent(in) :: nadj_rec_local
   integer,intent(in) :: it_sub_adj
-  real(kind=CUSTOM_REAL), dimension(NDIM,NGLLX,NGLLY,NGLLZ,nadj_rec_local,NTSTEP_BETWEEN_READ_ADJSRC) :: sourcearrays
+  real(kind=CUSTOM_REAL), dimension(NDIM,nadj_rec_local,NTSTEP_BETWEEN_READ_ADJSRC) :: source_adjoint
 
   ! local parameters
-  real(kind=CUSTOM_REAL), dimension(:,:,:,:,:), allocatable :: tmp_sourcearray
+  real(kind=CUSTOM_REAL), dimension(:,:), allocatable :: tmp_source_adjoint
   integer :: irec,irec_local,itime,ier
   character(len=MAX_STRING_LEN) :: adj_source_file
 
@@ -138,11 +138,11 @@
   endif
 
   ! allocates temporary source array
-  allocate(tmp_sourcearray(NDIM,NGLLX,NGLLY,NGLLZ,NTSTEP_BETWEEN_READ_ADJSRC),stat=ier)
-  if (ier /= 0 ) call exit_MPI(myrank,'Error allocating array tmp_sourcearray')
+  allocate(tmp_source_adjoint(NDIM,NTSTEP_BETWEEN_READ_ADJSRC),stat=ier)
+  if (ier /= 0 ) call exit_MPI(myrank,'Error allocating array tmp_source_adjoint')
 
   ! initializes
-  tmp_sourcearray(:,:,:,:,:) = 0._CUSTOM_REAL
+  tmp_source_adjoint(:,:) = 0._CUSTOM_REAL
 
   ! counter
   irec_local = 0
@@ -151,7 +151,7 @@
   do irec = 1, nrec
     ! checks that the source slice number is okay
     if (islice_selected_rec(irec) < 0 .or. islice_selected_rec(irec) > NPROCTOT_VAL-1) then
-      print *,'Error rank ',myrank,': adjoint source slice index ',islice_selected_rec(irec),&
+      print *,'Error rank ',myrank,': adjoint source slice index ',islice_selected_rec(irec), &
              ' is out of bounds ',NPROCTOT_VAL-1
       call exit_MPI(myrank,'Error adjoint source has wrong source slice number in adjoint simulation')
     endif
@@ -162,21 +162,23 @@
       irec_local = irec_local + 1
 
       ! adjoint source file name **net**.**sta**
-      adj_source_file = trim(network_name(irec))//'.'//trim(station_name(irec))
+      if (READ_ADJSRC_ASDF) then
+        adj_source_file = trim(network_name(irec))//'_'//trim(station_name(irec))
+      else
+        adj_source_file = trim(network_name(irec))//'.'//trim(station_name(irec))
+      endif
 
       ! reads in *.adj files
       call compute_arrays_source_adjoint(myrank,adj_source_file, &
-                                         xi_receiver(irec),eta_receiver(irec),gamma_receiver(irec), &
-                                         nu(:,:,irec),tmp_sourcearray, &
-                                         xigll,yigll,zigll, &
+                                         nu(:,:,irec),tmp_source_adjoint, &
                                          iadjsrc_len(it_sub_adj),iadjsrc,it_sub_adj, &
                                          NSTEP_SUB_ADJ,NTSTEP_BETWEEN_READ_ADJSRC,DT)
 
       ! stores source array
-      ! note: the adj_sourcearrays has a time stepping from 1 to NTSTEP_BETWEEN_READ_ADJSRC
+      ! note: the source_adjoint has a time stepping from 1 to NTSTEP_BETWEEN_READ_ADJSRC
       !          this gets overwritten every time a new block/chunk is read in
       do itime = 1,NTSTEP_BETWEEN_READ_ADJSRC
-        sourcearrays(:,:,:,:,irec_local,itime) = tmp_sourcearray(:,:,:,:,itime)
+        source_adjoint(:,irec_local,itime) = tmp_source_adjoint(:,itime)
       enddo
 
     endif
@@ -188,7 +190,7 @@
   endif
 
   ! frees temporary array
-  deallocate(tmp_sourcearray)
+  deallocate(tmp_source_adjoint)
 
   end subroutine read_adjoint_sources_local
 
@@ -199,7 +201,6 @@
   subroutine check_adjoint_sources(irec,nadj_files_found)
 
   use specfem_par
-  use write_seismograms_mod, only: band_instrument_code
 
   implicit none
 
@@ -216,8 +217,8 @@
   character(len=2) :: bic
 
   ! checks **net**.**sta**.**MX**.adj files for correct number of time steps
-  ! root file name
   adj_source_file = trim(network_name(irec))//'.'//trim(station_name(irec))
+  ! adjoint source file name **net**.**sta**
 
   ! bandwidth code
   call band_instrument_code(DT,bic)
@@ -242,7 +243,7 @@
     if (ier /= 0) then
       ! adjoint source file not found
       ! stops simulation
-      call exit_MPI(myrank,&
+      call exit_MPI(myrank, &
           'file '//trim(filename)//' not found, please check with your STATIONS_ADJOINT file')
     endif
 
@@ -256,7 +257,7 @@
     ! checks length
     if (itime /= NSTEP) then
       print *,'adjoint source error: ',trim(filename),' has length',itime,' but should be',NSTEP
-      call exit_MPI(myrank,&
+      call exit_MPI(myrank, &
         'file '//trim(filename)//' length is wrong, please check your adjoint sources and your simulation duration')
     endif
 

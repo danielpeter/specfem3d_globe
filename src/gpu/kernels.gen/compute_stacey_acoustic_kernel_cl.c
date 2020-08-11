@@ -1,5 +1,5 @@
 //note: please do not modify this file manually!
-//      this file has been generated automatically by BOAST version 1.0.3
+//      this file has been generated automatically by BOAST version 2.1.0
 //      by: make boast_kernels
 
 /*
@@ -16,7 +16,7 @@
 !
 ! This program is free software; you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by
-! the Free Software Foundation; either version 2 of the License, or
+! the Free Software Foundation; either version 3 of the License, or
 ! (at your option) any later version.
 !
 ! This program is distributed in the hope that it will be useful,
@@ -95,7 +95,7 @@ inline void atomicAdd(volatile __global float *source, const float val) {\n\
 #define BLOCKSIZE_TRANSFER 256\n\
 #endif\n\
 \n\
-__kernel void compute_stacey_acoustic_kernel(const __global float * potential_dot_acoustic, __global float * potential_dot_dot_acoustic, const int interface_type, const int num_abs_boundary_faces, const __global int * abs_boundary_ispec, const __global int * nkmin_xi, const __global int * nkmin_eta, const __global int * njmin, const __global int * njmax, const __global int * nimin, const __global int * nimax, const __global float * abs_boundary_jacobian2D, const __global float * wgllwgll, const __global int * ibool, const __global float * vpstore, const int SAVE_FORWARD, __global float * b_absorb_potential){\n\
+__kernel void compute_stacey_acoustic_kernel(const __global float * potential_dot_acoustic, __global float * potential_dot_dot_acoustic, const int interface_type, const int num_abs_boundary_faces, const __global int * abs_boundary_ispec, const __global int * nkmin_xi, const __global int * nkmin_eta, const __global int * njmin, const __global int * njmax, const __global int * nimin, const __global int * nimax, const __global float * abs_boundary_jacobian2D, const __global float * wgllwgll, const __global int * ibool, const __global float * vpstore, const int SAVE_STACEY, __global float * b_absorb_potential){\n\
   int igll;\n\
   int iface;\n\
   int i;\n\
@@ -183,12 +183,12 @@ __kernel void compute_stacey_acoustic_kernel(const __global float * potential_do
         }\n\
         fac1 = wgllwgll[(j) * (NGLLX) + i];\n\
         break;\n\
-      }\n\
+    }\n\
     iglob = ibool[INDEX4(NGLLX, NGLLX, NGLLX, i, j, k, ispec)] - (1);\n\
     sn = (potential_dot_acoustic[iglob]) / (vpstore[INDEX4(NGLLX, NGLLX, NGLLX, i, j, k, ispec)]);\n\
     jacobianw = (abs_boundary_jacobian2D[INDEX2(NGLL2, igll, iface)]) * (fac1);\n\
     atomicAdd(potential_dot_dot_acoustic + iglob, ( -(sn)) * (jacobianw));\n\
-    if (SAVE_FORWARD) {\n\
+    if (SAVE_STACEY) {\n\
       b_absorb_potential[INDEX2(NGLL2, igll, iface)] = (sn) * (jacobianw);\n\
     }\n\
   }\n\

@@ -11,7 +11,7 @@
 !
 ! This program is free software; you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by
-! the Free Software Foundation; either version 2 of the License, or
+! the Free Software Foundation; either version 3 of the License, or
 ! (at your option) any later version.
 !
 ! This program is distributed in the hope that it will be useful,
@@ -36,86 +36,85 @@
                                            A_array_rotation,B_array_rotation, &
                                            A_array_rotation_lddrk,B_array_rotation_lddrk, &
                                            displfluid,accelfluid, &
-                                           div_displfluid,phase_is_inner)
+                                           div_displfluid,iphase,sum_terms)
 
 ! this routine is optimized for NGLLX = NGLLY = NGLLZ = 5 using the Deville et al. (2002) inlined matrix-matrix products
 
   use constants_solver
 
-  use specfem_par,only: &
-    hprime_xx,hprime_xxT,hprimewgll_xx,hprimewgll_xxT, &
-    wgll_cube, &
-    minus_rho_g_over_kappa_fluid,d_ln_density_dr_table, &
+  use specfem_par, only: &
+    hprime_xx,hprime_xxT,hprimewgll_xx,hprimewgll_xxT,wgll_cube, &
+    gravity_pre_store => gravity_pre_store_outer_core, &
     MOVIE_VOLUME, &
     USE_LDDRK,istage
 
-  use specfem_par_outercore,only: &
-    xstore => xstore_outer_core,ystore => ystore_outer_core,zstore => zstore_outer_core, &
-    xix => xix_outer_core,xiy => xiy_outer_core,xiz => xiz_outer_core, &
-    etax => etax_outer_core,etay => etay_outer_core,etaz => etaz_outer_core, &
-    gammax => gammax_outer_core,gammay => gammay_outer_core,gammaz => gammaz_outer_core, &
+  use specfem_par_outercore, only: &
+    deriv => deriv_mapping_outer_core, &
     ibool => ibool_outer_core, &
     phase_ispec_inner => phase_ispec_inner_outer_core, &
     nspec_outer => nspec_outer_outer_core, &
     nspec_inner => nspec_inner_outer_core
 
-  use specfem_par,only: wgllwgll_xy_3D,wgllwgll_xz_3D,wgllwgll_yz_3D
+  use specfem_par, only: wgllwgll_xy_3D,wgllwgll_xz_3D,wgllwgll_yz_3D
+
+#ifdef FORCE_VECTORIZATION
+  use specfem_par_outercore, only: &
+    ibool_inv_tbl => ibool_inv_tbl_outer_core, &
+    ibool_inv_st => ibool_inv_st_outer_core, &
+    num_globs => num_globs_outer_core, &
+    phase_iglob => phase_iglob_outer_core
+#endif
 
   implicit none
 
-  integer :: NSPEC,NGLOB
+  integer,intent(in) :: NSPEC,NGLOB
 
   ! for the Euler scheme for rotation
-  real(kind=CUSTOM_REAL) timeval,deltat,two_omega_earth
+  real(kind=CUSTOM_REAL),intent(in) :: timeval,deltat,two_omega_earth
 
-  real(kind=CUSTOM_REAL), dimension(NGLLX,NGLLY,NGLLZ,NSPEC) :: &
+  real(kind=CUSTOM_REAL), dimension(NGLLX,NGLLY,NGLLZ,NSPEC),intent(inout) :: &
     A_array_rotation,B_array_rotation
-  real(kind=CUSTOM_REAL), dimension(NGLLX,NGLLY,NGLLZ,NSPEC) :: &
+  real(kind=CUSTOM_REAL), dimension(NGLLX,NGLLY,NGLLZ,NSPEC),intent(inout) :: &
     A_array_rotation_lddrk,B_array_rotation_lddrk
 
   ! displacement and acceleration
-  real(kind=CUSTOM_REAL), dimension(NGLOB) :: displfluid,accelfluid
+  real(kind=CUSTOM_REAL), dimension(NGLOB),intent(in) :: displfluid
+  real(kind=CUSTOM_REAL), dimension(NGLOB),intent(inout) :: accelfluid
 
   ! divergence of displacement
-  real(kind=CUSTOM_REAL), dimension(NGLLX,NGLLY,NGLLZ,NSPEC_OUTER_CORE_3DMOVIE) :: div_displfluid
+  real(kind=CUSTOM_REAL), dimension(NGLLX,NGLLY,NGLLZ,NSPEC_OUTER_CORE_3DMOVIE),intent(out) :: div_displfluid
+
+  real(kind=CUSTOM_REAL), dimension(NGLLX,NGLLY,NGLLZ,NSPEC),intent(out) :: sum_terms
 
   ! inner/outer element run flag
-  logical :: phase_is_inner
+  integer,intent(in) :: iphase
 
   ! local parameters
-  real(kind=CUSTOM_REAL), dimension(NGLLX,NGLLY,NGLLZ) :: sum_terms
-
   ! for gravity
-  integer :: int_radius
-  double precision :: radius,theta,phi,gxl,gyl,gzl
-  double precision :: cos_theta,sin_theta,cos_phi,sin_phi
-  real(kind=CUSTOM_REAL), dimension(NGLLX,NGLLY,NGLLZ) :: gravity_term
-
-  double precision, dimension(NGLLX,NGLLY,NGLLZ) :: temp_gxl,temp_gyl,temp_gzl
+  real(kind=CUSTOM_REAL) :: gravity_term,vec_x,vec_y,vec_z
 
   ! for the Euler scheme for rotation
-  real(kind=CUSTOM_REAL) :: two_omega_deltat,cos_two_omega_t,sin_two_omega_t,A_rotation,B_rotation, &
-       ux_rotation,uy_rotation,dpotentialdx_with_rot,dpotentialdy_with_rot
-  real(kind=CUSTOM_REAL), dimension(NGLLX,NGLLY,NGLLZ) :: source_euler_A,source_euler_B
+  real(kind=CUSTOM_REAL) :: two_omega_deltat,cos_two_omega_t,sin_two_omega_t
+  real(kind=CUSTOM_REAL) :: ux_rotation,uy_rotation
+  real(kind=CUSTOM_REAL) :: source_euler_A,source_euler_B
+  real(kind=CUSTOM_REAL), dimension(NGLLX,NGLLY,NGLLZ) :: A_rotation,B_rotation
 
   integer :: ispec,iglob
-  real(kind=CUSTOM_REAL) :: xixl,xiyl,xizl,etaxl,etayl,etazl,gammaxl,gammayl,gammazl,jacobianl
-  real(kind=CUSTOM_REAL) :: dpotentialdxl,dpotentialdyl,dpotentialdzl
+  real(kind=CUSTOM_REAL) :: xixl,xiyl,xizl,etaxl,etayl,etazl,gammaxl,gammayl,gammazl
+
+  real(kind=CUSTOM_REAL), dimension(NGLLX,NGLLY,NGLLZ) :: dpotentialdxl,dpotentialdyl,dpotentialdzl
+  real(kind=CUSTOM_REAL), dimension(NGLLX,NGLLY,NGLLZ) :: jacobianl
 
   ! Deville
   real(kind=CUSTOM_REAL), dimension(NGLLX,NGLLY,NGLLZ) :: dummyx_loc
   real(kind=CUSTOM_REAL), dimension(NGLLX,NGLLY,NGLLZ) :: tempx1,tempx2,tempx3
   real(kind=CUSTOM_REAL), dimension(NGLLX,NGLLY,NGLLZ) :: newtempx1,newtempx2,newtempx3
 
-
-  real(kind=CUSTOM_REAL), dimension(NGLLX,NGLLY,NGLLZ) :: &
-    displ_times_grad_x_ln_rho,displ_times_grad_y_ln_rho,displ_times_grad_z_ln_rho
-
   integer :: num_elements,ispec_p
-  integer :: iphase
 
 #ifdef FORCE_VECTORIZATION
   integer :: ijk
+  integer :: ijk_spec, ip, iglob_p
 #else
   integer :: i,j,k
 #endif
@@ -125,22 +124,20 @@
 !   big loop over all spectral elements in the fluid
 ! ****************************************************
 
-  if (MOVIE_VOLUME .and. NSPEC_OUTER_CORE_3DMOVIE /= 1 .and. (.not. phase_is_inner)) then
+  if (MOVIE_VOLUME .and. NSPEC_OUTER_CORE_3DMOVIE /= 1 .and. (iphase == 1)) then
     div_displfluid(:,:,:,:) = 0._CUSTOM_REAL
   endif
 
-! computed_elements = 0
-  if (.not. phase_is_inner) then
-    iphase = 1
+  if (iphase == 1) then
+    ! outer elements
     num_elements = nspec_outer
   else
-    iphase = 2
     num_elements = nspec_inner
   endif
 
   ! note: this is an OpenMP work-around for gfortran
   ! gfortran has problems with parameters inside a DEFAULT(NONE) OpenMP block
-  ! for a fix see https://gcc.gnu.org/ml/fortran/2014-10/msg00064.html
+  ! for a fix see https://gcc.gnu.org/ml/Fortran/2014-10/msg00064.html
   !
   ! we use local variables to cirumvent it, another possibility would be to use DEFAULT(SHARED)
   !
@@ -152,25 +149,34 @@
     MYBETA_LDDRK(:) = BETA_LDDRK(:)
   endif
 
+! openmp solver
 !$OMP PARALLEL DEFAULT(NONE) &
-!$OMP SHARED( &
-!$OMP num_elements, phase_ispec_inner, iphase, ibool, displfluid, xstore, ystore, zstore, &
-!$OMP d_ln_density_dr_table, hprime_xx, hprime_xxT, xix, xiy, xiz,  etax, etay, etaz, &
-!$OMP gammax, gammay, gammaz, deltat, two_omega_earth, timeval, A_array_rotation, B_array_rotation, &
-!$OMP minus_rho_g_over_kappa_fluid, wgll_cube, MOVIE_VOLUME, hprimewgll_xxT, hprimewgll_xx, &
-!$OMP wgllwgll_yz_3D, wgllwgll_xz_3D, wgllwgll_xy_3D, accelfluid, USE_LDDRK, A_array_rotation_lddrk, &
+!$OMP SHARED( deriv, &
+!$OMP num_elements, phase_ispec_inner, iphase, ibool, displfluid, &
+!$OMP gravity_pre_store, &
+!$OMP deltat, two_omega_earth, timeval, A_array_rotation, B_array_rotation, &
+!$OMP MOVIE_VOLUME, &
+!$OMP accelfluid, USE_LDDRK, A_array_rotation_lddrk, &
+!$OMP sum_terms, &
+#ifdef FORCE_VECTORIZATION
+!$OMP ibool_inv_tbl, ibool_inv_st, num_globs, phase_iglob, &
+#endif
 !$OMP istage, B_array_rotation_lddrk, div_displfluid ) &
 !$OMP PRIVATE( &
-!$OMP ispec_p, ispec, iglob, dummyx_loc, radius, theta, phi, &
-!$OMP cos_theta, sin_theta, cos_phi, sin_phi, int_radius, &
-!$OMP displ_times_grad_x_ln_rho, displ_times_grad_y_ln_rho, displ_times_grad_z_ln_rho, &
-!$OMP temp_gxl, temp_gyl, temp_gzl, tempx2, &
+!$OMP ispec_p, ispec, iglob, dummyx_loc, &
 !$OMP xixl, xiyl, xizl, etaxl, etayl, etazl, gammaxl, gammayl, gammazl, jacobianl, &
-!$OMP dpotentialdxl, tempx1, tempx3, dpotentialdyl, dpotentialdzl, two_omega_deltat, cos_two_omega_t, &
-!$OMP sin_two_omega_t, source_euler_A, source_euler_B, A_rotation, B_rotation, ux_rotation, uy_rotation, &
-!$OMP dpotentialdx_with_rot, dpotentialdy_with_rot, gxl, gyl, gzl, gravity_term, &
-!$OMP sum_terms, newtempx1, newtempx3, newtempx2 ) &
-!$OMP FIRSTPRIVATE( MYALPHA_LDDRK,MYBETA_LDDRK )
+!$OMP dpotentialdxl, dpotentialdyl, dpotentialdzl, tempx1, tempx2, tempx3, &
+!$OMP two_omega_deltat, cos_two_omega_t, sin_two_omega_t, &
+!$OMP source_euler_A, source_euler_B, A_rotation, B_rotation, ux_rotation, uy_rotation, &
+!$OMP gravity_term,vec_x,vec_y,vec_z, &
+#ifdef FORCE_VECTORIZATION
+!$OMP ijk, &
+!$OMP ijk_spec, ip, iglob_p, &
+#endif
+!$OMP newtempx1, newtempx3, newtempx2 ) &
+!$OMP FIRSTPRIVATE( hprime_xx, hprime_xxT, hprimewgll_xxT, hprimewgll_xx, &
+!$OMP wgllwgll_yz_3D, wgllwgll_xz_3D, wgllwgll_xy_3D, wgll_cube, &
+!$OMP MYALPHA_LDDRK,MYBETA_LDDRK )
 
 !$OMP DO SCHEDULE(GUIDED)
   do ispec_p = 1,num_elements
@@ -180,42 +186,9 @@
     ! only compute element which belong to current phase (inner or outer elements)
 
     DO_LOOP_IJK
-
       iglob = ibool(INDEX_IJK,ispec)
-
-      ! stores "displacement"
+      ! gets "displacement"
       dummyx_loc(INDEX_IJK) = displfluid(iglob)
-
-      ! pre-computes factors
-      ! use mesh coordinates to get theta and phi
-      ! x y z contain r theta phi
-      radius = dble(xstore(iglob))
-      theta = dble(ystore(iglob))
-      phi = dble(zstore(iglob))
-
-      cos_theta = dcos(theta)
-      sin_theta = dsin(theta)
-      cos_phi = dcos(phi)
-      sin_phi = dsin(phi)
-
-      int_radius = nint(radius * R_EARTH_KM * 10.d0)
-
-      if (.not. GRAVITY_VAL) then
-        ! grad(rho)/rho in Cartesian components
-        displ_times_grad_x_ln_rho(INDEX_IJK) = dummyx_loc(INDEX_IJK) &
-              * sngl(sin_theta * cos_phi * d_ln_density_dr_table(int_radius))
-        displ_times_grad_y_ln_rho(INDEX_IJK) = dummyx_loc(INDEX_IJK) &
-              * sngl(sin_theta * sin_phi * d_ln_density_dr_table(int_radius))
-        displ_times_grad_z_ln_rho(INDEX_IJK) = dummyx_loc(INDEX_IJK) &
-              * sngl(cos_theta * d_ln_density_dr_table(int_radius))
-      else
-        ! Cartesian components of the gravitational acceleration
-        ! integrate and multiply by rho / Kappa
-        temp_gxl(INDEX_IJK) = sin_theta*cos_phi
-        temp_gyl(INDEX_IJK) = sin_theta*sin_phi
-        temp_gzl(INDEX_IJK) = cos_theta
-      endif
-
     ENDDO_LOOP_IJK
 
     ! subroutines adapted from Deville, Fischer and Mund, High-order methods
@@ -230,134 +203,153 @@
     call mxm5_single(dummyx_loc,m2,hprime_xxT,tempx3,m1)
 
     DO_LOOP_IJK
-
       ! get derivatives of velocity potential with respect to x, y and z
-      xixl = xix(INDEX_IJK,ispec)
-      xiyl = xiy(INDEX_IJK,ispec)
-      xizl = xiz(INDEX_IJK,ispec)
-      etaxl = etax(INDEX_IJK,ispec)
-      etayl = etay(INDEX_IJK,ispec)
-      etazl = etaz(INDEX_IJK,ispec)
-      gammaxl = gammax(INDEX_IJK,ispec)
-      gammayl = gammay(INDEX_IJK,ispec)
-      gammazl = gammaz(INDEX_IJK,ispec)
+      xixl = deriv(1,INDEX_IJK,ispec)
+      xiyl = deriv(2,INDEX_IJK,ispec)
+      xizl = deriv(3,INDEX_IJK,ispec)
+      etaxl = deriv(4,INDEX_IJK,ispec)
+      etayl = deriv(5,INDEX_IJK,ispec)
+      etazl = deriv(6,INDEX_IJK,ispec)
+      gammaxl = deriv(7,INDEX_IJK,ispec)
+      gammayl = deriv(8,INDEX_IJK,ispec)
+      gammazl = deriv(9,INDEX_IJK,ispec)
 
       ! compute the Jacobian
-      jacobianl = 1._CUSTOM_REAL / (xixl*(etayl*gammazl-etazl*gammayl) &
-                    - xiyl*(etaxl*gammazl-etazl*gammaxl) &
-                    + xizl*(etaxl*gammayl-etayl*gammaxl))
+      jacobianl(INDEX_IJK) = 1._CUSTOM_REAL / (xixl*(etayl*gammazl-etazl*gammayl) &
+                                             - xiyl*(etaxl*gammazl-etazl*gammaxl) &
+                                             + xizl*(etaxl*gammayl-etayl*gammaxl))
 
-      dpotentialdxl = xixl*tempx1(INDEX_IJK) + etaxl*tempx2(INDEX_IJK) + gammaxl*tempx3(INDEX_IJK)
-      dpotentialdyl = xiyl*tempx1(INDEX_IJK) + etayl*tempx2(INDEX_IJK) + gammayl*tempx3(INDEX_IJK)
-      dpotentialdzl = xizl*tempx1(INDEX_IJK) + etazl*tempx2(INDEX_IJK) + gammazl*tempx3(INDEX_IJK)
+      dpotentialdxl(INDEX_IJK) = xixl*tempx1(INDEX_IJK) + etaxl*tempx2(INDEX_IJK) + gammaxl*tempx3(INDEX_IJK)
+      dpotentialdyl(INDEX_IJK) = xiyl*tempx1(INDEX_IJK) + etayl*tempx2(INDEX_IJK) + gammayl*tempx3(INDEX_IJK)
+      dpotentialdzl(INDEX_IJK) = xizl*tempx1(INDEX_IJK) + etazl*tempx2(INDEX_IJK) + gammazl*tempx3(INDEX_IJK)
+    ENDDO_LOOP_IJK
 
-      ! compute contribution of rotation and add to gradient of potential
-      ! this term has no Z component
-      if (ROTATION_VAL) then
+    ! compute contribution of rotation and add to gradient of potential
+    ! this term has no Z component
+    if (ROTATION_VAL) then
+      ! store the source for the Euler scheme for A_rotation and B_rotation
+      two_omega_deltat = deltat * two_omega_earth
 
-        ! store the source for the Euler scheme for A_rotation and B_rotation
-        two_omega_deltat = deltat * two_omega_earth
+      cos_two_omega_t = cos(two_omega_earth*timeval)
+      sin_two_omega_t = sin(two_omega_earth*timeval)
 
-        cos_two_omega_t = cos(two_omega_earth*timeval)
-        sin_two_omega_t = sin(two_omega_earth*timeval)
+      ! update rotation term with Euler scheme
+      !
+      ! note: rotation with euler scheme is not exactly revertible;
+      !       backpropagation/reconstruction of wavefield will lead to small differences
+      if (USE_LDDRK) then
+        ! use the source saved above
+        DO_LOOP_IJK
+          A_rotation(INDEX_IJK) = A_array_rotation(INDEX_IJK,ispec)
+          B_rotation(INDEX_IJK) = B_array_rotation(INDEX_IJK,ispec)
 
-        ! time step deltat of Euler scheme is included in the source
-        source_euler_A(INDEX_IJK) = two_omega_deltat &
-              * (cos_two_omega_t * dpotentialdyl + sin_two_omega_t * dpotentialdxl)
-        source_euler_B(INDEX_IJK) = two_omega_deltat &
-              * (sin_two_omega_t * dpotentialdyl - cos_two_omega_t * dpotentialdxl)
+          ! time step deltat of Euler scheme is included in the source
+          source_euler_A = two_omega_deltat &
+                * (cos_two_omega_t * dpotentialdyl(INDEX_IJK) + sin_two_omega_t * dpotentialdxl(INDEX_IJK))
+          source_euler_B = two_omega_deltat &
+                * (sin_two_omega_t * dpotentialdyl(INDEX_IJK) - cos_two_omega_t * dpotentialdxl(INDEX_IJK))
 
-        A_rotation = A_array_rotation(INDEX_IJK,ispec)
-        B_rotation = B_array_rotation(INDEX_IJK,ispec)
+          A_array_rotation_lddrk(INDEX_IJK,ispec) = MYALPHA_LDDRK(istage) * A_array_rotation_lddrk(INDEX_IJK,ispec) &
+                                                    + source_euler_A
+          A_array_rotation(INDEX_IJK,ispec) = A_array_rotation(INDEX_IJK,ispec) &
+                                              + MYBETA_LDDRK(istage) * A_array_rotation_lddrk(INDEX_IJK,ispec)
 
-        ux_rotation =   A_rotation*cos_two_omega_t + B_rotation*sin_two_omega_t
-        uy_rotation = - A_rotation*sin_two_omega_t + B_rotation*cos_two_omega_t
-
-        dpotentialdx_with_rot = dpotentialdxl + ux_rotation
-        dpotentialdy_with_rot = dpotentialdyl + uy_rotation
-
+          B_array_rotation_lddrk(INDEX_IJK,ispec) = MYALPHA_LDDRK(istage) * B_array_rotation_lddrk(INDEX_IJK,ispec) &
+                                                    + source_euler_B
+          B_array_rotation(INDEX_IJK,ispec) = B_array_rotation(INDEX_IJK,ispec) &
+                                              + MYBETA_LDDRK(istage) * B_array_rotation_lddrk(INDEX_IJK,ispec)
+        ENDDO_LOOP_IJK
       else
+        ! Euler scheme
+        DO_LOOP_IJK
+          A_rotation(INDEX_IJK) = A_array_rotation(INDEX_IJK,ispec)
+          B_rotation(INDEX_IJK) = B_array_rotation(INDEX_IJK,ispec)
 
-        dpotentialdx_with_rot = dpotentialdxl
-        dpotentialdy_with_rot = dpotentialdyl
+          ! time step deltat of Euler scheme is included in the source
+          source_euler_A = two_omega_deltat &
+                * (cos_two_omega_t * dpotentialdyl(INDEX_IJK) + sin_two_omega_t * dpotentialdxl(INDEX_IJK))
+          source_euler_B = two_omega_deltat &
+                * (sin_two_omega_t * dpotentialdyl(INDEX_IJK) - cos_two_omega_t * dpotentialdxl(INDEX_IJK))
 
-      endif  ! end of section with rotation
-
-      ! add (chi/rho)grad(rho) term in no gravity case
-      if (.not. GRAVITY_VAL) then
-
-        ! With regards to the non-gravitating case: we cannot set N^2 = 0 *and* let g = 0.
-        ! We can *either* assume N^2 = 0 but keep gravity g, *or* we can assume that gravity
-        ! is negligible to begin with, as in our GJI 2002a, in which case N does not arise.
-        ! We get:
-        !
-        ! \ddot\chi = \rho^{-1}\kappa\bdel\cdot(\bdel\chi+\chi\bdel\ln\rho)
-        !
-        ! Then the displacement is
-        !
-        ! \bu = \bdel\chi+\chi\bdel\ln\rho = \rho^{-1}\bdel(\rho\chi)
-        !
-        ! and the pressure is
-        !
-        ! p = -\rho\ddot{\chi}
-        !
-        ! Thus in our 2002b GJI paper eqn (21) is wrong, and equation (41)
-        ! in our AGU monograph is incorrect; these equations should be replaced by
-        !
-        ! \ddot\chi = \rho^{-1}\kappa\bdel\cdot(\bdel\chi+\chi\bdel\ln\rho)
-        !
-        ! Note that the fluid potential we use in GJI 2002a differs from the one used here:
-        !
-        ! \chi_GJI2002a = \rho\partial\t\chi
-        !
-        ! such that
-        !
-        ! \bv = \partial_t\bu=\rho^{-1}\bdel\chi_GJI2002a  (GJI 2002a eqn 20)
-        !
-        ! p = - \partial_t\chi_GJI2002a (GJI 2002a eqn 19)
-
-        ! use mesh coordinates to get theta and phi
-        ! x y z contain r theta phi
-        dpotentialdx_with_rot = dpotentialdx_with_rot + displ_times_grad_x_ln_rho(INDEX_IJK)
-        dpotentialdy_with_rot = dpotentialdy_with_rot + displ_times_grad_y_ln_rho(INDEX_IJK)
-        dpotentialdzl = dpotentialdzl + displ_times_grad_z_ln_rho(INDEX_IJK)
-
-     else
-        ! if gravity is turned on
-
-        ! compute divergence of displacement
-        gxl = temp_gxl(INDEX_IJK)
-        gyl = temp_gyl(INDEX_IJK)
-        gzl = temp_gzl(INDEX_IJK)
-
-        ! distinguish between single and double precision for reals
-        gravity_term(INDEX_IJK) = &
-                real(minus_rho_g_over_kappa_fluid(int_radius) &
-                   * dble(jacobianl) * wgll_cube(INDEX_IJK) &
-                   * (dble(dpotentialdx_with_rot) * gxl &
-                    + dble(dpotentialdy_with_rot) * gyl &
-                    + dble(dpotentialdzl)         * gzl), kind=CUSTOM_REAL)
-
-        ! divergence of displacement field with gravity on
-        ! note: these calculations are only considered for SIMULATION_TYPE == 1 .and. SAVE_FORWARD
-        !          and one has set MOVIE_VOLUME_TYPE == 4 when MOVIE_VOLUME is .true.;
-        !         in case of SIMULATION_TYPE == 3, it gets overwritten by compute_kernels_outer_core()
-        if (MOVIE_VOLUME .and. NSPEC_OUTER_CORE_3DMOVIE /= 1) then
-          div_displfluid(INDEX_IJK,ispec) = &
-                    real(minus_rho_g_over_kappa_fluid(int_radius) &
-                       * (dpotentialdx_with_rot * gxl &
-                        + dpotentialdy_with_rot * gyl &
-                        + dpotentialdzl         * gzl), kind=CUSTOM_REAL)
-        endif
-
+          A_array_rotation(INDEX_IJK,ispec) = A_array_rotation(INDEX_IJK,ispec) + source_euler_A
+          B_array_rotation(INDEX_IJK,ispec) = B_array_rotation(INDEX_IJK,ispec) + source_euler_B
+        ENDDO_LOOP_IJK
       endif
 
-      tempx1(INDEX_IJK) = jacobianl*(xixl*dpotentialdx_with_rot &
-                               + xiyl*dpotentialdy_with_rot + xizl*dpotentialdzl)
-      tempx2(INDEX_IJK) = jacobianl*(etaxl*dpotentialdx_with_rot &
-                               + etayl*dpotentialdy_with_rot + etazl*dpotentialdzl)
-      tempx3(INDEX_IJK) = jacobianl*(gammaxl*dpotentialdx_with_rot &
-                               + gammayl*dpotentialdy_with_rot + gammazl*dpotentialdzl)
+      ! adds rotation
+      DO_LOOP_IJK
+        ux_rotation =   A_rotation(INDEX_IJK)*cos_two_omega_t + B_rotation(INDEX_IJK)*sin_two_omega_t
+        uy_rotation = - A_rotation(INDEX_IJK)*sin_two_omega_t + B_rotation(INDEX_IJK)*cos_two_omega_t
+
+        dpotentialdxl(INDEX_IJK) = dpotentialdxl(INDEX_IJK) + ux_rotation
+        dpotentialdyl(INDEX_IJK) = dpotentialdyl(INDEX_IJK) + uy_rotation
+      ENDDO_LOOP_IJK
+    endif  ! end of section with rotation
+
+    ! add (chi/rho)grad(rho) term in no gravity case
+    if (.not. GRAVITY_VAL) then
+      ! With regards to the non-gravitating case: we cannot set N^2 = 0 *and* let g = 0.
+      ! We can *either* assume N^2 = 0 but keep gravity g, *or* we can assume that gravity
+      ! is negligible to begin with, as in our GJI 2002a, in which case N does not arise.
+      ! We get:
+      !
+      ! \ddot\chi = \rho^{-1}\kappa\bdel\cdot(\bdel\chi+\chi\bdel\ln\rho)
+      !
+      ! Then the displacement is
+      !
+      ! \bu = \bdel\chi+\chi\bdel\ln\rho = \rho^{-1}\bdel(\rho\chi)
+      !
+      ! and the pressure is
+      !
+      ! p = -\rho\ddot{\chi}
+      !
+      ! Thus in our 2002b GJI paper eqn (21) is wrong, and equation (41)
+      ! in our AGU monograph is incorrect; these equations should be replaced by
+      !
+      ! \ddot\chi = \rho^{-1}\kappa\bdel\cdot(\bdel\chi+\chi\bdel\ln\rho)
+      !
+      ! Note that the fluid potential we use in GJI 2002a differs from the one used here:
+      !
+      ! \chi_GJI2002a = \rho\partial\t\chi
+      !
+      ! such that
+      !
+      ! \bv = \partial_t\bu=\rho^{-1}\bdel\chi_GJI2002a  (GJI 2002a eqn 20)
+      !
+      ! p = - \partial_t\chi_GJI2002a (GJI 2002a eqn 19)
+      DO_LOOP_IJK
+        iglob = ibool(INDEX_IJK,ispec)
+
+        ! gradient of d ln(rho)/dr in Cartesian coordinates
+        vec_x = gravity_pre_store(1,iglob)
+        vec_y = gravity_pre_store(2,iglob)
+        vec_z = gravity_pre_store(3,iglob)
+
+        ! grad(rho)/rho in Cartesian components
+        dpotentialdxl(INDEX_IJK) = dpotentialdxl(INDEX_IJK) + dummyx_loc(INDEX_IJK) * vec_x
+        dpotentialdyl(INDEX_IJK) = dpotentialdyl(INDEX_IJK) + dummyx_loc(INDEX_IJK) * vec_y
+        dpotentialdzl(INDEX_IJK) = dpotentialdzl(INDEX_IJK) + dummyx_loc(INDEX_IJK) * vec_z
+      ENDDO_LOOP_IJK
+    endif
+
+    DO_LOOP_IJK
+      ! reloads derivatives of ux, uy and uz with respect to x, y and z
+      xixl = deriv(1,INDEX_IJK,ispec)
+      xiyl = deriv(2,INDEX_IJK,ispec)
+      xizl = deriv(3,INDEX_IJK,ispec)
+      etaxl = deriv(4,INDEX_IJK,ispec)
+      etayl = deriv(5,INDEX_IJK,ispec)
+      etazl = deriv(6,INDEX_IJK,ispec)
+      gammaxl = deriv(7,INDEX_IJK,ispec)
+      gammayl = deriv(8,INDEX_IJK,ispec)
+      gammazl = deriv(9,INDEX_IJK,ispec)
+
+      tempx1(INDEX_IJK) = jacobianl(INDEX_IJK)*(xixl*dpotentialdxl(INDEX_IJK) &
+                               + xiyl*dpotentialdyl(INDEX_IJK) + xizl*dpotentialdzl(INDEX_IJK))
+      tempx2(INDEX_IJK) = jacobianl(INDEX_IJK)*(etaxl*dpotentialdxl(INDEX_IJK) &
+                               + etayl*dpotentialdyl(INDEX_IJK) + etazl*dpotentialdzl(INDEX_IJK))
+      tempx3(INDEX_IJK) = jacobianl(INDEX_IJK)*(gammaxl*dpotentialdxl(INDEX_IJK) &
+                               + gammayl*dpotentialdyl(INDEX_IJK) + gammazl*dpotentialdzl(INDEX_IJK))
 
     ENDDO_LOOP_IJK
 
@@ -373,97 +365,74 @@
     call mxm5_single(tempx3,m2,hprimewgll_xx,newtempx3,m1)
 
     ! sum contributions from each element to the global mesh and add gravity term
-
     DO_LOOP_IJK
-
-          sum_terms(INDEX_IJK) = - ( wgllwgll_yz_3D(INDEX_IJK)*newtempx1(INDEX_IJK) &
-                                   + wgllwgll_xz_3D(INDEX_IJK)*newtempx2(INDEX_IJK) &
-                                   + wgllwgll_xy_3D(INDEX_IJK)*newtempx3(INDEX_IJK))
-
+      sum_terms(INDEX_IJK,ispec) = - ( wgllwgll_yz_3D(INDEX_IJK)*newtempx1(INDEX_IJK) &
+                                     + wgllwgll_xz_3D(INDEX_IJK)*newtempx2(INDEX_IJK) &
+                                     + wgllwgll_xy_3D(INDEX_IJK)*newtempx3(INDEX_IJK))
     ENDDO_LOOP_IJK
 
-    ! adds gravity
+    ! adds gravity term
     if (GRAVITY_VAL) then
-
       DO_LOOP_IJK
+        ! uses double precision calculations. needs testing if okay with single precision.
+        iglob = ibool(INDEX_IJK,ispec)
 
-        sum_terms(INDEX_IJK) = sum_terms(INDEX_IJK) + gravity_term(INDEX_IJK)
+        ! Cartesian components of the gravitational acceleration
+        ! gravitational acceleration (integrated and multiply by rho / Kappa)
+        vec_x = gravity_pre_store(1,iglob)
+        vec_y = gravity_pre_store(2,iglob)
+        vec_z = gravity_pre_store(3,iglob)
 
+        ! compute divergence of displacement
+        ! distinguish between single and double precision for reals
+        gravity_term = jacobianl(INDEX_IJK) * wgll_cube(INDEX_IJK) &
+                            * (dpotentialdxl(INDEX_IJK) * vec_x &
+                             + dpotentialdyl(INDEX_IJK) * vec_y &
+                             + dpotentialdzl(INDEX_IJK) * vec_z)
+
+        ! divergence of displacement field with gravity on
+        ! note: these calculations are only considered for SIMULATION_TYPE == 1 .and. SAVE_FORWARD
+        !          and one has set MOVIE_VOLUME_TYPE == 4 when MOVIE_VOLUME is .true.;
+        !         in case of SIMULATION_TYPE == 3, it gets overwritten by compute_kernels_outer_core()
+        if (MOVIE_VOLUME .and. NSPEC_OUTER_CORE_3DMOVIE /= 1) then
+          div_displfluid(INDEX_IJK,ispec) = dpotentialdxl(INDEX_IJK) * vec_x &
+                                          + dpotentialdyl(INDEX_IJK) * vec_y &
+                                          + dpotentialdzl(INDEX_IJK) * vec_z
+        endif
+
+        ! adds gravity term
+        sum_terms(INDEX_IJK,ispec) = sum_terms(INDEX_IJK,ispec) + gravity_term
       ENDDO_LOOP_IJK
-
-    endif
-
-    ! updates acceleration
-
-#ifdef FORCE_VECTORIZATION
-#ifndef USE_OPENMP_ATOMIC_INSTEAD_OF_CRITICAL
-!$OMP CRITICAL
-#endif
-! we can force vectorization using a compiler directive here because we know that there is no dependency
-! inside a given spectral element, since all the global points of a local elements are different by definition
-! (only common points between different elements can be the same)
-! IBM, Portland PGI, and Intel and Cray syntax (Intel and Cray are the same)
-!IBM* ASSERT (NODEPS)
-!pgi$ ivdep
-!DIR$ IVDEP
-    do ijk = 1,NGLLCUBE
-#else
-    do k = 1,NGLLZ
-      do j = 1,NGLLY
-        do i = 1,NGLLX
-#endif
-          iglob = ibool(INDEX_IJK,ispec)
-#ifdef USE_OPENMP_ATOMIC_INSTEAD_OF_CRITICAL
-!$OMP ATOMIC
-#endif
-          accelfluid(iglob) = accelfluid(iglob) + sum_terms(INDEX_IJK)
-
-#ifdef FORCE_VECTORIZATION
-    enddo
-#ifndef USE_OPENMP_ATOMIC_INSTEAD_OF_CRITICAL
-!$OMP END CRITICAL
-#endif
-#else
-        enddo
-      enddo
-    enddo
-#endif
-
-    ! update rotation term with Euler scheme
-
-    if (ROTATION_VAL) then
-
-      if (USE_LDDRK) then
-
-        ! use the source saved above
-        DO_LOOP_IJK
-
-          A_array_rotation_lddrk(INDEX_IJK,ispec) = MYALPHA_LDDRK(istage) * A_array_rotation_lddrk(INDEX_IJK,ispec) &
-                                                    + source_euler_A(INDEX_IJK)
-          A_array_rotation(INDEX_IJK,ispec) = A_array_rotation(INDEX_IJK,ispec) &
-                                              + MYBETA_LDDRK(istage) * A_array_rotation_lddrk(INDEX_IJK,ispec)
-
-          B_array_rotation_lddrk(INDEX_IJK,ispec) = MYALPHA_LDDRK(istage) * B_array_rotation_lddrk(INDEX_IJK,ispec) &
-                                                    + source_euler_B(INDEX_IJK)
-          B_array_rotation(INDEX_IJK,ispec) = B_array_rotation(INDEX_IJK,ispec) &
-                                              + MYBETA_LDDRK(istage) * B_array_rotation_lddrk(INDEX_IJK,ispec)
-
-        ENDDO_LOOP_IJK
-
-      else
-
-        DO_LOOP_IJK
-
-          A_array_rotation(INDEX_IJK,ispec) = A_array_rotation(INDEX_IJK,ispec) + source_euler_A(INDEX_IJK)
-          B_array_rotation(INDEX_IJK,ispec) = B_array_rotation(INDEX_IJK,ispec) + source_euler_B(INDEX_IJK)
-
-        ENDDO_LOOP_IJK
-
-      endif
     endif
 
   enddo   ! spectral element loop
-!$OMP enddo
+!$OMP ENDDO
+
+    ! updates acceleration
+#ifdef FORCE_VECTORIZATION
+  ! updates acceleration
+!$OMP DO
+  do iglob_p = 1,num_globs(iphase)
+    iglob = phase_iglob(iglob_p,iphase)
+    do ip = ibool_inv_st(iglob_p,iphase),ibool_inv_st(iglob_p+1,iphase)-1
+      ijk_spec = ibool_inv_tbl(ip,iphase)
+      accelfluid(iglob) = accelfluid(iglob) + sum_terms(ijk_spec,1,1,1)
+    enddo
+  enddo
+!$OMP ENDDO
+#else
+  ! updates for non-vectorization case
+!$OMP DO SCHEDULE(GUIDED)
+  do ispec_p = 1,num_elements
+    ispec = phase_ispec_inner(ispec_p,iphase)
+    DO_LOOP_IJK
+      iglob = ibool(INDEX_IJK,ispec)
+!$OMP ATOMIC
+      accelfluid(iglob) = accelfluid(iglob) + sum_terms(INDEX_IJK,ispec)
+    ENDDO_LOOP_IJK
+  enddo
+!$OMP ENDDO
+#endif
 !$OMP END PARALLEL
 
   contains
@@ -487,17 +456,37 @@
 
 ! 2-dimensional arrays (25,5)/(5,25)
 
-  use constants_solver,only: CUSTOM_REAL
+  use constants_solver, only: CUSTOM_REAL
+
+#ifdef XSMM
+  use my_libxsmm, only: libxsmm_smm_5_25_5,libxsmm_smm_25_5_5
+#endif
 
   implicit none
 
   integer,intent(in) :: n1,n3
-  real(kind=CUSTOM_REAL),dimension(n1,5) :: A
-  real(kind=CUSTOM_REAL),dimension(5,n3) :: B
-  real(kind=CUSTOM_REAL),dimension(n1,n3) :: C
+  real(kind=CUSTOM_REAL),dimension(n1,5),intent(in) :: A
+  real(kind=CUSTOM_REAL),dimension(5,n3),intent(in) :: B
+  real(kind=CUSTOM_REAL),dimension(n1,n3),intent(out) :: C
 
   ! local parameters
   integer :: i,j
+
+! note: on CPUs like Haswell or Sandy Bridge, the following will slow down computations
+!       however, on Intel Phi (KNC) it is still helpful
+#if defined(XSMM_FORCE_EVEN_IF_SLOWER) || ( defined(XSMM) && defined(__MIC__) )
+  ! matrix-matrix multiplication C = alpha A * B + beta C
+  if (n1 == 5) then
+    ! with A(n1,n2) 5x5-matrix, B(n2,n3) 5x25-matrix and C(n1,n3) 5x25-matrix
+    call libxsmm_smm_5_25_5(a=A, b=B, c=C, pa=A, pb=B, pc=C)
+  else if (n1 == 25) then
+    ! with A(n1,n2) 25x5-matrix, B(n2,n3) 5x5-matrix and C(n1,n3) 25x5-matrix
+    call libxsmm_smm_25_5_5(a=A, b=B, c=C, pa=A, pb=B, pc=C)
+  else
+    stop 'Invalid n1 value for LibXSMM in mxm5_single routine'
+  endif
+  return
+#endif
 
   ! matrix-matrix multiplication
   do j = 1,n3
@@ -519,17 +508,40 @@
 
 ! 3-dimensional arrays (5,5,5) for A and C
 
-  use constants_solver,only: CUSTOM_REAL
+  use constants_solver, only: CUSTOM_REAL
+
+! note: on CPUs like Haswell or Sandy Bridge, the following will slow down computations
+!       however, on Intel Phi (KNC) it is still helpful (speedup +3%)
+#if defined(XSMM_FORCE_EVEN_IF_SLOWER) || ( defined(XSMM) && defined(__MIC__) )
+  use my_libxsmm, only: libxsmm_smm_5_5_5
+#endif
 
   implicit none
 
   integer,intent(in) :: n1,n2,n3
-  real(kind=CUSTOM_REAL),dimension(n1,5,n3) :: A
-  real(kind=CUSTOM_REAL),dimension(5,n2) :: B
-  real(kind=CUSTOM_REAL),dimension(n1,n2,n3) :: C
+  real(kind=CUSTOM_REAL),dimension(n1,5,n3),intent(in) :: A
+  real(kind=CUSTOM_REAL),dimension(5,n2),intent(in) :: B
+  real(kind=CUSTOM_REAL),dimension(n1,n2,n3),intent(out) :: C
 
   ! local parameters
   integer :: i,j,k
+
+#if defined(XSMM_FORCE_EVEN_IF_SLOWER) || ( defined(XSMM) && defined(__MIC__) )
+  ! matrix-matrix multiplication C = alpha A * B + beta C
+  ! with A(n1,n2,n4) 5x5x5-matrix, B(n2,n3) 5x5-matrix and C(n1,n3,n4) 5x5x5-matrix
+  ! static version
+  !do k = 1,5
+  !  call libxsmm_call(xmm3, A(:,:,k), B, C(:,:,k))
+  !enddo
+
+  ! unrolled
+  call libxsmm_smm_5_5_5(a=A(1,1,1), b=B, c=C(1,1,1),pa=A(1,1,1+1), pb=B, pc=C(1,1,1+1))
+  call libxsmm_smm_5_5_5(a=A(1,1,2), b=B, c=C(1,1,2),pa=A(1,1,2+1), pb=B, pc=C(1,1,2+1))
+  call libxsmm_smm_5_5_5(a=A(1,1,3), b=B, c=C(1,1,3),pa=A(1,1,3+1), pb=B, pc=C(1,1,3+1))
+  call libxsmm_smm_5_5_5(a=A(1,1,4), b=B, c=C(1,1,4),pa=A(1,1,4+1), pb=B, pc=C(1,1,4+1))
+  call libxsmm_smm_5_5_5(a=A(1,1,5), b=B, c=C(1,1,5),pa=A(1,1,1), pb=B, pc=C(1,1,1))
+  return
+#endif
 
   ! matrix-matrix multiplication
   do j = 1,n2

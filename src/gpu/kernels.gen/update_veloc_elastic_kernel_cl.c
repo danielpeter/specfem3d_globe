@@ -1,5 +1,5 @@
 //note: please do not modify this file manually!
-//      this file has been generated automatically by BOAST version 1.0.3
+//      this file has been generated automatically by BOAST version 2.1.0
 //      by: make boast_kernels
 
 /*
@@ -16,7 +16,7 @@
 !
 ! This program is free software; you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by
-! the Free Software Foundation; either version 2 of the License, or
+! the Free Software Foundation; either version 3 of the License, or
 ! (at your option) any later version.
 !
 ! This program is distributed in the hope that it will be useful,
@@ -99,9 +99,9 @@ __kernel void update_veloc_elastic_kernel(__global float * veloc, const __global
   int id;\n\
   id = get_global_id(0) + (get_group_id(1)) * (get_global_size(0));\n\
   if (id < size) {\n\
-    veloc[(id) * (3)] = veloc[(id) * (3)] + (deltatover2) * (accel[(id) * (3)]);\n\
-    veloc[(id) * (3) + 1] = veloc[(id) * (3) + 1] + (deltatover2) * (accel[(id) * (3) + 1]);\n\
-    veloc[(id) * (3) + 2] = veloc[(id) * (3) + 2] + (deltatover2) * (accel[(id) * (3) + 2]);\n\
+    veloc[id] = veloc[id] + (deltatover2) * (accel[id]);\n\
+    veloc[size + id] = veloc[size + id] + (deltatover2) * (accel[size + id]);\n\
+    veloc[size + size + id] = veloc[size + size + id] + (deltatover2) * (accel[size + size + id]);\n\
   }\n\
 }\n\
 ";

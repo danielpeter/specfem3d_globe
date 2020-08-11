@@ -25,11 +25,11 @@ module BOAST
     v.push epsilondev_yz          = Real("epsilondev_yz",        :dir => :in, :dim => [Dim()] )
     v.push epsilon_trace_over_3   = Real("epsilon_trace_over_3", :dir => :in, :dim => [Dim()] )
     if type == :ani then
-      v.push cijkl_kl             = Real("cijkl_kl",             :dir => :inout,:dim => [Dim(21),Dim()] )
+      v.push cijkl_kl             = Real("cijkl_kl",             :dir => :inout,:dim => [Dim()] )
     elsif type == :iso then
       v.push mu_kl                = Real("mu_kl",                :dir => :inout,:dim => [Dim()] )
       v.push kappa_kl             = Real("kappa_kl",             :dir => :inout,:dim => [Dim()] )
-    end      
+    end
     v.push nspec                  = Int( "NSPEC",                :dir => :in)
     v.push deltat                 = Real("deltat",               :dir => :in)
     v.push d_ibool                = Int( "d_ibool",              :dir => :in, :dim => [Dim()] )
@@ -53,6 +53,7 @@ module BOAST
       make_specfem3d_header( :ngllx => n_gllx, :ngll2 => n_gll2, :ngll3 => n_gll3, :ngll3_padded => n_gll3_padded )
 
       sub_compute_element_strain_undoatt = compute_element_strain_undoatt(n_gllx, n_gll2, n_gll3, n_gll3_padded )
+
       print sub_compute_element_strain_undoatt
       if type == :ani then
         sub_compute_strain_product =  compute_strain_product()
@@ -65,10 +66,12 @@ module BOAST
       decl ijk_ispec = Int("ijk_ispec")
       decl tx = Int("tx")
       decl iglob = Int("iglob")
-
+      if type == :ani then
+        decl  offset = Int("offset")
+      end
       decl eps_trace_over_3 = Real("eps_trace_over_3")
       decl b_eps_trace_over_3 = Real("b_eps_trace_over_3")
-      if type == :ani then 
+      if type == :ani then
         decl prod = Real("prod", :dim => [Dim(21)], :allocate => true)
         decl i = Int("i")
       end
@@ -79,7 +82,7 @@ module BOAST
         Real("s_dummy#{a}_loc", :local => true, :dim => [Dim(ngll3)] )
       }
       decl sh_hprime_xx = Real("sh_hprime_xx",     :local => true, :dim => [Dim(ngll2)] )
-      
+
       print ispec === get_group_id(0) + get_group_id(1)*get_num_groups(0)
       print ijk_ispec === get_local_id(0) + ngll3*ispec
       print tx === get_local_id(0)
@@ -124,9 +127,12 @@ module BOAST
           # fully anisotropic kernel contributions
           print sub_compute_strain_product.call(prod, eps_trace_over_3, epsdev, b_eps_trace_over_3, b_epsdev)
 
+          print offset === ispec*ngll3*21+tx
+
           # updates full anisotropic kernel
+          BOAST::get_output.puts"    // attention: following array is sorted differently on GPU and CPU, -> use 'resort_array' before copying back to cpu"
           print For(i, 0, 21-1) {
-            print cijkl_kl[i, ijk_ispec] === cijkl_kl[i, ijk_ispec] + deltat * prod[i]
+            print cijkl_kl[i*ngll3+offset] === cijkl_kl[i*ngll3+offset] + deltat * prod[i]
           }
         else
           # isotropic kernel contributions

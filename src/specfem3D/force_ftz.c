@@ -12,17 +12,19 @@
 !
 ! This program is free software; you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by
-! the Free Software Foundation; either version 2 of the License, or
+! the Free Software Foundation; either version 3 of the License, or
 ! (at your option) any later version.
 !
 ! This program is distributed in the hope that it will be useful,
 ! but WITHOUT ANY WARRANTY; without even the implied warranty of
-! MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+! MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 ! GNU General Public License for more details.
 !
 ! You should have received a copy of the GNU General Public License along
 ! with this program; if not, write to the Free Software Foundation, Inc.,
 ! 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+!
+! The full text of the license is available in file "LICENSE".
 !
 !=====================================================================
 */
@@ -56,6 +58,7 @@
 #define FTZ_BIT 15
 #define UNDERFLOW_EXCEPTION_MASK 11
 
+#ifdef __GNUC__ // only use these features on gnu compiler
 #ifdef HAVE_XMMINTRIN
   #define FORCE_FTZ
   #include <xmmintrin.h>
@@ -63,10 +66,16 @@
   #include <emmintrin.h>
   #define FORCE_FTZ
 #endif
+#endif // __GNUC__
 
 void
 FC_FUNC_(force_ftz,FORCE_FTZ)()
 {
+
+// DK DK Nov 2018: uncomment this if you have any problem compiling this file
+//#undef FORCE_FTZ
+
+#ifdef __GNUC__
 #ifdef FORCE_FTZ
   unsigned int x;
 
@@ -76,4 +85,5 @@ FC_FUNC_(force_ftz,FORCE_FTZ)()
   x |= (1 << UNDERFLOW_EXCEPTION_MASK);
   _mm_setcsr(x);
 #endif
+#endif // __GNUC__
 }

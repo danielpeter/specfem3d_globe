@@ -11,7 +11,7 @@
 !
 ! This program is free software; you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by
-! the Free Software Foundation; either version 2 of the License, or
+! the Free Software Foundation; either version 3 of the License, or
 ! (at your option) any later version.
 !
 ! This program is distributed in the hope that it will be useful,
@@ -45,7 +45,7 @@
 !--------------------------------------------------------------------------------------------------
 !
 
-  subroutine model_heterogen_mntl_broadcast(myrank)
+  subroutine model_heterogen_mntl_broadcast()
 
 ! standard routine to setup model
 
@@ -53,8 +53,6 @@
   use model_heterogen_mantle_par
 
   implicit none
-
-  integer :: myrank
 
   ! local parameters
   integer :: ier
@@ -107,7 +105,7 @@
   integer :: i,j,ier
 
   ! open heterogen.dat
-  open(unit=IIN,file='./DATA/heterogen/heterogen.dat',access='direct',&
+  open(unit=IIN,file='./DATA/heterogen/heterogen.dat',access='direct', &
        form='formatted',recl=20,status='old',action='read',iostat=ier)
   if (ier /= 0 ) call exit_MPI(0,'Error opening model file heterogen.dat')
 

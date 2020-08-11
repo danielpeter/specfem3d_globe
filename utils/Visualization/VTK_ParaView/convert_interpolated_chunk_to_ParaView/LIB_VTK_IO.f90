@@ -31,10 +31,10 @@
 !!\end{epigraphs}
 !!\lettrine[lines=2,loversize=-.1,lraise=0.2]{{\bf L}}{IB\_VTK\_IO} is a Fortran library to write and read
 !!(actually only to write) data conforming the VTK standard both binary and ascii. Even though there are many
-!!wrappers/porting of the VTK source code (C++ code), there is not a fortran one. This library is not a porting
-!!or a wrapper of the VTK code, but it only an exporter/importer of the VTK data format written in pure fortran
-!!language (standard Fortran 95 with some extensions of non standard Fortran 2003) that can be used by fortran
-!!coders (yes, there are still a lot of these brave coders...) without mixing fortran with C++ language.
+!!wrappers/porting of the VTK source code (C++ code), there is not a Fortran one. This library is not a porting
+!!or a wrapper of the VTK code, but it only an exporter/importer of the VTK data format written in pure Fortran
+!!language (standard Fortran 95 with some extensions of non standard Fortran 2003) that can be used by Fortran
+!!coders (yes, there are still a lot of these brave coders...) without mixing Fortran with C++ language.
 !!
 !!The library is still in developing and testing, this is first usable release, but there are not all the features
 !!of the stable release (the importer is totaly absent and the exporter is not complete). Surely there are a lot of
@@ -67,14 +67,14 @@
 !!
 !!\section*{LIB\_VTK\_IO}
 !!\label{sec:LIB_VTK_IO}
-!!Even though the VTK toolkit is written in C++ and so it is possible to use it in mixed fortran/c++ code this is not the easiest
+!!Even though the VTK toolkit is written in C++ and so it is possible to use it in mixed Fortran/c++ code this is not the easiest
 !!way. Fortran is still the best language for high performance computing for scientific purpose, like CFD computing. It necessary a
-!!tool to deal with VTK standard directly by fortran code. The library \LIBVTKIO was made to fill this empty: it is a simple
-!!fortran module able to export native fortran data into VTK data format and to import VTK data into a fortran code (actually this
+!!tool to deal with VTK standard directly by Fortran code. The library \LIBVTKIO was made to fill this empty: it is a simple
+!!Fortran module able to export native Fortran data into VTK data format and to import VTK data into a Fortran code (actually this
 !!feature is missing), both in ascii and binary file format.
 !!
 !!The library provides an automatic way to deal with VTK data format: all the formatting processes is nested into the library and
-!!the users comunicate with it by a simple API passing only native fortran data (native fortran scalar, vector and matrix).
+!!the users comunicate with it by a simple API passing only native Fortran data (native Fortran scalar, vector and matrix).
 !!
 !!The library \LIBVTKIO is distribuited under the GNU GPL v3 license (see appendix \ref{cap:GPL}). Beyond to the source code there
 !!are some precompiled binaries for GNU-Linux (amd x86, amd x86\_64, intel x86, intel x86\_64) and WindowsXP (amd x86, intel x86).
@@ -112,9 +112,9 @@
 !!\end{boxred}
 !!
 !!The only relevant news in the v0.2 version is about this guide: now the guide is integrated in the code. The code has particular
-!!comments: if the code is processed by the program FortranDOC\footnote{FortranDOC is an open-source fortran code available at:
-!!\href{http://stefano.zaghi.googlepages.com/fortrandoc}{http://stefano.zaghi.googlepages.com/fortrandoc}. This code processing a
-!!free-format fortran code generates a corresponding pretty-latex documentation file of the code structure.} a latex source of
+!!comments: if the code is processed by the program FortranDOC\footnote{FortranDOC is an open-source Fortran code available at:
+!!\href{http://stefano.zaghi.googlepages.com/Fortrandoc}{http://stefano.zaghi.googlepages.com/Fortrandoc}. This code processing a
+!!free-format Fortran code generates a corresponding pretty-latex documentation file of the code structure.} a latex source of
 !!this guide will be made; compiling the latex file with \virgo{pdflatex} you will obtain this guide in PDF.
 !!
 !!\section*{Version v0.1}
@@ -139,7 +139,7 @@
 !!VTK. Therefore in order to create binary files that are compatible whit VTK standard the only way is to use a non-standard 95
 !!instructions. At today only Fortran 2003 can create C-binary file, but there are not any compilers that completely implement this
 !!standard. In the next year (2008) maybe a new minor upgrade of Fortran standard (unofficial named Fortran 2008) will be born
-!!and so the support to Fortran 2003/2008 probably will be improved. Luckily we need to use only some features of fortran 2003
+!!and so the support to Fortran 2003/2008 probably will be improved. Luckily we need to use only some features of Fortran 2003
 !!that are supported by many compilers.
 !!
 !!The Fortran 2003 instructions are focused on the opening of the binary file, in particular in the functions
@@ -147,14 +147,14 @@
 !!
 !!\begin{boxred}{Fortran 2003 instructions}
 !!\begin{verbatim}
-!!open(unit       = ...,           &
-!!     file       = ...,           &
-!!     form       = ...,           &
-!!     access     = ...,           &
-!!     action     = ...,           &
-!!     convert    = 'BIG_ENDIAN',  &
-!!     recordtype = 'STREAM',      &
-!!     buffered   = 'YES',         &
+!!open(unit       = ..., &
+!!     file       = ..., &
+!!     form       = ..., &
+!!     access     = ..., &
+!!     action     = ..., &
+!!     convert    = 'BIG_ENDIAN', &
+!!     recordtype = 'STREAM', &
+!!     buffered   = 'YES', &
 !!     iostat     = ...)
 !!\end{verbatim}
 !!\end{boxred}
@@ -182,7 +182,7 @@
 !!\label{sec:CompileLinux}
 !!
 !!\LIBVTKIO can be compiled as a stand-alone library or it can be integrated directly in your code. It is a self-contained module
-!!that can be safely included into others fortran codes. There are no any advices for compile \LIBVTKIO excluding the above non
+!!that can be safely included into others Fortran codes. There are no any advices for compile \LIBVTKIO excluding the above non
 !!standard instructions.
 !!
 !!For the GNU/Linux users there is available a makefile already set to compile \LIBVTKIO both as static and dynamic library with
@@ -286,7 +286,7 @@
 !!errors occur (the error handling is only at its embryonal phase). Therefore the functions calling must be done in the following
 !!way:
 !!
-!!\begin{boxred}{Functions Calling}
+!!\begin{boxred}{functions Calling}
 !!\begin{verbatim}
 !!...
 !!integer(4):: E_IO
@@ -327,7 +327,7 @@
 !!\label{part:LIBVTKIO API}
 module LIB_VTK_IO
 !----------------------------------------------------------------------------------------------------------------------------------
-!!\LIBVTKIO is a library of functions for Input and Output pure fortran data (both ascii and binary) in VTK format.
+!!\LIBVTKIO is a library of functions for Input and Output pure Fortran data (both ascii and binary) in VTK format.
 !!
 !!The VTK standard can be separated into two main catagories: the \MaiuscolettoBS{VTK Legacy Standard} and the
 !!\MaiuscolettoBS{VTK XML Standard}. The latter is more powerful and will has a stronger support from VTk comunity than legacy
@@ -338,7 +338,7 @@ module LIB_VTK_IO
 !!
 !!The functions actually present are:
 !!
-!!\begin{boxred}{Functions for Legacy VTK file format}
+!!\begin{boxred}{functions for Legacy VTK file format}
 !!\begin{enumerate1Red}
 !! \item \MaiuscolettoS{VTK\_INI}
 !! \item \MaiuscolettoS{VTK\_GEO}
@@ -349,7 +349,7 @@ module LIB_VTK_IO
 !!\end{enumerate1Red}
 !!\end{boxred}
 !!
-!!\begin{boxred}{Functions for XML VTK file format}
+!!\begin{boxred}{functions for XML VTK file format}
 !!\begin{enumerate1Red}
 !! \item \MaiuscolettoS{VTK\_INI\_XML}
 !! \item \MaiuscolettoS{VTK\_GEO\_XML}
@@ -530,10 +530,10 @@ contains
   Free_Unit = -1_I4P                                      ! initializing free logic unit
   n1=1_I4P                                                ! initializing counter
   do
-    if ((n1/=5_I4P).AND.(n1/=6_I4P).AND.(n1/=9_I4P)) then
+    if ((n1 /= 5_I4P) .and. (n1 /= 6_I4P) .and. (n1 /= 9_I4P)) then
       inquire (unit=n1,opened=lopen,iostat=ios)           ! verify logic units
-      if (ios==0_I4P) then
-        if (.NOT.lopen) then
+      if (ios == 0_I4P) then
+        if (.not. lopen) then
           Free_Unit = n1                                  ! assignment of free logic
           return
         endif
@@ -545,7 +545,7 @@ contains
   !(doc/)codesnippet
   !!GetUnit function is private and cannot be called outside \LIBVTKIO. If you are interested to use it change its scope to public.
   !--------------------------------------------------------------------------------------------------------------------------------
-  endfunction GetUnit
+  end function GetUnit
 
   function Upper_Case(string)
   !--------------------------------------------------------------------------------------------------------------------------------
@@ -580,7 +580,7 @@ contains
   !!Upper\_Case function is private and cannot be called outside \LIBVTKIO. If you are interested to use it change its scope
   !!to public.
   !--------------------------------------------------------------------------------------------------------------------------------
-  endfunction Upper_Case
+  end function Upper_Case
 
   !!\chapter{VTK LEGACY functions}
   !!\minitoc
@@ -598,7 +598,7 @@ contains
   character(*), intent(IN):: filename      ! name of file
   character(*), intent(IN):: title         ! title
   character(*), intent(IN):: mesh_topology ! mesh topology
-  integer(I4P)::             E_IO          ! Input/Output inquiring flag: $0$ if IO is done, $> 0$ if IO is not done
+  integer(I4P)::             E_IO          ! Input/Output inquiring flag: $0$ if IO is done, $ > 0$ if IO is not done
   !!The VTK\_INI variables have the following meaning:
   !!
   !!\begin{description}
@@ -637,12 +637,12 @@ contains
   select case(trim(Upper_Case(output_format)))
   case('ASCII')
     f_out = f_out_ascii
-    open(unit     = Unit_VTK,       &
+    open(unit     = Unit_VTK, &
          file     = trim(filename), &
-         form     = 'FORMATTED',    &
-         access   = 'SEQUENTIAL',   &
-         action   = 'WRITE',        &
-         buffered = 'YES',          &
+         form     = 'FORMATTED', &
+         access   = 'SEQUENTIAL', &
+         action   = 'WRITE', &
+         buffered = 'YES', &
          iostat   = E_IO)
     ! writing header of file
     write(unit=Unit_VTK,fmt='(A)',iostat=E_IO)'# vtk DataFile Version 3.0'
@@ -651,14 +651,14 @@ contains
     write(unit=Unit_VTK,fmt='(A)',iostat=E_IO)'DATASET '//trim(topology)
   case('BINARY')
     f_out = f_out_binary
-    open(unit       = Unit_VTK,       &
+    open(unit       = Unit_VTK, &
          file       = trim(filename), &
-         form       = 'UNFORMATTED',  &
-         access     = 'SEQUENTIAL',   &
-         action     = 'WRITE',        &
-         convert    = 'BIG_ENDIAN',   &
-         recordtype = 'STREAM',       &
-         buffered   = 'YES',          &
+         form       = 'UNFORMATTED', &
+         access     = 'SEQUENTIAL', &
+         action     = 'WRITE', &
+         convert    = 'BIG_ENDIAN', &
+         recordtype = 'STREAM', &
+         buffered   = 'YES', &
          iostat     = E_IO)
     ! writing header of file
     write(unit=Unit_VTK,iostat=E_IO)'# vtk DataFile Version 3.0'//end_rec
@@ -668,7 +668,7 @@ contains
   endselect
   return
   !--------------------------------------------------------------------------------------------------------------------------------
-  endfunction VTK_INI
+  end function VTK_INI
 
   !!\section{VTK\_GEO}
   !!
@@ -897,7 +897,7 @@ contains
   !(\doc)skippedblock
   function VTK_GEO_STRP_R8(Nx,Ny,Nz,X0,Y0,Z0,Dx,Dy,Dz) result(E_IO)
   !--------------------------------------------------------------------------------------------------------------------------------
-  !! Function for saving mesh; topology = STRUCTURED\_POINTS (R8P).
+  !! function for saving mesh; topology = STRUCTURED\_POINTS (R8P).
   !--------------------------------------------------------------------------------------------------------------------------------
 
   implicit none
@@ -912,7 +912,7 @@ contains
   real(R8P),    intent(IN):: Dx        ! space step in x direction
   real(R8P),    intent(IN):: Dy        ! space step in y direction
   real(R8P),    intent(IN):: Dz        ! space step in z direction
-  integer(I4P)::             E_IO      ! Input/Output inquiring flag: $0$ if IO is done, $> 0$ if IO is not done
+  integer(I4P)::             E_IO      ! Input/Output inquiring flag: $0$ if IO is done, $ > 0$ if IO is not done
   character(len=maxlen)::    s_buffer  ! buffer string
   !--------------------------------------------------------------------------------------------------------------------------------
 
@@ -932,11 +932,11 @@ contains
   endselect
   return
   !--------------------------------------------------------------------------------------------------------------------------------
-  endfunction VTK_GEO_STRP_R8
+  end function VTK_GEO_STRP_R8
 
   function VTK_GEO_STRP_R4(Nx,Ny,Nz,X0,Y0,Z0,Dx,Dy,Dz) result(E_IO)
   !--------------------------------------------------------------------------------------------------------------------------------
-  !! Function for saving mesh; topology = STRUCTURED\_POINTS (R4P).
+  !! function for saving mesh; topology = STRUCTURED\_POINTS (R4P).
   !--------------------------------------------------------------------------------------------------------------------------------
 
   implicit none
@@ -951,7 +951,7 @@ contains
   real(R4P),    intent(IN):: Dx        ! space step in x direction
   real(R4P),    intent(IN):: Dy        ! space step in y direction
   real(R4P),    intent(IN):: Dz        ! space step in z direction
-  integer(I4P)::             E_IO      ! Input/Output inquiring flag: $0$ if IO is done, $> 0$ if IO is not done
+  integer(I4P)::             E_IO      ! Input/Output inquiring flag: $0$ if IO is done, $ > 0$ if IO is not done
   character(len=maxlen)::    s_buffer  ! buffer string
   !--------------------------------------------------------------------------------------------------------------------------------
 
@@ -971,11 +971,11 @@ contains
   endselect
   return
   !--------------------------------------------------------------------------------------------------------------------------------
-  endfunction VTK_GEO_STRP_R4
+  end function VTK_GEO_STRP_R4
 
   function VTK_GEO_STRG_R8(Nx,Ny,Nz,NN,X,Y,Z) result(E_IO)
   !--------------------------------------------------------------------------------------------------------------------------------
-  !! Function for saving mesh; topology = STRUCTURED\_GRID (R8P).
+  !! function for saving mesh; topology = STRUCTURED\_GRID (R8P).
   !--------------------------------------------------------------------------------------------------------------------------------
 
   implicit none
@@ -988,7 +988,7 @@ contains
   real(R8P),    intent(IN):: X(1:NN)  ! x coordinates
   real(R8P),    intent(IN):: Y(1:NN)  ! y coordinates
   real(R8P),    intent(IN):: Z(1:NN)  ! z coordinates
-  integer(I4P)::             E_IO     ! Input/Output inquiring flag: $0$ if IO is done, $> 0$ if IO is not done
+  integer(I4P)::             E_IO     ! Input/Output inquiring flag: $0$ if IO is done, $ > 0$ if IO is not done
   character(len=maxlen)::    s_buffer ! buffer string
   integer(I4P)::             n1       ! counter
   !--------------------------------------------------------------------------------------------------------------------------------
@@ -1009,11 +1009,11 @@ contains
   endselect
   return
   !--------------------------------------------------------------------------------------------------------------------------------
-  endfunction VTK_GEO_STRG_R8
+  end function VTK_GEO_STRG_R8
 
   function VTK_GEO_STRG_R4(Nx,Ny,Nz,NN,X,Y,Z) result(E_IO)
   !--------------------------------------------------------------------------------------------------------------------------------
-  !! Function for saving mesh; topology = STRUCTURED\_GRID (R4P).
+  !! function for saving mesh; topology = STRUCTURED\_GRID (R4P).
   !--------------------------------------------------------------------------------------------------------------------------------
 
   implicit none
@@ -1026,7 +1026,7 @@ contains
   real(R4P),    intent(IN):: X(1:NN)  ! x coordinates
   real(R4P),    intent(IN):: Y(1:NN)  ! y coordinates
   real(R4P),    intent(IN):: Z(1:NN)  ! z coordinates
-  integer(I4P)::             E_IO     ! Input/Output inquiring flag: $0$ if IO is done, $> 0$ if IO is not done
+  integer(I4P)::             E_IO     ! Input/Output inquiring flag: $0$ if IO is done, $ > 0$ if IO is not done
   character(len=maxlen)::    s_buffer ! buffer string
   integer(I4P)::             n1       ! counter
   !--------------------------------------------------------------------------------------------------------------------------------
@@ -1047,11 +1047,11 @@ contains
   endselect
   return
   !--------------------------------------------------------------------------------------------------------------------------------
-  endfunction VTK_GEO_STRG_R4
+  end function VTK_GEO_STRG_R4
 
   function VTK_GEO_RECT_R8(Nx,Ny,Nz,X,Y,Z) result(E_IO)
   !--------------------------------------------------------------------------------------------------------------------------------
-  !! Function for saving mesh; topology = RECTILINEAR\_GRID (R8P).
+  !! function for saving mesh; topology = RECTILINEAR\_GRID (R8P).
   !--------------------------------------------------------------------------------------------------------------------------------
 
   implicit none
@@ -1063,7 +1063,7 @@ contains
   real(R8P),    intent(IN):: X(1:Nx)   ! x coordinates
   real(R8P),    intent(IN):: Y(1:Ny)   ! y coordinates
   real(R8P),    intent(IN):: Z(1:Nz)   ! z coordinates
-  integer(I4P)::             E_IO      ! Input/Output inquiring flag: $0$ if IO is done, $> 0$ if IO is not done
+  integer(I4P)::             E_IO      ! Input/Output inquiring flag: $0$ if IO is done, $ > 0$ if IO is not done
   character(len=maxlen)::    s_buffer  ! buffer string
   integer(I4P)::             n1        ! counter
   !--------------------------------------------------------------------------------------------------------------------------------
@@ -1096,11 +1096,11 @@ contains
   endselect
   return
   !--------------------------------------------------------------------------------------------------------------------------------
-  endfunction VTK_GEO_RECT_R8
+  end function VTK_GEO_RECT_R8
 
   function VTK_GEO_RECT_R4(Nx,Ny,Nz,X,Y,Z) result(E_IO)
   !--------------------------------------------------------------------------------------------------------------------------------
-  !! Function for saving mesh; topology = RECTILINEAR\_GRID (R4P).
+  !! function for saving mesh; topology = RECTILINEAR\_GRID (R4P).
   !--------------------------------------------------------------------------------------------------------------------------------
 
   implicit none
@@ -1112,7 +1112,7 @@ contains
   real(R4P),    intent(IN):: X(1:Nx)   ! x coordinates
   real(R4P),    intent(IN):: Y(1:Ny)   ! y coordinates
   real(R4P),    intent(IN):: Z(1:Nz)   ! z coordinates
-  integer(I4P)::             E_IO      ! Input/Output inquiring flag: $0$ if IO is done, $> 0$ if IO is not done
+  integer(I4P)::             E_IO      ! Input/Output inquiring flag: $0$ if IO is done, $ > 0$ if IO is not done
   character(len=maxlen)::    s_buffer  ! buffer string
   integer(I4P)::             n1        ! counter
   !--------------------------------------------------------------------------------------------------------------------------------
@@ -1145,11 +1145,11 @@ contains
   endselect
   return
   !--------------------------------------------------------------------------------------------------------------------------------
-  endfunction VTK_GEO_RECT_R4
+  end function VTK_GEO_RECT_R4
 
   function VTK_GEO_UNST_R8(NN,X,Y,Z) result(E_IO)
   !--------------------------------------------------------------------------------------------------------------------------------
-  !! Function for saving mesh; topology = UNSTRUCTURED\_GRID (R8P).
+  !! function for saving mesh; topology = UNSTRUCTURED\_GRID (R8P).
   !--------------------------------------------------------------------------------------------------------------------------------
 
   implicit none
@@ -1159,7 +1159,7 @@ contains
   real(R8P),    intent(IN):: X(1:NN)   ! x coordinates of all nodes
   real(R8P),    intent(IN):: Y(1:NN)   ! y coordinates of all nodes
   real(R8P),    intent(IN):: Z(1:NN)   ! z coordinates of all nodes
-  integer(I4P)::             E_IO      ! Input/Output inquiring flag: $0$ if IO is done, $> 0$ if IO is not done
+  integer(I4P)::             E_IO      ! Input/Output inquiring flag: $0$ if IO is done, $ > 0$ if IO is not done
   character(len=maxlen)::    s_buffer  ! buffer string
   integer(I4P)::             n1        ! counter
   !--------------------------------------------------------------------------------------------------------------------------------
@@ -1177,11 +1177,11 @@ contains
   endselect
   return
   !--------------------------------------------------------------------------------------------------------------------------------
-  endfunction VTK_GEO_UNST_R8
+  end function VTK_GEO_UNST_R8
 
   function VTK_GEO_UNST_R4(NN,X,Y,Z) result(E_IO)
   !--------------------------------------------------------------------------------------------------------------------------------
-  !! Function for saving mesh; topology = UNSTRUCTURED\_GRID (R4P).
+  !! function for saving mesh; topology = UNSTRUCTURED\_GRID (R4P).
   !--------------------------------------------------------------------------------------------------------------------------------
 
   implicit none
@@ -1191,7 +1191,7 @@ contains
   real(R4P),    intent(IN):: X(1:NN)   ! x coordinates of all nodes
   real(R4P),    intent(IN):: Y(1:NN)   ! y coordinates of all nodes
   real(R4P),    intent(IN):: Z(1:NN)   ! z coordinates of all nodes
-  integer(I4P)::             E_IO      ! Input/Output inquiring flag: $0$ if IO is done, $> 0$ if IO is not done
+  integer(I4P)::             E_IO      ! Input/Output inquiring flag: $0$ if IO is done, $ > 0$ if IO is not done
   character(len=maxlen)::    s_buffer  ! buffer string
   integer(I4P)::             n1        ! counter
   !--------------------------------------------------------------------------------------------------------------------------------
@@ -1209,7 +1209,7 @@ contains
   endselect
   return
   !--------------------------------------------------------------------------------------------------------------------------------
-  endfunction VTK_GEO_UNST_R4
+  end function VTK_GEO_UNST_R4
   !(doc/)skippedblock
 
   function VTK_CON(NC,connect,cell_type) result(E_IO)
@@ -1224,7 +1224,7 @@ contains
   integer(I4P), intent(IN):: NC              ! number of cells
   integer(I4P), intent(IN):: connect(:)      ! mesh connectivity
   integer(I4P), intent(IN):: cell_type(1:NC) ! VTK cell type
-  integer(I4P)::             E_IO            ! Input/Output inquiring flag: $0$ if IO is done, $> 0$ if IO is not done
+  integer(I4P)::             E_IO            ! Input/Output inquiring flag: $0$ if IO is done, $ > 0$ if IO is not done
   character(len=maxlen)::    s_buffer        ! buffer string
   integer(I4P)::             ncon            ! dimension of connectivity vector
   !!The VTK\_CON variables have the following meaning:
@@ -1254,22 +1254,22 @@ contains
   !!\begin{boxred}{Connectivity vector example for VTK legacy standard}
   !!\begin{verbatim}
   !!! first cell
-  !!connect(1)  = 8  => number of vertices of 1? cell
-  !!connect(2)  = 0  => identification flag of 1? vertex of 1? cell
-  !!connect(3)  = 1  => identification flag of 2? vertex of 1? cell
-  !!connect(4)  = 2  => identification flag of 3? vertex of 1? cell
-  !!connect(5)  = 3  => identification flag of 4? vertex of 1? cell
-  !!connect(6)  = 4  => identification flag of 5? vertex of 1? cell
-  !!connect(7)  = 5  => identification flag of 6? vertex of 1? cell
-  !!connect(8)  = 6  => identification flag of 7? vertex of 1? cell
-  !!connect(9)  = 7  => identification flag of 8? vertex of 1? cell
+  !!connect(1)  = 8 => number of vertices of 1? cell
+  !!connect(2)  = 0 => identification flag of 1? vertex of 1? cell
+  !!connect(3)  = 1 => identification flag of 2? vertex of 1? cell
+  !!connect(4)  = 2 => identification flag of 3? vertex of 1? cell
+  !!connect(5)  = 3 => identification flag of 4? vertex of 1? cell
+  !!connect(6)  = 4 => identification flag of 5? vertex of 1? cell
+  !!connect(7)  = 5 => identification flag of 6? vertex of 1? cell
+  !!connect(8)  = 6 => identification flag of 7? vertex of 1? cell
+  !!connect(9)  = 7 => identification flag of 8? vertex of 1? cell
   !!! second cell
-  !!connect(10) = 5  => number of vertices of 2? cell
-  !!connect(11) = 0  => identification flag of 1? vertex of 2? cell
-  !!connect(12) = 1  => identification flag of 2? vertex of 2? cell
-  !!connect(13) = 2  => identification flag of 3? vertex of 2? cell
-  !!connect(14) = 3  => identification flag of 4? vertex of 2? cell
-  !!connect(15) = 8  => identification flag of 5? vertex of 2? cell
+  !!connect(10) = 5 => number of vertices of 2? cell
+  !!connect(11) = 0 => identification flag of 1? vertex of 2? cell
+  !!connect(12) = 1 => identification flag of 2? vertex of 2? cell
+  !!connect(13) = 2 => identification flag of 3? vertex of 2? cell
+  !!connect(14) = 3 => identification flag of 4? vertex of 2? cell
+  !!connect(15) = 8 => identification flag of 5? vertex of 2? cell
   !!\end{verbatim}
   !!\end{boxred}
   !!
@@ -1284,8 +1284,8 @@ contains
   !!
   !!\begin{boxred}{Cell-Type vector example for VTK legacy standard}
   !!\begin{verbatim}
-  !!tipo(1) = 12  => VTK hexahedron type of 1? cell
-  !!tipo(2) = 14  => VTK pyramid type of 2? cell
+  !!tipo(1) = 12 => VTK hexahedron type of 1? cell
+  !!tipo(2) = 14 => VTK pyramid type of 2? cell
   !!\end{verbatim}
   !!\end{boxred}
   !!
@@ -1327,7 +1327,7 @@ contains
   endselect
   return
   !--------------------------------------------------------------------------------------------------------------------------------
-  endfunction VTK_CON
+  end function VTK_CON
 
   function VTK_DAT(NC_NN,var_location) result(E_IO)
   !--------------------------------------------------------------------------------------------------------------------------------
@@ -1340,7 +1340,7 @@ contains
   !--------------------------------------------------------------------------------------------------------------------------------
   integer(I4P), intent(IN):: NC_NN        ! number of cells or nodes of field
   character(*), intent(IN):: var_location ! location of saving variables: cell for cell-centered, node for node-centered
-  integer(I4P)::             E_IO         ! Input/Output inquiring flag: $0$ if IO is done, $> 0$ if IO is not done
+  integer(I4P)::             E_IO         ! Input/Output inquiring flag: $0$ if IO is done, $ > 0$ if IO is not done
   character(len=maxlen)::    s_buffer     ! buffer string
   !!The VTK\_DAT variables have the following meaning:
   !!
@@ -1388,7 +1388,7 @@ contains
   endselect
   return
   !--------------------------------------------------------------------------------------------------------------------------------
-  endfunction VTK_DAT
+  end function VTK_DAT
 
   !!\section{VTK\_VAR}
   !!
@@ -1606,7 +1606,7 @@ contains
   !(\doc)skippedblock
   function VTK_VAR_SCAL_R8(NC_NN,varname,var) result(E_IO)
   !--------------------------------------------------------------------------------------------------------------------------------
-  !! Function for saving field of scalar variable (R8P).
+  !! function for saving field of scalar variable (R8P).
   !--------------------------------------------------------------------------------------------------------------------------------
 
   implicit none
@@ -1615,7 +1615,7 @@ contains
   integer(I4P), intent(IN):: NC_NN        ! number of nodes or cells
   character(*), intent(IN):: varname      ! variable name
   real(R8P),    intent(IN):: var(1:NC_NN) ! variable to be saved
-  integer(I4P)::             E_IO         ! Input/Output inquiring flag: $0$ if IO is done, $> 0$ if IO is not done
+  integer(I4P)::             E_IO         ! Input/Output inquiring flag: $0$ if IO is done, $ > 0$ if IO is not done
   !--------------------------------------------------------------------------------------------------------------------------------
 
   !--------------------------------------------------------------------------------------------------------------------------------
@@ -1632,11 +1632,11 @@ contains
   endselect
   return
   !--------------------------------------------------------------------------------------------------------------------------------
-  endfunction VTK_VAR_SCAL_R8
+  end function VTK_VAR_SCAL_R8
 
   function VTK_VAR_SCAL_R4(NC_NN,varname,var) result(E_IO)
   !--------------------------------------------------------------------------------------------------------------------------------
-  !! Function for saving field of scalar variable (R4P).
+  !! function for saving field of scalar variable (R4P).
   !--------------------------------------------------------------------------------------------------------------------------------
 
   implicit none
@@ -1645,7 +1645,7 @@ contains
   integer(I4P), intent(IN):: NC_NN        ! number of nodes or cells
   character(*), intent(IN):: varname      ! variable name
   real(R4P),    intent(IN):: var(1:NC_NN) ! variable to be saved
-  integer(I4P)::             E_IO         ! Input/Output inquiring flag: $0$ if IO is done, $> 0$ if IO is not done
+  integer(I4P)::             E_IO         ! Input/Output inquiring flag: $0$ if IO is done, $ > 0$ if IO is not done
   !--------------------------------------------------------------------------------------------------------------------------------
 
   !--------------------------------------------------------------------------------------------------------------------------------
@@ -1662,11 +1662,11 @@ contains
   endselect
   return
   !--------------------------------------------------------------------------------------------------------------------------------
-  endfunction VTK_VAR_SCAL_R4
+  end function VTK_VAR_SCAL_R4
 
   function VTK_VAR_SCAL_I4(NC_NN,varname,var) result(E_IO)
   !--------------------------------------------------------------------------------------------------------------------------------
-  !! Function for saving field of scalar variable (I4P).
+  !! function for saving field of scalar variable (I4P).
   !--------------------------------------------------------------------------------------------------------------------------------
 
   implicit none
@@ -1675,7 +1675,7 @@ contains
   integer(I4P), intent(IN):: NC_NN        ! number of nodes or cells
   character(*), intent(IN):: varname      ! variable name
   integer(I4P), intent(IN):: var(1:NC_NN) ! variable to be saved
-  integer(I4P)::             E_IO         ! Input/Output inquiring flag: $0$ if IO is done, $> 0$ if IO is not done
+  integer(I4P)::             E_IO         ! Input/Output inquiring flag: $0$ if IO is done, $ > 0$ if IO is not done
   !--------------------------------------------------------------------------------------------------------------------------------
 
   !--------------------------------------------------------------------------------------------------------------------------------
@@ -1692,11 +1692,11 @@ contains
   endselect
   return
   !--------------------------------------------------------------------------------------------------------------------------------
-  endfunction VTK_VAR_SCAL_I4
+  end function VTK_VAR_SCAL_I4
 
   function VTK_VAR_VECT_R8(vec_type,NC_NN,varname,varX,varY,varZ) result(E_IO)
   !--------------------------------------------------------------------------------------------------------------------------------
-  !! Function for saving field of vectorial variable (R8P).
+  !! function for saving field of vectorial variable (R8P).
   !--------------------------------------------------------------------------------------------------------------------------------
 
   implicit none
@@ -1708,7 +1708,7 @@ contains
   real(R8P),    intent(IN):: varX(1:NC_NN) ! x component of vector
   real(R8P),    intent(IN):: varY(1:NC_NN) ! y component of vector
   real(R8P),    intent(IN):: varZ(1:NC_NN) ! z component of vector
-  integer(I4P)::             E_IO          ! Input/Output inquiring flag: $0$ if IO is done, $> 0$ if IO is not done
+  integer(I4P)::             E_IO          ! Input/Output inquiring flag: $0$ if IO is done, $ > 0$ if IO is not done
   integer(I8P)::             n1            ! counter
   !--------------------------------------------------------------------------------------------------------------------------------
 
@@ -1734,11 +1734,11 @@ contains
   endselect
   return
   !--------------------------------------------------------------------------------------------------------------------------------
-  endfunction VTK_VAR_VECT_R8
+  end function VTK_VAR_VECT_R8
 
   function VTK_VAR_VECT_R4(vec_type,NC_NN,varname,varX,varY,varZ) result(E_IO)
   !--------------------------------------------------------------------------------------------------------------------------------
-  !! Function for saving field of vectorial variable (R4P).
+  !! function for saving field of vectorial variable (R4P).
   !--------------------------------------------------------------------------------------------------------------------------------
 
   implicit none
@@ -1750,7 +1750,7 @@ contains
   real(R4P),    intent(IN):: varX(1:NC_NN) ! x component of vector
   real(R4P),    intent(IN):: varY(1:NC_NN) ! y component of vector
   real(R4P),    intent(IN):: varZ(1:NC_NN) ! z component of vector
-  integer(I4P)::             E_IO          ! Input/Output inquiring flag: $0$ if IO is done, $> 0$ if IO is not done
+  integer(I4P)::             E_IO          ! Input/Output inquiring flag: $0$ if IO is done, $ > 0$ if IO is not done
   integer(I8P)::             n1            ! counter
   !--------------------------------------------------------------------------------------------------------------------------------
 
@@ -1776,11 +1776,11 @@ contains
   endselect
   return
   !--------------------------------------------------------------------------------------------------------------------------------
-  endfunction VTK_VAR_VECT_R4
+  end function VTK_VAR_VECT_R4
 
   function VTK_VAR_VECT_I4(NC_NN,varname,varX,varY,varZ) result(E_IO)
   !--------------------------------------------------------------------------------------------------------------------------------
-  !! Function for saving field of vectorial variable (I4P).
+  !! function for saving field of vectorial variable (I4P).
   !--------------------------------------------------------------------------------------------------------------------------------
 
   implicit none
@@ -1791,7 +1791,7 @@ contains
   integer(I4P), intent(IN):: varX(1:NC_NN) ! x component of vector
   integer(I4P), intent(IN):: varY(1:NC_NN) ! y component of vector
   integer(I4P), intent(IN):: varZ(1:NC_NN) ! z component of vector
-  integer(I4P)::             E_IO          ! Input/Output inquiring flag: $0$ if IO is done, $> 0$ if IO is not done
+  integer(I4P)::             E_IO          ! Input/Output inquiring flag: $0$ if IO is done, $ > 0$ if IO is not done
   integer(I8P)::             n1            ! counter
   !--------------------------------------------------------------------------------------------------------------------------------
 
@@ -1807,11 +1807,11 @@ contains
   endselect
   return
   !--------------------------------------------------------------------------------------------------------------------------------
-  endfunction VTK_VAR_VECT_I4
+  end function VTK_VAR_VECT_I4
 
   function VTK_VAR_TEXT_R8(NC_NN,dimm,varname,textCoo) result(E_IO)
   !--------------------------------------------------------------------------------------------------------------------------------
-  !! Function for saving texture variable (R8P).
+  !! function for saving texture variable (R8P).
   !--------------------------------------------------------------------------------------------------------------------------------
 
   implicit none
@@ -1821,7 +1821,7 @@ contains
   integer(I4P), intent(IN):: dimm                    ! texture dimensions
   character(*), intent(IN):: varname                 ! variable name
   real(R8P),    intent(IN):: textCoo(1:NC_NN,1:dimm) ! texture
-  integer(I4P)::             E_IO                    ! Input/Output inquiring flag: $0$ if IO is done, $> 0$ if IO is not done
+  integer(I4P)::             E_IO                    ! Input/Output inquiring flag: $0$ if IO is done, $ > 0$ if IO is not done
   character(len=maxlen)::    s_buffer                ! buffer string
   integer(I8P)::             n1,n2                   ! counters
   !--------------------------------------------------------------------------------------------------------------------------------
@@ -1841,11 +1841,11 @@ contains
   endselect
   return
   !--------------------------------------------------------------------------------------------------------------------------------
-  endfunction VTK_VAR_TEXT_R8
+  end function VTK_VAR_TEXT_R8
 
   function VTK_VAR_TEXT_R4(NC_NN,dimm,varname,textCoo) result(E_IO)
   !--------------------------------------------------------------------------------------------------------------------------------
-  !! Function for saving texture variable (R4P).
+  !! function for saving texture variable (R4P).
   !--------------------------------------------------------------------------------------------------------------------------------
 
   implicit none
@@ -1855,7 +1855,7 @@ contains
   integer(I4P), intent(IN):: dimm                    ! texture dimensions
   character(*), intent(IN):: varname                 ! variable name
   real(R4P),    intent(IN):: textCoo(1:NC_NN,1:dimm) ! texture
-  integer(I4P)::             E_IO                    ! Input/Output inquiring flag: $0$ if IO is done, $> 0$ if IO is not done
+  integer(I4P)::             E_IO                    ! Input/Output inquiring flag: $0$ if IO is done, $ > 0$ if IO is not done
   character(len=maxlen)::    s_buffer                ! buffer string
   integer(I8P)::             n1,n2                   ! counters
   !--------------------------------------------------------------------------------------------------------------------------------
@@ -1875,7 +1875,7 @@ contains
   endselect
   return
   !--------------------------------------------------------------------------------------------------------------------------------
-  endfunction VTK_VAR_TEXT_R4
+  end function VTK_VAR_TEXT_R4
   !(doc/)skippedblock
 
   function VTK_END() result(E_IO)
@@ -1887,7 +1887,7 @@ contains
   implicit none
 
   !--------------------------------------------------------------------------------------------------------------------------------
-  integer(I4P):: E_IO ! Input/Output inquiring flag: $0$ if IO is done, $> 0$ if IO is not done
+  integer(I4P):: E_IO ! Input/Output inquiring flag: $0$ if IO is done, $ > 0$ if IO is not done
   !!The VTK\_END variables have the following meaning:
   !!
   !!\begin{description}
@@ -1909,7 +1909,7 @@ contains
   close(unit=Unit_VTK,iostat=E_IO)
   return
   !--------------------------------------------------------------------------------------------------------------------------------
-  endfunction VTK_END
+  end function VTK_END
 
   !!\chapter{VTK XML functions}
   !!\minitoc
@@ -1924,7 +1924,7 @@ contains
   !!\MaiuscolettoBS{4-byte integer function}: the output of these functions is an integer that is $0$ if the function calling
   !!has been done right while it is $> 0$  if some errors occur. The functions calling is the same as legacy functions:
   !!
-  !!\begin{boxred}{Functions Calling}
+  !!\begin{boxred}{functions Calling}
   !!\begin{verbatim}
   !!...
   !!integer(4):: E_IO
@@ -1950,7 +1950,7 @@ contains
   integer(I4P), intent(IN), optional:: nx1,nx2       ! initial and final nodes of x axis
   integer(I4P), intent(IN), optional:: ny1,ny2       ! initial and final nodes of y axis
   integer(I4P), intent(IN), optional:: nz1,nz2       ! initial and final nodes of z axis
-  integer(I4P)::                       E_IO          ! Input/Output inquiring flag: $0$ if IO is done, $> 0$ if IO is not done
+  integer(I4P)::                       E_IO          ! Input/Output inquiring flag: $0$ if IO is done, $ > 0$ if IO is not done
   character(len=maxlen)::              s_buffer      ! buffer string
   !!The VTK\_INI\_XML variables have the following meaning:
   !!
@@ -1983,9 +1983,9 @@ contains
   !!...
   !!...
   !!E_IO = VTK_INI_XML('BINARY','XML_RECT_BINARY.vtr', &
-  !!                   'RectilinearGrid',              &
-  !!                   nx1=nx1,nx2=nx2,                &
-  !!                   ny1=ny1,ny2=ny2,                &
+  !!                   'RectilinearGrid', &
+  !!                   nx1=nx1,nx2=nx2, &
+  !!                   ny1=ny1,ny2=ny2, &
   !!                   nz1=nz1,nz2=nz2)
   !!...
   !!\end{verbatim}
@@ -2001,12 +2001,12 @@ contains
   select case(trim(Upper_Case(output_format)))
   case('ASCII')
     f_out = f_out_ascii
-    open(unit   = Unit_VTK,       &
+    open(unit   = Unit_VTK, &
          file   = trim(filename), &
-         form   = 'FORMATTED',    &
-         access = 'SEQUENTIAL',   &
-         action = 'WRITE',        &
-         buffered   = 'YES',      &
+         form   = 'FORMATTED', &
+         access = 'SEQUENTIAL', &
+         action = 'WRITE', &
+         buffered   = 'YES', &
          iostat = E_IO)
     ! writing header of file
     write(unit=Unit_VTK,fmt='(A)',                iostat=E_IO)'<?xml version="1.0"?>'
@@ -2021,14 +2021,14 @@ contains
     indent = indent + 2
   case('BINARY')
     f_out = f_out_binary
-    open(unit       = Unit_VTK,       &
+    open(unit       = Unit_VTK, &
          file       = trim(filename), &
-         form       = 'UNFORMATTED',  &
-         access     = 'SEQUENTIAL',   &
-         action     = 'WRITE',        &
-         convert    = 'BIG_ENDIAN',   &
-         recordtype = 'STREAM',       &
-         buffered   = 'YES',          &
+         form       = 'UNFORMATTED', &
+         access     = 'SEQUENTIAL', &
+         action     = 'WRITE', &
+         convert    = 'BIG_ENDIAN', &
+         recordtype = 'STREAM', &
+         buffered   = 'YES', &
          iostat     = E_IO)
     ! writing header of file
     write(unit=Unit_VTK,                     iostat=E_IO)'<?xml version="1.0"?>'//end_rec
@@ -2045,19 +2045,19 @@ contains
     Unit_VTK_Append=GetUnit()
     ! opening the SCRATCH file used for appending raw binary data
     open(unit       = Unit_VTK_Append, &
-         form       = 'UNFORMATTED',   &
-         access     = 'SEQUENTIAL',    &
-         action     = 'WRITE',         &
-         convert    = 'BIG_ENDIAN',    &
-         recordtype = 'STREAM',        &
-         buffered   = 'YES',           &
-         status     = 'SCRATCH',       &
+         form       = 'UNFORMATTED', &
+         access     = 'SEQUENTIAL', &
+         action     = 'WRITE', &
+         convert    = 'BIG_ENDIAN', &
+         recordtype = 'STREAM', &
+         buffered   = 'YES', &
+         status     = 'SCRATCH', &
          iostat     = E_IO)
     ioffset = 0 ! initializing offset puntator
   endselect
   return
   !--------------------------------------------------------------------------------------------------------------------------------
-  endfunction VTK_INI_XML
+  end function VTK_INI_XML
 
   !!\section{VTK\_GEO\_XML}
   !!
@@ -2119,7 +2119,7 @@ contains
   !!real(4):: X(1:NN),Y(1:NN),Z(1:NN)
   !!...
   !!E_IO = VTK_GEO_XML(nx1,nx2,ny1,ny2,nz1,nz2, &
-  !!                   NN,                      &
+  !!                   NN, &
   !!                   X,Y,Z)
   !!...
   !!\end{verbatim}
@@ -2273,7 +2273,7 @@ contains
   !(\doc)skippedblock
   function VTK_GEO_XML_STRG_R8(nx1,nx2,ny1,ny2,nz1,nz2,NN,X,Y,Z) result(E_IO)
   !--------------------------------------------------------------------------------------------------------------------------------
-  !! Function for saving mesh; topology = StructuredGrid (R8P).
+  !! function for saving mesh; topology = StructuredGrid (R8P).
   !--------------------------------------------------------------------------------------------------------------------------------
 
   implicit none
@@ -2286,7 +2286,7 @@ contains
   real(R8P),    intent(IN):: X(1:NN)  ! x coordinates
   real(R8P),    intent(IN):: Y(1:NN)  ! y coordinates
   real(R8P),    intent(IN):: Z(1:NN)  ! z coordinates
-  integer(I4P)::             E_IO     ! Input/Output inquiring flag: $0$ if IO is done, $> 0$ if IO is not done
+  integer(I4P)::             E_IO     ! Input/Output inquiring flag: $0$ if IO is done, $ > 0$ if IO is not done
   character(len=maxlen)::    s_buffer ! buffer string
   integer(I4P)::             n1       ! counter
   !--------------------------------------------------------------------------------------------------------------------------------
@@ -2321,11 +2321,11 @@ contains
   endselect
   return
   !--------------------------------------------------------------------------------------------------------------------------------
-  endfunction VTK_GEO_XML_STRG_R8
+  end function VTK_GEO_XML_STRG_R8
 
   function VTK_GEO_XML_STRG_R4(nx1,nx2,ny1,ny2,nz1,nz2,NN,X,Y,Z) result(E_IO)
   !--------------------------------------------------------------------------------------------------------------------------------
-  !! Function for saving mesh; topology = StructuredGrid (R4P).
+  !! function for saving mesh; topology = StructuredGrid (R4P).
   !--------------------------------------------------------------------------------------------------------------------------------
 
   implicit none
@@ -2338,7 +2338,7 @@ contains
   real(R4P),    intent(IN):: X(1:NN)  ! x coordinates
   real(R4P),    intent(IN):: Y(1:NN)  ! y coordinates
   real(R4P),    intent(IN):: Z(1:NN)  ! z coordinates
-  integer(I4P)::             E_IO     ! Input/Output inquiring flag: $0$ if IO is done, $> 0$ if IO is not done
+  integer(I4P)::             E_IO     ! Input/Output inquiring flag: $0$ if IO is done, $ > 0$ if IO is not done
   character(len=maxlen)::    s_buffer ! buffer string
   integer(I4P)::             n1       ! counter
   !--------------------------------------------------------------------------------------------------------------------------------
@@ -2373,11 +2373,11 @@ contains
   endselect
   return
   !--------------------------------------------------------------------------------------------------------------------------------
-  endfunction VTK_GEO_XML_STRG_R4
+  end function VTK_GEO_XML_STRG_R4
 
   function VTK_GEO_XML_RECT_R8(nx1,nx2,ny1,ny2,nz1,nz2,X,Y,Z) result(E_IO)
   !--------------------------------------------------------------------------------------------------------------------------------
-  !! Function for saving mesh; topology = RectilinearGrid (R8P).
+  !! function for saving mesh; topology = RectilinearGrid (R8P).
   !--------------------------------------------------------------------------------------------------------------------------------
 
   implicit none
@@ -2389,7 +2389,7 @@ contains
   real(R8P),    intent(IN):: X(nx1:nx2) ! x coordinates
   real(R8P),    intent(IN):: Y(ny1:ny2) ! y coordinates
   real(R8P),    intent(IN):: Z(nz1:nz2) ! z coordinates
-  integer(I4P)::             E_IO       ! Input/Output inquiring flag: $0$ if IO is done, $> 0$ if IO is not done
+  integer(I4P)::             E_IO       ! Input/Output inquiring flag: $0$ if IO is done, $ > 0$ if IO is not done
   character(len=maxlen)::    s_buffer   ! buffer string
   integer(I4P)::             n1         ! counter
   !--------------------------------------------------------------------------------------------------------------------------------
@@ -2444,11 +2444,11 @@ contains
   endselect
   return
   !--------------------------------------------------------------------------------------------------------------------------------
-  endfunction VTK_GEO_XML_RECT_R8
+  end function VTK_GEO_XML_RECT_R8
 
   function VTK_GEO_XML_RECT_R4(nx1,nx2,ny1,ny2,nz1,nz2,X,Y,Z) result(E_IO)
   !--------------------------------------------------------------------------------------------------------------------------------
-  !! Function for saving mesh; topology = RectilinearGrid (R4P).
+  !! function for saving mesh; topology = RectilinearGrid (R4P).
   !--------------------------------------------------------------------------------------------------------------------------------
 
   implicit none
@@ -2460,7 +2460,7 @@ contains
   real(R4P),    intent(IN):: X(nx1:nx2) ! x coordinates
   real(R4P),    intent(IN):: Y(ny1:ny2) ! y coordinates
   real(R4P),    intent(IN):: Z(nz1:nz2) ! z coordinates
-  integer(I4P)::             E_IO       ! Input/Output inquiring flag: $0$ if IO is done, $> 0$ if IO is not done
+  integer(I4P)::             E_IO       ! Input/Output inquiring flag: $0$ if IO is done, $ > 0$ if IO is not done
   character(len=maxlen)::    s_buffer   ! buffer string
   integer(I4P)::             n1         ! counter
   !--------------------------------------------------------------------------------------------------------------------------------
@@ -2515,11 +2515,11 @@ contains
   endselect
   return
   !--------------------------------------------------------------------------------------------------------------------------------
-  endfunction VTK_GEO_XML_RECT_R4
+  end function VTK_GEO_XML_RECT_R4
 
   function VTK_GEO_XML_UNST_R8(NN,NC,X,Y,Z) result(E_IO)
   !--------------------------------------------------------------------------------------------------------------------------------
-  !! Function for saving mesh; topology = UnstructuredGrid (R8P).
+  !! function for saving mesh; topology = UnstructuredGrid (R8P).
   !--------------------------------------------------------------------------------------------------------------------------------
 
   implicit none
@@ -2530,7 +2530,7 @@ contains
   real(R8P),    intent(IN):: X(1:NN)  ! x coordinates
   real(R8P),    intent(IN):: Y(1:NN)  ! y coordinates
   real(R8P),    intent(IN):: Z(1:NN)  ! z coordinates
-  integer(I4P)::             E_IO     ! Input/Output inquiring flag: $0$ if IO is done, $> 0$ if IO is not done
+  integer(I4P)::             E_IO     ! Input/Output inquiring flag: $0$ if IO is done, $ > 0$ if IO is not done
   character(len=maxlen)::    s_buffer ! buffer string
   integer(I4P)::             n1       ! counter
   !--------------------------------------------------------------------------------------------------------------------------------
@@ -2565,11 +2565,11 @@ contains
   endselect
   return
   !--------------------------------------------------------------------------------------------------------------------------------
-  endfunction VTK_GEO_XML_UNST_R8
+  end function VTK_GEO_XML_UNST_R8
 
   function VTK_GEO_XML_UNST_R4(NN,NC,X,Y,Z) result(E_IO)
   !--------------------------------------------------------------------------------------------------------------------------------
-  !! Function for saving mesh; topology = UnstructuredGrid (R4P).
+  !! function for saving mesh; topology = UnstructuredGrid (R4P).
   !--------------------------------------------------------------------------------------------------------------------------------
 
   implicit none
@@ -2580,7 +2580,7 @@ contains
   real(R4P),    intent(IN):: X(1:NN)  ! x coordinates
   real(R4P),    intent(IN):: Y(1:NN)  ! y coordinates
   real(R4P),    intent(IN):: Z(1:NN)  ! z coordinates
-  integer(I4P)::             E_IO     ! Input/Output inquiring flag: $0$ if IO is done, $> 0$ if IO is not done
+  integer(I4P)::             E_IO     ! Input/Output inquiring flag: $0$ if IO is done, $ > 0$ if IO is not done
   character(len=maxlen)::    s_buffer ! buffer string
   integer(I4P)::             n1       ! counter
   !--------------------------------------------------------------------------------------------------------------------------------
@@ -2615,17 +2615,17 @@ contains
   endselect
   return
   !--------------------------------------------------------------------------------------------------------------------------------
-  endfunction VTK_GEO_XML_UNST_R4
+  end function VTK_GEO_XML_UNST_R4
 
   function VTK_GEO_XML_CLOSEP() result(E_IO)
   !--------------------------------------------------------------------------------------------------------------------------------
-  !! Function for closing mesh block data.
+  !! function for closing mesh block data.
   !--------------------------------------------------------------------------------------------------------------------------------
 
   implicit none
 
   !--------------------------------------------------------------------------------------------------------------------------------
-  integer(I4P):: E_IO ! Input/Output inquiring flag: $0$ if IO is done, $> 0$ if IO is not done
+  integer(I4P):: E_IO ! Input/Output inquiring flag: $0$ if IO is done, $ > 0$ if IO is not done
   !--------------------------------------------------------------------------------------------------------------------------------
 
   !--------------------------------------------------------------------------------------------------------------------------------
@@ -2638,7 +2638,7 @@ contains
   endselect
   return
   !--------------------------------------------------------------------------------------------------------------------------------
-  endfunction VTK_GEO_XML_CLOSEP
+  end function VTK_GEO_XML_CLOSEP
   !(doc/)skippedblock
 
   function VTK_CON_XML(NC,connect,offset,cell_type) result(E_IO)
@@ -2653,7 +2653,7 @@ contains
   integer(I4P), intent(IN):: connect(:)      ! mesh connectivity
   integer(I4P), intent(IN):: offset(1:NC)    ! cell offset
   integer(I1P), intent(IN):: cell_type(1:NC) ! VTK cell type
-  integer(I4P)::             E_IO            ! Input/Output inquiring flag: $0$ if IO is done, $> 0$ if IO is not done
+  integer(I4P)::             E_IO            ! Input/Output inquiring flag: $0$ if IO is done, $ > 0$ if IO is not done
   character(len=maxlen)::    s_buffer        ! buffer string
   integer(I4P)::             n1              ! counter
   !!The VTK\_CON\_XML variables have the following meaning:
@@ -2686,20 +2686,20 @@ contains
   !!\begin{boxred}{Connectivity vector example for VTK XML standard}
   !!\begin{verbatim}
   !!! first cell
-  !!connect(1)  = 0  => identification flag of 1? vertex of 1? cell
-  !!connect(2)  = 1  => identification flag of 2? vertex of 1? cell
-  !!connect(3)  = 2  => identification flag of 3? vertex of 1? cell
-  !!connect(4)  = 3  => identification flag of 4? vertex of 1? cell
-  !!connect(5)  = 4  => identification flag of 5? vertex of 1? cell
-  !!connect(6)  = 5  => identification flag of 6? vertex of 1? cell
-  !!connect(7)  = 6  => identification flag of 7? vertex of 1? cell
-  !!connect(8)  = 7  => identification flag of 8? vertex of 1? cell
+  !!connect(1)  = 0 => identification flag of 1? vertex of 1? cell
+  !!connect(2)  = 1 => identification flag of 2? vertex of 1? cell
+  !!connect(3)  = 2 => identification flag of 3? vertex of 1? cell
+  !!connect(4)  = 3 => identification flag of 4? vertex of 1? cell
+  !!connect(5)  = 4 => identification flag of 5? vertex of 1? cell
+  !!connect(6)  = 5 => identification flag of 6? vertex of 1? cell
+  !!connect(7)  = 6 => identification flag of 7? vertex of 1? cell
+  !!connect(8)  = 7 => identification flag of 8? vertex of 1? cell
   !!! second cell
-  !!connect(9)  = 0  => identification flag of 1? vertex of 2? cell
-  !!connect(10) = 1  => identification flag of 2? vertex of 2? cell
-  !!connect(11) = 2  => identification flag of 3? vertex of 2? cell
-  !!connect(12) = 3  => identification flag of 4? vertex of 2? cell
-  !!connect(13) = 8  => identification flag of 5? vertex of 2? cell
+  !!connect(9)  = 0 => identification flag of 1? vertex of 2? cell
+  !!connect(10) = 1 => identification flag of 2? vertex of 2? cell
+  !!connect(11) = 2 => identification flag of 3? vertex of 2? cell
+  !!connect(12) = 3 => identification flag of 4? vertex of 2? cell
+  !!connect(13) = 8 => identification flag of 5? vertex of 2? cell
   !!\end{verbatim}
   !!\end{boxred}
   !!
@@ -2710,7 +2710,7 @@ contains
   !!\begin{boxred}{Offset vector example for VTK XML standard}
   !!\begin{verbatim}
   !!! first cell
-  !!offset(1) = 8  => summ of nodes of 1? cell
+  !!offset(1) = 8 => summ of nodes of 1? cell
   !!! second cell
   !!offset(2) = 13 => summ of nodes of 1? and 2? cells
   !!\end{verbatim}
@@ -2735,8 +2735,8 @@ contains
   !!
   !!\begin{boxred}{Cell-Type vector example for VTK legacy standard}
   !!\begin{verbatim}
-  !!tipo(1) = 12  => VTK hexahedron type of 1? cell
-  !!tipo(2) = 14  => VTK pyramid type of 2? cell
+  !!tipo(1) = 12 => VTK hexahedron type of 1? cell
+  !!tipo(2) = 14 => VTK pyramid type of 2? cell
   !!\end{verbatim}
   !!\end{boxred}
   !!
@@ -2804,7 +2804,7 @@ contains
   endselect
   return
   !--------------------------------------------------------------------------------------------------------------------------------
-  endfunction VTK_CON_XML
+  end function VTK_CON_XML
 
   function VTK_DAT_XML(var_location,var_block_action) result(E_IO)
   !--------------------------------------------------------------------------------------------------------------------------------
@@ -2817,7 +2817,7 @@ contains
   !--------------------------------------------------------------------------------------------------------------------------------
   character(*), intent(IN):: var_location     ! location of saving variables: CELL for cell-centered, NODE for node-centered
   character(*), intent(IN):: var_block_action ! variables block action: OPEN or CLOSE block
-  integer(I4P)::             E_IO             ! Input/Output inquiring flag: $0$ if IO is done, $> 0$ if IO is not done
+  integer(I4P)::             E_IO             ! Input/Output inquiring flag: $0$ if IO is done, $ > 0$ if IO is not done
   !!The VTK\_DAT\_XML variables have the following meaning:
   !!
   !!\begin{description}
@@ -2902,7 +2902,7 @@ contains
   endselect
   return
   !--------------------------------------------------------------------------------------------------------------------------------
-  endfunction VTK_DAT_XML
+  end function VTK_DAT_XML
 
   !!\section{VTK\_VAR\_XML}
   !!
@@ -3021,7 +3021,7 @@ contains
   !(\doc)skippedblock
   function VTK_VAR_XML_SCAL_R8(NC_NN,varname,var) result(E_IO)
   !--------------------------------------------------------------------------------------------------------------------------------
-  !! Function for saving scalar variable (R8P).
+  !! function for saving scalar variable (R8P).
   !--------------------------------------------------------------------------------------------------------------------------------
 
   implicit none
@@ -3030,7 +3030,7 @@ contains
   integer(I4P), intent(IN):: NC_NN        ! number of cells or nodes
   character(*), intent(IN):: varname      ! variable name
   real(R8P),    intent(IN):: var(1:NC_NN) ! variable to be saved
-  integer(I4P)::             E_IO         ! Input/Output inquiring flag: $0$ if IO is done, $> 0$ if IO is not done
+  integer(I4P)::             E_IO         ! Input/Output inquiring flag: $0$ if IO is done, $ > 0$ if IO is not done
   character(len=maxlen)::    s_buffer     ! buffer string
   integer(I4P)::             n1           ! counter
   !--------------------------------------------------------------------------------------------------------------------------------
@@ -3052,11 +3052,11 @@ contains
   endselect
   return
   !--------------------------------------------------------------------------------------------------------------------------------
-  endfunction VTK_VAR_XML_SCAL_R8
+  end function VTK_VAR_XML_SCAL_R8
 
   function VTK_VAR_XML_SCAL_R4(NC_NN,varname,var) result(E_IO)
   !--------------------------------------------------------------------------------------------------------------------------------
-  !! Function for saving scalar variable (R4P).
+  !! function for saving scalar variable (R4P).
   !--------------------------------------------------------------------------------------------------------------------------------
 
   implicit none
@@ -3065,7 +3065,7 @@ contains
   integer(I4P), intent(IN):: NC_NN        ! number of cells or nodes
   character(*), intent(IN):: varname      ! variable name
   real(R4P),    intent(IN):: var(1:NC_NN) ! variable to be saved
-  integer(I4P)::             E_IO         ! Input/Output inquiring flag: $0$ if IO is done, $> 0$ if IO is not done
+  integer(I4P)::             E_IO         ! Input/Output inquiring flag: $0$ if IO is done, $ > 0$ if IO is not done
   character(len=maxlen)::    s_buffer     ! buffer string
   integer(I4P)::             n1           ! counter
   !--------------------------------------------------------------------------------------------------------------------------------
@@ -3087,11 +3087,11 @@ contains
   endselect
   return
   !--------------------------------------------------------------------------------------------------------------------------------
-  endfunction VTK_VAR_XML_SCAL_R4
+  end function VTK_VAR_XML_SCAL_R4
 
   function VTK_VAR_XML_SCAL_I8(NC_NN,varname,var) result(E_IO)
   !--------------------------------------------------------------------------------------------------------------------------------
-  !! Function for saving scalar variable (I8P).
+  !! function for saving scalar variable (I8P).
   !--------------------------------------------------------------------------------------------------------------------------------
 
   implicit none
@@ -3100,7 +3100,7 @@ contains
   integer(I4P), intent(IN):: NC_NN        ! number of cells or nodes
   character(*), intent(IN):: varname      ! variable name
   integer(I8P), intent(IN):: var(1:NC_NN) ! variable to be saved
-  integer(I4P)::             E_IO         ! Input/Output inquiring flag: $0$ if IO is done, $> 0$ if IO is not done
+  integer(I4P)::             E_IO         ! Input/Output inquiring flag: $0$ if IO is done, $ > 0$ if IO is not done
   character(len=maxlen)::    s_buffer     ! buffer string
   integer(I4P)::             n1           ! counter
   !--------------------------------------------------------------------------------------------------------------------------------
@@ -3122,11 +3122,11 @@ contains
   endselect
   return
   !--------------------------------------------------------------------------------------------------------------------------------
-  endfunction VTK_VAR_XML_SCAL_I8
+  end function VTK_VAR_XML_SCAL_I8
 
   function VTK_VAR_XML_SCAL_I4(NC_NN,varname,var) result(E_IO)
   !--------------------------------------------------------------------------------------------------------------------------------
-  !! Function for saving scalar variable (I4P).
+  !! function for saving scalar variable (I4P).
   !--------------------------------------------------------------------------------------------------------------------------------
 
   implicit none
@@ -3135,7 +3135,7 @@ contains
   integer(I4P), intent(IN):: NC_NN        ! number of cells or nodes
   character(*), intent(IN):: varname      ! variable name
   integer(I4P), intent(IN):: var(1:NC_NN) ! variable to be saved
-  integer(I4P)::             E_IO         ! Input/Output inquiring flag: $0$ if IO is done, $> 0$ if IO is not done
+  integer(I4P)::             E_IO         ! Input/Output inquiring flag: $0$ if IO is done, $ > 0$ if IO is not done
   character(len=maxlen)::    s_buffer     ! buffer string
   integer(I4P)::             n1           ! counter
   !--------------------------------------------------------------------------------------------------------------------------------
@@ -3157,11 +3157,11 @@ contains
   endselect
   return
   !--------------------------------------------------------------------------------------------------------------------------------
-  endfunction VTK_VAR_XML_SCAL_I4
+  end function VTK_VAR_XML_SCAL_I4
 
   function VTK_VAR_XML_SCAL_I2(NC_NN,varname,var) result(E_IO)
   !--------------------------------------------------------------------------------------------------------------------------------
-  !! Function for saving scalar variable (I2P).
+  !! function for saving scalar variable (I2P).
   !--------------------------------------------------------------------------------------------------------------------------------
 
   implicit none
@@ -3170,7 +3170,7 @@ contains
   integer(I4P), intent(IN):: NC_NN        ! number of cells or nodes
   character(*), intent(IN):: varname      ! variable name
   integer(I2P), intent(IN):: var(1:NC_NN) ! variable to be saved
-  integer(I4P)::             E_IO         ! Input/Output inquiring flag: $0$ if IO is done, $> 0$ if IO is not done
+  integer(I4P)::             E_IO         ! Input/Output inquiring flag: $0$ if IO is done, $ > 0$ if IO is not done
   character(len=maxlen)::    s_buffer     ! buffer string
   integer(I4P)::             n1           ! counter
   !--------------------------------------------------------------------------------------------------------------------------------
@@ -3192,11 +3192,11 @@ contains
   endselect
   return
   !--------------------------------------------------------------------------------------------------------------------------------
-  endfunction VTK_VAR_XML_SCAL_I2
+  end function VTK_VAR_XML_SCAL_I2
 
   function VTK_VAR_XML_SCAL_I1(NC_NN,varname,var) result(E_IO)
   !--------------------------------------------------------------------------------------------------------------------------------
-  !! Function for saving scalar variable (I1P).
+  !! function for saving scalar variable (I1P).
   !--------------------------------------------------------------------------------------------------------------------------------
 
   implicit none
@@ -3205,7 +3205,7 @@ contains
   integer(I4P), intent(IN):: NC_NN        ! number of cells or nodes
   character(*), intent(IN):: varname      ! variable name
   integer(I1P), intent(IN):: var(1:NC_NN) ! variable to be saved
-  integer(I4P)::             E_IO         ! Input/Output inquiring flag: $0$ if IO is done, $> 0$ if IO is not done
+  integer(I4P)::             E_IO         ! Input/Output inquiring flag: $0$ if IO is done, $ > 0$ if IO is not done
   character(len=maxlen)::    s_buffer     ! buffer string
   integer(I4P)::             n1           ! counter
   !--------------------------------------------------------------------------------------------------------------------------------
@@ -3227,11 +3227,11 @@ contains
   endselect
   return
   !--------------------------------------------------------------------------------------------------------------------------------
-  endfunction VTK_VAR_XML_SCAL_I1
+  end function VTK_VAR_XML_SCAL_I1
 
   function VTK_VAR_XML_VECT_R8(NC_NN,varname,varX,varY,varZ) result(E_IO)
   !--------------------------------------------------------------------------------------------------------------------------------
-  !! Function for saving vectorial variable (R8P).
+  !! function for saving vectorial variable (R8P).
   !--------------------------------------------------------------------------------------------------------------------------------
 
   implicit none
@@ -3242,7 +3242,7 @@ contains
   real(R8P),    intent(IN):: varX(1:NC_NN) ! x component
   real(R8P),    intent(IN):: varY(1:NC_NN) ! y component
   real(R8P),    intent(IN):: varZ(1:NC_NN) ! z component
-  integer(I4P)::             E_IO          ! Input/Output inquiring flag: $0$ if IO is done, $> 0$ if IO is not done
+  integer(I4P)::             E_IO          ! Input/Output inquiring flag: $0$ if IO is done, $ > 0$ if IO is not done
   character(len=maxlen)::    s_buffer      ! buffer string
   integer(I4P)::             n1            ! counter
   !--------------------------------------------------------------------------------------------------------------------------------
@@ -3264,11 +3264,11 @@ contains
   endselect
   return
   !--------------------------------------------------------------------------------------------------------------------------------
-  endfunction VTK_VAR_XML_VECT_R8
+  end function VTK_VAR_XML_VECT_R8
 
   function VTK_VAR_XML_VECT_R4(NC_NN,varname,varX,varY,varZ) result(E_IO)
   !--------------------------------------------------------------------------------------------------------------------------------
-  !! Function for saving vectorial variable (R4P).
+  !! function for saving vectorial variable (R4P).
   !--------------------------------------------------------------------------------------------------------------------------------
 
   implicit none
@@ -3279,7 +3279,7 @@ contains
   real(R4P),    intent(IN):: varX(1:NC_NN) ! x component
   real(R4P),    intent(IN):: varY(1:NC_NN) ! y component
   real(R4P),    intent(IN):: varZ(1:NC_NN) ! z component
-  integer(I4P)::             E_IO          ! Input/Output inquiring flag: $0$ if IO is done, $> 0$ if IO is not done
+  integer(I4P)::             E_IO          ! Input/Output inquiring flag: $0$ if IO is done, $ > 0$ if IO is not done
   character(len=maxlen)::    s_buffer      ! buffer string
   integer(I4P)::             n1            ! counter
   !--------------------------------------------------------------------------------------------------------------------------------
@@ -3301,11 +3301,11 @@ contains
   endselect
   return
   !--------------------------------------------------------------------------------------------------------------------------------
-  endfunction VTK_VAR_XML_VECT_R4
+  end function VTK_VAR_XML_VECT_R4
 
   function VTK_VAR_XML_VECT_I8(NC_NN,varname,varX,varY,varZ) result(E_IO)
   !--------------------------------------------------------------------------------------------------------------------------------
-  !! Function for saving vectorial variable (I8P).
+  !! function for saving vectorial variable (I8P).
   !--------------------------------------------------------------------------------------------------------------------------------
 
   implicit none
@@ -3316,7 +3316,7 @@ contains
   integer(I8P), intent(IN):: varX(1:NC_NN) ! x component
   integer(I8P), intent(IN):: varY(1:NC_NN) ! y component
   integer(I8P), intent(IN):: varZ(1:NC_NN) ! z component
-  integer(I4P)::             E_IO          ! Input/Output inquiring flag: $0$ if IO is done, $> 0$ if IO is not done
+  integer(I4P)::             E_IO          ! Input/Output inquiring flag: $0$ if IO is done, $ > 0$ if IO is not done
   character(len=maxlen)::    s_buffer      ! buffer string
   integer(I4P)::             n1            ! counter
   !--------------------------------------------------------------------------------------------------------------------------------
@@ -3338,11 +3338,11 @@ contains
   endselect
   return
   !--------------------------------------------------------------------------------------------------------------------------------
-  endfunction VTK_VAR_XML_VECT_I8
+  end function VTK_VAR_XML_VECT_I8
 
   function VTK_VAR_XML_VECT_I4(NC_NN,varname,varX,varY,varZ) result(E_IO)
   !--------------------------------------------------------------------------------------------------------------------------------
-  !! Function for saving vectorial variable (I4P).
+  !! function for saving vectorial variable (I4P).
   !--------------------------------------------------------------------------------------------------------------------------------
 
   implicit none
@@ -3353,7 +3353,7 @@ contains
   integer(I4P), intent(IN):: varX(1:NC_NN) ! x component
   integer(I4P), intent(IN):: varY(1:NC_NN) ! y component
   integer(I4P), intent(IN):: varZ(1:NC_NN) ! z component
-  integer(I4P)::             E_IO          ! Input/Output inquiring flag: $0$ if IO is done, $> 0$ if IO is not done
+  integer(I4P)::             E_IO          ! Input/Output inquiring flag: $0$ if IO is done, $ > 0$ if IO is not done
   character(len=maxlen)::    s_buffer      ! buffer string
   integer(I4P)::             n1            ! counter
   !--------------------------------------------------------------------------------------------------------------------------------
@@ -3375,11 +3375,11 @@ contains
   endselect
   return
   !--------------------------------------------------------------------------------------------------------------------------------
-  endfunction VTK_VAR_XML_VECT_I4
+  end function VTK_VAR_XML_VECT_I4
 
   function VTK_VAR_XML_VECT_I2(NC_NN,varname,varX,varY,varZ) result(E_IO)
   !--------------------------------------------------------------------------------------------------------------------------------
-  !! Function for saving vectorial variable (I2P).
+  !! function for saving vectorial variable (I2P).
   !--------------------------------------------------------------------------------------------------------------------------------
 
   implicit none
@@ -3390,7 +3390,7 @@ contains
   integer(I2P), intent(IN):: varX(1:NC_NN) ! x component
   integer(I2P), intent(IN):: varY(1:NC_NN) ! y component
   integer(I2P), intent(IN):: varZ(1:NC_NN) ! z component
-  integer(I4P)::             E_IO          ! Input/Output inquiring flag: $0$ if IO is done, $> 0$ if IO is not done
+  integer(I4P)::             E_IO          ! Input/Output inquiring flag: $0$ if IO is done, $ > 0$ if IO is not done
   character(len=maxlen)::    s_buffer      ! buffer string
   integer(I4P)::             n1            ! counter
   !--------------------------------------------------------------------------------------------------------------------------------
@@ -3412,11 +3412,11 @@ contains
   endselect
   return
   !--------------------------------------------------------------------------------------------------------------------------------
-  endfunction VTK_VAR_XML_VECT_I2
+  end function VTK_VAR_XML_VECT_I2
 
   function VTK_VAR_XML_VECT_I1(NC_NN,varname,varX,varY,varZ) result(E_IO)
   !--------------------------------------------------------------------------------------------------------------------------------
-  !! Function for saving vectorial variable (I1P).
+  !! function for saving vectorial variable (I1P).
   !--------------------------------------------------------------------------------------------------------------------------------
 
   implicit none
@@ -3427,7 +3427,7 @@ contains
   integer(I1P), intent(IN):: varX(1:NC_NN) ! x component
   integer(I1P), intent(IN):: varY(1:NC_NN) ! y component
   integer(I1P), intent(IN):: varZ(1:NC_NN) ! z component
-  integer(I4P)::             E_IO          ! Input/Output inquiring flag: $0$ if IO is done, $> 0$ if IO is not done
+  integer(I4P)::             E_IO          ! Input/Output inquiring flag: $0$ if IO is done, $ > 0$ if IO is not done
   character(len=maxlen)::    s_buffer      ! buffer string
   integer(I4P)::             n1            ! counter
   !--------------------------------------------------------------------------------------------------------------------------------
@@ -3449,7 +3449,7 @@ contains
   endselect
   return
   !--------------------------------------------------------------------------------------------------------------------------------
-  endfunction VTK_VAR_XML_VECT_I1
+  end function VTK_VAR_XML_VECT_I1
   !(doc/)skippedblock
 
   function VTK_END_XML() result(E_IO)
@@ -3460,7 +3460,7 @@ contains
   implicit none
 
   !--------------------------------------------------------------------------------------------------------------------------------
-  integer(I4P)::              E_IO      ! Input/Output inquiring flag: $0$ if IO is done, $> 0$ if IO is not done
+  integer(I4P)::              E_IO      ! Input/Output inquiring flag: $0$ if IO is done, $ > 0$ if IO is not done
   character(2)::              var_type  ! var\_type = R8,R4,I8,I4,I2,I1
   real(R8P),    allocatable:: v_R8(:)   ! R8 vector for IO in AppendData
   real(R4P),    allocatable:: v_R4(:)   ! R4 vector for IO in AppendData
@@ -3539,7 +3539,7 @@ contains
   close(unit=Unit_VTK,iostat=E_IO)
   return
   !--------------------------------------------------------------------------------------------------------------------------------
-  endfunction VTK_END_XML
+  end function VTK_END_XML
 endmodule LIB_VTK_IO
 !!
 !!\appendix
@@ -3570,32 +3570,32 @@ endmodule LIB_VTK_IO
 !!integer(4)::               i
 !!...
 !!x=(/(i, i=1, Nx, 1)/)
-!!E_IO = VTK_INI(output_format = 'ascii',                &
+!!E_IO = VTK_INI(output_format = 'ascii', &
 !!               filene        = trim(filename)//'.vtk', &
-!!               title         = 'Field',                &
+!!               title         = 'Field', &
 !!               mesh_topology = 'RECTILINEAR_GRID')
-!!E_IO = VTK_GEO(Nx        = Nx,        &
-!!               Ny        = 1,         &
-!!               Nz        = 1,         &
-!!               X         = x,         &
+!!E_IO = VTK_GEO(Nx        = Nx, &
+!!               Ny        = 1, &
+!!               Nz        = 1, &
+!!               X         = x, &
 !!               Y         = (/0.0_8/), &
 !!               Z         = (/0.0_8/))
-!!E_IO = VTK_DAT(NC_NN   = Nx,      &
+!!E_IO = VTK_DAT(NC_NN   = Nx, &
 !!               tipo    = 'node')
-!!E_IO = VTK_VAR(NC_NN   = Nx,      &
-!!               varname = 'p',     &
+!!E_IO = VTK_VAR(NC_NN   = Nx, &
+!!               varname = 'p', &
 !!               var     = p)
-!!E_IO = VTK_VAR(NC_NN   = Nx,      &
-!!               varname = 'rho',   &
+!!E_IO = VTK_VAR(NC_NN   = Nx, &
+!!               varname = 'rho', &
 !!               var     = rho)
-!!E_IO = VTK_VAR(NC_NN   = Nx,      &
-!!               varname = 'u',     &
+!!E_IO = VTK_VAR(NC_NN   = Nx, &
+!!               varname = 'u', &
 !!               var     = u)
-!!E_IO = VTK_VAR(NC_NN   = Nx,      &
+!!E_IO = VTK_VAR(NC_NN   = Nx, &
 !!               varname = 'gamma', &
 !!               var     = gamma)
-!!E_IO = VTK_VAR(NC_NN   = Nx,      &
-!!               varname = 'a',     &
+!!E_IO = VTK_VAR(NC_NN   = Nx, &
+!!               varname = 'a', &
 !!               var     = sqrt(gamma*p/rho))
 !!E_IO = VTK_END()
 !!...
@@ -3619,30 +3619,30 @@ endmodule LIB_VTK_IO
 !!integer(4)::               i
 !!...
 !!x=(/(i, i=1, Nx, 1)/)
-!!E_IO = VTK_INI_XML(output_format = 'ascii',                &
+!!E_IO = VTK_INI_XML(output_format = 'ascii', &
 !!                   filename      = trim(filename)//'.vtr', &
-!!                   mesh_topology = 'RectilinearGrid',      &
+!!                   mesh_topology = 'RectilinearGrid', &
 !!                   nx1=1,nx2=Nx,ny1=1,ny2=1,nz1=1,nz2=1)
 !!E_IO = VTK_GEO_XML(nx1=1,nx2=Nx,ny1=1,ny2=1,nz1=1,nz2=1, &
 !!                   X=x,Y=(/0.0_8/),Z=(/0.0_8/))
-!!E_IO = VTK_DAT_XML(tipo    = 'node',   &
+!!E_IO = VTK_DAT_XML(tipo    = 'node', &
 !!                   azione  = 'OPEN')
-!!E_IO = VTK_VAR_XML(NC_NN   = Nx,      &
-!!                   varname = 'p',     &
+!!E_IO = VTK_VAR_XML(NC_NN   = Nx, &
+!!                   varname = 'p', &
 !!                   var     = p)
-!!E_IO = VTK_VAR_XML(NC_NN   = Nx,      &
-!!                   varname = 'rho',   &
+!!E_IO = VTK_VAR_XML(NC_NN   = Nx, &
+!!                   varname = 'rho', &
 !!                   var     = rho)
-!!E_IO = VTK_VAR_XML(NC_NN   = Nx,      &
-!!                   varname = 'u',     &
+!!E_IO = VTK_VAR_XML(NC_NN   = Nx, &
+!!                   varname = 'u', &
 !!                   var     = u)
-!!E_IO = VTK_VAR_XML(NC_NN   = Nx,      &
+!!E_IO = VTK_VAR_XML(NC_NN   = Nx, &
 !!                   varname = 'gamma', &
 !!                   var     = gamma)
-!!E_IO = VTK_VAR_XML(NC_NN   = Nx,      &
-!!                   varname = 'a',     &
+!!E_IO = VTK_VAR_XML(NC_NN   = Nx, &
+!!                   varname = 'a', &
 !!                   var     = sqrt(gamma*p/rho))
-!!E_IO = VTK_DAT_XML(tipo    = 'node',  &
+!!E_IO = VTK_DAT_XML(tipo    = 'node', &
 !!                   azione  = 'CLOSE')
 !!E_IO = VTK_GEO_XML()
 !!E_IO = VTK_END_XML()
@@ -3668,8 +3668,8 @@ endmodule LIB_VTK_IO
 !!integer(4), dimension(1:Nn):: var_uns_grid_Y
 !!integer(4), dimension(1:Nn):: var_uns_grid_Z
 !!...
-!!E_IO = VTK_INI(output_format  = 'BINARY',                   &
-!!               filename       = 'UNST_GRID_BIN.vtk',        &
+!!E_IO = VTK_INI(output_format  = 'BINARY', &
+!!               filename       = 'UNST_GRID_BIN.vtk', &
 !!               title          = 'Unstructured Grid Example' &
 !!               mesh_topology  = 'UNSTRUCTURED_GRID')
 !!
@@ -3694,14 +3694,14 @@ endmodule LIB_VTK_IO
 !!
 !!connect = (/ 8, 0, 1, 4, 3, 6, 7,10, 9, &
 !!             8, 1, 2, 5, 4, 7, 8,11,10, &
-!!             4, 6,10, 9,12,             &
-!!             4, 5,11,10,14,             &
-!!             6,15,16,17,14,13,12,       &
-!!             6,18,15,19,16,20,17,       &
-!!             4,22,23,20,19,             &
-!!             3,21,22,18,                &
-!!             3,22,19,18,                &
-!!             2,26,25,                   &
+!!             4, 6,10, 9,12, &
+!!             4, 5,11,10,14, &
+!!             6,15,16,17,14,13,12, &
+!!             6,18,15,19,16,20,17, &
+!!             4,22,23,20,19, &
+!!             3,21,22,18, &
+!!             3,22,19,18, &
+!!             2,26,25, &
 !!             1,24/)
 !!tipo = (/12, &
 !!         12, &
@@ -3714,10 +3714,10 @@ endmodule LIB_VTK_IO
 !!          5, &
 !!          3, &
 !!          1/)
-!!E_IO = VTK_CON(NCelle  = Ne,       &
-!!               connect = connect,  &
+!!E_IO = VTK_CON(NCelle  = Ne, &
+!!               connect = connect, &
 !!               tipo    = tipo)
-!!E_IO = VTK_DAT(NC_NN   = Nn,       &
+!!E_IO = VTK_DAT(NC_NN   = Nn, &
 !!               tipo    = 'node')
 !!
 !!var_uns_grid =(/ 0.0, 1.0, 2.0, 3.0, 4.0, 5.0, &
@@ -3726,7 +3726,7 @@ endmodule LIB_VTK_IO
 !!                18.0,19.0,20.0,21.0,22.0,23.0, &
 !!                24.0,25.0,26.0/)
 !!
-!!E_IO = VTK_VAR(NC_NN   = Nn,        &
+!!E_IO = VTK_VAR(NC_NN   = Nn, &
 !!               varname = 'scalars', &
 !!               var     = var_uns_grid)
 !!
@@ -3745,8 +3745,8 @@ endmodule LIB_VTK_IO
 !!                 1,1,1,1,1,1, &
 !!                 1,1,1,1,1,1, &
 !!                 1,1,1/)
-!!E_IO = VTK_VAR(NC_NN   = Nn,             &
-!!               varname = 'vectors',      &
+!!E_IO = VTK_VAR(NC_NN   = Nn, &
+!!               varname = 'vectors', &
 !!               varX    = var_uns_grid_X, &
 !!               varY    = var_uns_grid_Y, &
 !!               varZ    = var_uns_grid_Z)
@@ -3774,7 +3774,7 @@ endmodule LIB_VTK_IO
 !!integer(4), dimension(1:Nn):: var_uns_grid_Y
 !!integer(4), dimension(1:Nn):: var_uns_grid_Z
 !!...
-!!E_IO = VTK_INI_XML(output_format = 'BINARY',              &
+!!E_IO = VTK_INI_XML(output_format = 'BINARY', &
 !!                   filename      = 'XML_UNST_BINARY.vtu', &
 !!                   mesh_topology = 'UnstructuredGrid')
 !!
@@ -3800,14 +3800,14 @@ endmodule LIB_VTK_IO
 !!
 !!connect_xml = (/ 0, 1, 4, 3, 6, 7,10, 9, &
 !!                 1, 2, 5, 4, 7, 8,11,10, &
-!!                 6,10, 9,12,             &
-!!                 5,11,10,14,             &
-!!                15,16,17,14,13,12,       &
-!!                18,15,19,16,20,17,       &
-!!                22,23,20,19,             &
-!!                21,22,18,                &
-!!                22,19,18,                &
-!!                26,25,                   &
+!!                 6,10, 9,12, &
+!!                 5,11,10,14, &
+!!                15,16,17,14,13,12, &
+!!                18,15,19,16,20,17, &
+!!                22,23,20,19, &
+!!                21,22,18, &
+!!                22,19,18, &
+!!                26,25, &
 !!                24/)
 !!offset_xml = (/ 8, &
 !!               16, &
@@ -3821,9 +3821,9 @@ endmodule LIB_VTK_IO
 !!               48, &
 !!               49/)
 !!
-!!E_IO = VTK_CON_XML(NCelle  = Ne,          &
+!!E_IO = VTK_CON_XML(NCelle  = Ne, &
 !!                   connect = connect_xml, &
-!!                   offset  = offset_xml,  &
+!!                   offset  = offset_xml, &
 !!                   tipo    = (/12_1, &
 !!                               12_1, &
 !!                               10_1, &
@@ -3845,7 +3845,7 @@ endmodule LIB_VTK_IO
 !!                18.0,19.0,20.0,21.0,22.0,23.0, &
 !!                24.0,25.0,26.0/)
 !!
-!!E_IO = VTK_VAR_XML(NC_NN   = Nn,        &
+!!E_IO = VTK_VAR_XML(NC_NN   = Nn, &
 !!                   varname = 'scalars', &
 !!                   var     = var_uns_grid)
 !!
@@ -3865,12 +3865,12 @@ endmodule LIB_VTK_IO
 !!                 1,1,1,1,1,1, &
 !!                 1,1,1/)
 !!
-!!E_IO = VTK_VAR_XML(NC_NN   = Nn,             &
-!!                   varname = 'vector',       &
+!!E_IO = VTK_VAR_XML(NC_NN   = Nn, &
+!!                   varname = 'vector', &
 !!                   varX    = var_uns_grid_X, &
 !!                   varY    = var_uns_grid_Y, &
 !!                   varZ    = var_uns_grid_Z)
-!!E_IO = VTK_DAT_XML(tipo    = 'node',   &
+!!E_IO = VTK_DAT_XML(tipo    = 'node', &
 !!                   azione  = 'CLOSE')
 !!E_IO = VTK_GEO_XML()
 !!E_IO = VTK_END_XML()
@@ -3882,17 +3882,17 @@ endmodule LIB_VTK_IO
 !!\label{cap:kind precision}
 !!
 !!\lettrine[lines=2,loversize=-.1,lraise=0.2]{{\bf F}}{ortran} is the most popular programming language for scientific computing.
-!!With fortran it is quite simple obtain fast code and manage large multidimensional array. Because fortran permits the achivment
+!!With Fortran it is quite simple obtain fast code and manage large multidimensional array. Because Fortran permits the achivment
 !!of high performance it is also used on great range of different computer-architettures, and often on the fastest supercomputer
-!!in the world. Therefore fortran programs must be \MaiuscolettoBS{portable}: portability means that the code will give the same
+!!in the world. Therefore Fortran programs must be \MaiuscolettoBS{portable}: portability means that the code will give the same
 !!results on every different computer-architettures. One of the most important goal of the numeric code is to control the
 !!\MaiuscolettoBS{the numeric error} due to finite precision of numerical operations. Fortran uses the \MaiuscolettoBS{IEEE
 !!rappresentations}; integers and reals (floating point) are represented with a finite precision. So when the code computes an
 !!operation it has a \MaiuscolettoBS{trunction error} due to the truncation of the numerical finite rappresentaions. For numerical
 !!and more in general scientific applications this source of errors must be controlled. The programmer must know which is the
-!!precision associated to the code variables. Before the standard fortran 90/95 there are not any way to select the precision of
+!!precision associated to the code variables. Before the standard Fortran 90/95 there are not any way to select the precision of
 !!the numerical variables in a portable fashion. With the possibility to specify a kind parameter for variables, the standard
-!!fortran 90/95 makes avaible two useful functions to select the kind precision of integers and reals:
+!!Fortran 90/95 makes avaible two useful functions to select the kind precision of integers and reals:
 !!
 !!\begin{boxred}{selected\_real\_kind \& selected\_int\_kind}
 !!\begin{verbatim}
@@ -3952,7 +3952,7 @@ endmodule LIB_VTK_IO
 !!\lettrine[lines=2,loversize=-.1,lraise=0.2]{{\bf F}}{ortran} is not an \MaiuscolettoBS{object oriented} (OOp) programming
 !!language. It is a procedural language with some of the the goals (ineritance, user-definited data type, polimorphism...)
 !!of OOp. Fortran most important aim is to ensure the performance of the code not its \virgo{friendliness}... Despite its
-!!nature, fortran 90/95 makes avaible some interesting features: it permits the dynamic dispatching of functions and
+!!nature, Fortran 90/95 makes avaible some interesting features: it permits the dynamic dispatching of functions and
 !!subroutine ensuring the best performance. This goal is achived with use of $interface$ construct. In the \LIBVTKIO there are,
 !!at today, 4 interface blocks:
 !!
@@ -4009,7 +4009,7 @@ endmodule LIB_VTK_IO
 !!
 !!By the interface construct \LIBVTKIO has a more simple API. The user deals with a few functions without non-sense-long-name...
 !!Dynamic dispatching is not the magic wand to solve all problems but it is an useful tool to simplify the code API. It is
-!!not powerful as the C++ template, but it is a \MaiuscolettoBS{quantum-leap} for fortran programmers.
+!!not powerful as the C++ template, but it is a \MaiuscolettoBS{quantum-leap} for Fortran programmers.
 !!
 !!\chapter{Known Bugs}
 !!\label{cap:BUG}
@@ -4017,7 +4017,7 @@ endmodule LIB_VTK_IO
 !!\lettrine[lines=2,loversize=-.1,lraise=0.2]{{\bf T}}{he} \LIBVTKIO is a very young project and it is a good example of wrong
 !!programming style... It is unstable and not tested. It is used by only one user (... me of course!) and there are a lot of
 !!bugs that are still hidden. At the moment several features are missing (the input functions and the poly-data topology...),
-!!but it is useful to export fortran data to VTK standard, and this goal was the most important for me.
+!!but it is useful to export Fortran data to VTK standard, and this goal was the most important for me.
 !!
 !!At today only one main bug was found. Fortran allows the automatic reshape of arrays: as an example 2D array can be
 !!automatically (in the function calling) transformed  to a 1D array with the same number of element of 2D array. The use of
@@ -4126,35 +4126,35 @@ endmodule LIB_VTK_IO
 !!
 !!\item Definitions.
 !!
-!!``This License'' refers to version 3 of the GNU General Public License.
+!!``This License" refers to version 3 of the GNU General Public License.
 !!
-!!``Copyright'' also means copyright-like laws that apply to other kinds of
+!!``Copyright" also means copyright-like laws that apply to other kinds of
 !!works, such as semiconductor masks.
 !!
-!!``The Program'' refers to any copyrightable work licensed under this
-!!License.  Each licensee is addressed as ``you''.  ``Licensees'' and
-!!``recipients'' may be individuals or organizations.
+!!``The Program" refers to any copyrightable work licensed under this
+!!License.  Each licensee is addressed as ``you".  ``Licensees" and
+!!``recipients" may be individuals or organizations.
 !!
-!!To ``modify'' a work means to copy from or adapt all or part of the work
+!!To ``modify" a work means to copy from or adapt all or part of the work
 !!in a fashion requiring copyright permission, other than the making of an
-!!exact copy.  The resulting work is called a ``modified version'' of the
-!!earlier work or a work ``based on'' the earlier work.
+!!exact copy.  The resulting work is called a ``modified version" of the
+!!earlier work or a work ``based on" the earlier work.
 !!
-!!A ``covered work'' means either the unmodified Program or a work based
+!!A ``covered work" means either the unmodified Program or a work based
 !!on the Program.
 !!
-!!To ``propagate'' a work means to do anything with it that, without
+!!To ``propagate" a work means to do anything with it that, without
 !!permission, would make you directly or secondarily liable for
 !!infringement under applicable copyright law, except executing it on a
 !!computer or modifying a private copy.  Propagation includes copying,
 !!distribution (with or without modification), making available to the
 !!public, and in some countries other activities as well.
 !!
-!!To ``convey'' a work means any kind of propagation that enables other
+!!To ``convey" a work means any kind of propagation that enables other
 !!parties to make or receive copies.  Mere interaction with a user through
 !!a computer network, with no transfer of a copy, is not conveying.
 !!
-!!An interactive user interface displays ``Appropriate Legal Notices''
+!!An interactive user interface displays ``Appropriate Legal Notices"
 !!to the extent that it includes a convenient and prominently visible
 !!feature that (1) displays an appropriate copyright notice, and (2)
 !!tells the user that there is no warranty for the work (except to the
@@ -4165,27 +4165,27 @@ endmodule LIB_VTK_IO
 !!
 !!\item Source Code.
 !!
-!!The ``source code'' for a work means the preferred form of the work
-!!for making modifications to it.  ``Object code'' means any non-source
+!!The ``source code" for a work means the preferred form of the work
+!!for making modifications to it.  ``Object code" means any non-source
 !!form of a work.
 !!
-!!A ``Standard Interface'' means an interface that either is an official
+!!A ``Standard Interface" means an interface that either is an official
 !!standard defined by a recognized standards body, or, in the case of
 !!interfaces specified for a particular programming language, one that
 !!is widely used among developers working in that language.
 !!
-!!The ``System Libraries'' of an executable work include anything, other
+!!The ``System Libraries" of an executable work include anything, other
 !!than the work as a whole, that (a) is included in the normal form of
 !!packaging a Major Component, but which is not part of that Major
 !!Component, and (b) serves only to enable use of the work with that
 !!Major Component, or to implement a Standard Interface for which an
 !!implementation is available to the public in source code form.  A
-!!``Major Component'', in this context, means a major essential component
+!!``Major Component", in this context, means a major essential component
 !!(kernel, window system, and so on) of the specific operating system
 !!(if any) on which the executable work runs, or a compiler used to
 !!produce the work, or an object code interpreter used to run it.
 !!
-!!The ``Corresponding Source'' for a work in object code form means all
+!!The ``Corresponding Source" for a work in object code form means all
 !!the source code needed to generate, install, and (for an executable
 !!work) run the object code and to modify the work, including scripts to
 !!control those activities.  However, it does not include the work's
@@ -4271,7 +4271,7 @@ endmodule LIB_VTK_IO
 !!  \item The work must carry prominent notices stating that it is
 !!  released under this License and any conditions added under section
 !!  7.  This requirement modifies the requirement in section 4 to
-!!  ``keep intact all notices''.
+!!  ``keep intact all notices".
 !!
 !!  \item You must license the entire work, as a whole, under this
 !!  License to anyone who comes into possession of a copy.  This
@@ -4290,7 +4290,7 @@ endmodule LIB_VTK_IO
 !!works, which are not by their nature extensions of the covered work,
 !!and which are not combined with it such as to form a larger program,
 !!in or on a volume of a storage or distribution medium, is called an
-!!``aggregate'' if the compilation and its resulting copyright are not
+!!``aggregate" if the compilation and its resulting copyright are not
 !!used to limit the access or legal rights of the compilation's users
 !!beyond what the individual works permit.  Inclusion of a covered work
 !!in an aggregate does not cause this License to apply to the other
@@ -4349,12 +4349,12 @@ endmodule LIB_VTK_IO
 !!from the Corresponding Source as a System Library, need not be
 !!included in conveying the object code work.
 !!
-!!A ``User Product'' is either (1) a ``consumer product'', which means any
+!!A ``User Product" is either (1) a ``consumer product", which means any
 !!tangible personal property which is normally used for personal, family,
 !!or household purposes, or (2) anything designed or sold for incorporation
 !!into a dwelling.  In determining whether a product is a consumer product,
 !!doubtful cases shall be resolved in favor of coverage.  For a particular
-!!product received by a particular user, ``normally used'' refers to a
+!!product received by a particular user, ``normally used" refers to a
 !!typical or common use of that class of product, regardless of the status
 !!of the particular user or of the way in which the particular user
 !!actually uses, or expects or is expected to use, the product.  A product
@@ -4362,7 +4362,7 @@ endmodule LIB_VTK_IO
 !!commercial, industrial or non-consumer uses, unless such uses represent
 !!the only significant mode of use of the product.
 !!
-!!``Installation Information'' for a User Product means any methods,
+!!``Installation Information" for a User Product means any methods,
 !!procedures, authorization keys, or other information required to install
 !!and execute modified versions of a covered work in that User Product from
 !!a modified version of its Corresponding Source.  The information must
@@ -4397,7 +4397,7 @@ endmodule LIB_VTK_IO
 !!
 !!\item Additional Terms.
 !!
-!!``Additional permissions'' are terms that supplement the terms of this
+!!``Additional permissions" are terms that supplement the terms of this
 !!License by making exceptions from one or more of its conditions.
 !!Additional permissions that are applicable to the entire Program shall
 !!be treated as though they were included in this License, to the extent
@@ -4442,7 +4442,7 @@ endmodule LIB_VTK_IO
 !!  \end{enumerate}
 !!
 !!All other non-permissive additional terms are considered ``further
-!!restrictions'' within the meaning of section 10.  If the Program as you
+!!restrictions" within the meaning of section 10.  If the Program as you
 !!received it, or any part of it, contains a notice stating that it is
 !!governed by this License along with a term that is a further
 !!restriction, you may remove that term.  If a license document contains
@@ -4506,7 +4506,7 @@ endmodule LIB_VTK_IO
 !!propagate that work, subject to this License.  You are not responsible
 !!for enforcing compliance by third parties with this License.
 !!
-!!An ``entity transaction'' is a transaction transferring control of an
+!!An ``entity transaction" is a transaction transferring control of an
 !!organization, or substantially all assets of one, or subdividing an
 !!organization, or merging organizations.  If propagation of a covered
 !!work results from an entity transaction, each party to that
@@ -4526,17 +4526,17 @@ endmodule LIB_VTK_IO
 !!
 !!\item Patents.
 !!
-!!A ``contributor'' is a copyright holder who authorizes use under this
+!!A ``contributor" is a copyright holder who authorizes use under this
 !!License of the Program or a work on which the Program is based.  The
-!!work thus licensed is called the contributor's ``contributor version''.
+!!work thus licensed is called the contributor's ``contributor version".
 !!
-!!A contributor's ``essential patent claims'' are all patent claims
+!!A contributor's ``essential patent claims" are all patent claims
 !!owned or controlled by the contributor, whether already acquired or
 !!hereafter acquired, that would be infringed by some manner, permitted
 !!by this License, of making, using, or selling its contributor version,
 !!but do not include claims that would be infringed only as a
 !!consequence of further modification of the contributor version.  For
-!!purposes of this definition, ``control'' includes the right to grant
+!!purposes of this definition, ``control" includes the right to grant
 !!patent sublicenses in a manner consistent with the requirements of
 !!this License.
 !!
@@ -4545,10 +4545,10 @@ endmodule LIB_VTK_IO
 !!make, use, sell, offer for sale, import and otherwise run, modify and
 !!propagate the contents of its contributor version.
 !!
-!!In the following three paragraphs, a ``patent license'' is any express
+!!In the following three paragraphs, a ``patent license" is any express
 !!agreement or commitment, however denominated, not to enforce a patent
 !!(such as an express permission to practice a patent or covenant not to
-!!sue for patent infringement).  To ``grant'' such a patent license to a
+!!sue for patent infringement).  To ``grant" such a patent license to a
 !!party means to make such an agreement or commitment not to enforce a
 !!patent against the party.
 !!
@@ -4560,7 +4560,7 @@ endmodule LIB_VTK_IO
 !!available, or (2) arrange to deprive yourself of the benefit of the
 !!patent license for this particular work, or (3) arrange, in a manner
 !!consistent with the requirements of this License, to extend the patent
-!!license to downstream recipients.  ``Knowingly relying'' means you have
+!!license to downstream recipients.  ``Knowingly relying" means you have
 !!actual knowledge that, but for the patent license, your conveying the
 !!covered work in a country, or your recipient's use of the covered work
 !!in a country, would infringe one or more identifiable patents in that
@@ -4574,7 +4574,7 @@ endmodule LIB_VTK_IO
 !!you grant is automatically extended to all recipients of the covered
 !!work and works based on it.
 !!
-!!A patent license is ``discriminatory'' if it does not include within
+!!A patent license is ``discriminatory" if it does not include within
 !!the scope of its coverage, prohibits the exercise of, or is
 !!conditioned on the non-exercise of one or more of the rights that are
 !!specifically granted under this License.  You may not convey a covered
@@ -4625,7 +4625,7 @@ endmodule LIB_VTK_IO
 !!
 !!Each version is given a distinguishing version number.  If the
 !!Program specifies that a certain numbered version of the GNU General
-!!Public License ``or any later version'' applies to it, you have the
+!!Public License ``or any later version" applies to it, you have the
 !!option of following the terms and conditions either of that numbered
 !!version or of any later version published by the Free Software
 !!Foundation.  If the Program does not specify a version number of the
@@ -4647,7 +4647,7 @@ endmodule LIB_VTK_IO
 !!\begin{sloppypar}
 !! THERE IS NO WARRANTY FOR THE PROGRAM, TO THE EXTENT PERMITTED BY
 !! APPLICABLE LAW.  EXCEPT WHEN OTHERWISE STATED IN WRITING THE
-!! COPYRIGHT HOLDERS AND/OR OTHER PARTIES PROVIDE THE PROGRAM ``AS IS''
+!! COPYRIGHT HOLDERS AND/OR OTHER PARTIES PROVIDE THE PROGRAM ``AS IS"
 !! WITHOUT WARRANTY OF ANY KIND, EITHER EXPRESSED OR IMPLIED,
 !! INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
 !! MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.  THE ENTIRE
@@ -4692,13 +4692,13 @@ endmodule LIB_VTK_IO
 !!To do so, attach the following notices to the program.  It is safest
 !!to attach them to the start of each source file to most effectively
 !!state the exclusion of warranty; and each file should have at least
-!!the ``copyright'' line and a pointer to where the full notice is found.
+!!the ``copyright" line and a pointer to where the full notice is found.
 !!
 !!{\footnotesize
 !!\begin{verbatim}
-!!<one line to give the program's name and a brief idea of what it does.>
+!! < one line to give the program's name and a brief idea of what it does.>
 !!
-!!Copyright (C) <textyear>  <name of author>
+!!Copyright (C) < textyear> < name of author>
 !!
 !!This program is free software: you can redistribute it and/or modify
 !!it under the terms of the GNU General Public License as published by
@@ -4711,7 +4711,7 @@ endmodule LIB_VTK_IO
 !!GNU General Public License for more details.
 !!
 !!You should have received a copy of the GNU General Public License
-!!along with this program.  If not, see <http://www.gnu.org/licenses/>.
+!!along with this program.  If not, see < http://www.gnu.org/licenses/>.
 !!\end{verbatim}
 !!}
 !!
@@ -4722,7 +4722,7 @@ endmodule LIB_VTK_IO
 !!
 !!{\footnotesize
 !!\begin{verbatim}
-!!<program>  Copyright (C) <year>  <name of author>
+!! < program>  Copyright (C) < year> < name of author>
 !!
 !!This program comes with ABSOLUTELY NO WARRANTY; for details type `show w'.
 !!This is free software, and you are welcome to redistribute it
@@ -4733,10 +4733,10 @@ endmodule LIB_VTK_IO
 !!The hypothetical commands {\tt show w} and {\tt show c} should show
 !!the appropriate
 !!parts of the General Public License.  Of course, your program's commands
-!!might be different; for a GUI interface, you would use an ``about box''.
+!!might be different; for a GUI interface, you would use an ``about box".
 !!
 !!You should also get your employer (if you work as a programmer) or
-!!school, if any, to sign a ``copyright disclaimer'' for the program, if
+!!school, if any, to sign a ``copyright disclaimer" for the program, if
 !!necessary.  For more information on this, and how to apply and follow
 !!the GNU GPL, see \texttt{http://www.gnu.org/licenses/}.
 !!
@@ -4750,3 +4750,4 @@ endmodule LIB_VTK_IO
 !!\end{enumerate}
 
 !(doc)footer
+ >  >  >  >  >  >  > f12ccc8... switches from getarg() to get_command_argument(); updates formatting

@@ -11,7 +11,7 @@
 !
 ! This program is free software; you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by
-! the Free Software Foundation; either version 2 of the License, or
+! the Free Software Foundation; either version 3 of the License, or
 ! (at your option) any later version.
 !
 ! This program is distributed in the hope that it will be useful,
@@ -36,7 +36,7 @@
                                            buffer_send_vector,buffer_recv_vector, &
                                            num_interfaces,max_nibool_interfaces, &
                                            nibool_interfaces,ibool_interfaces, &
-                                           my_neighbours, &
+                                           my_neighbors, &
                                            request_send_vector,request_recv_vector)
 
 ! sends data
@@ -56,7 +56,7 @@
   real(kind=CUSTOM_REAL), dimension(NDIM,max_nibool_interfaces,num_interfaces) :: &
        buffer_send_vector,buffer_recv_vector
 
-  integer, dimension(num_interfaces) :: nibool_interfaces,my_neighbours
+  integer, dimension(num_interfaces) :: nibool_interfaces,my_neighbors
   integer, dimension(max_nibool_interfaces,num_interfaces) :: ibool_interfaces
   integer, dimension(num_interfaces) :: request_send_vector,request_recv_vector
 
@@ -79,13 +79,13 @@
      do iinterface = 1, num_interfaces
         call isend_cr(buffer_send_vector(1,1,iinterface), &
                       NDIM*nibool_interfaces(iinterface), &
-                      my_neighbours(iinterface), &
+                      my_neighbors(iinterface), &
                       itag, &
                       request_send_vector(iinterface))
 
         call irecv_cr(buffer_recv_vector(1,1,iinterface), &
                       NDIM*nibool_interfaces(iinterface), &
-                      my_neighbours(iinterface), &
+                      my_neighbors(iinterface), &
                       itag, &
                       request_recv_vector(iinterface))
      enddo
@@ -138,7 +138,7 @@
       call wait_req(request_recv_vector(iinterface))
     enddo
 
-    ! adding contributions of neighbours
+    ! adding contributions of neighbors
     do iinterface = 1, num_interfaces
       do ipoin = 1, nibool_interfaces(iinterface)
         array_val(:,ibool_interfaces(ipoin,iinterface)) = &
@@ -174,7 +174,7 @@
                                           buffer_send_vector,buffer_recv_vector, &
                                           num_interfaces,max_nibool_interfaces, &
                                           nibool_interfaces, &
-                                          my_neighbours, &
+                                          my_neighbors, &
                                           request_send_vector,request_recv_vector)
 
   ! sends data
@@ -190,7 +190,7 @@
   real(kind=CUSTOM_REAL), dimension(NDIM,max_nibool_interfaces,num_interfaces) :: &
        buffer_send_vector,buffer_recv_vector
 
-  integer, dimension(num_interfaces) :: nibool_interfaces,my_neighbours
+  integer, dimension(num_interfaces) :: nibool_interfaces,my_neighbors
   integer, dimension(num_interfaces) :: request_send_vector,request_recv_vector
 
   ! local parameters
@@ -206,13 +206,13 @@
     do iinterface = 1, num_interfaces
       call isend_cr(buffer_send_vector(1,1,iinterface), &
                     NDIM*nibool_interfaces(iinterface), &
-                    my_neighbours(iinterface), &
+                    my_neighbors(iinterface), &
                     itag, &
                     request_send_vector(iinterface))
 
       call irecv_cr(buffer_recv_vector(1,1,iinterface), &
                     NDIM*nibool_interfaces(iinterface), &
-                    my_neighbours(iinterface), &
+                    my_neighbors(iinterface), &
                     itag, &
                     request_recv_vector(iinterface))
     enddo
@@ -263,7 +263,7 @@
       call wait_req(request_recv_vector(iinterface))
     enddo
 
-    ! adding contributions of neighbours
+    ! adding contributions of neighbors
     call transfer_asmbl_accel_to_device(Mesh_pointer, &
                                         buffer_recv_vector, &
                                         IREGION,FORWARD_OR_ADJOINT)
@@ -294,7 +294,7 @@
 
   subroutine transfer_boundary_to_device(Mesh_pointer, NPROC, &
                                             buffer_recv_vector, &
-                                            num_interfaces,max_nibool_interfaces,&
+                                            num_interfaces,max_nibool_interfaces, &
                                             request_recv_vector, &
                                             IREGION,FORWARD_OR_ADJOINT)
 

@@ -11,7 +11,7 @@
 !
 ! This program is free software; you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by
-! the Free Software Foundation; either version 2 of the License, or
+! the Free Software Foundation; either version 3 of the License, or
 ! (at your option) any later version.
 !
 ! This program is distributed in the hope that it will be useful,
@@ -40,25 +40,35 @@
 !-------------------------------------------------------------------------------------------------
 
 
-  subroutine multiply_accel_elastic(NGLOB,veloc,accel, &
-                                    two_omega_earth, &
-                                    rmassx,rmassy,rmassz)
+  subroutine multiply_accel_elastic(two_omega_earth, &
+                                    NGLOB_CM,veloc_cm,accel_cm, &
+                                    rmassx_cm,rmassy_cm,rmassz_cm, &
+                                    NGLOB_IC,veloc_ic,accel_ic, &
+                                    rmassx_ic,rmassy_ic,rmassz_ic)
 
 ! multiplies acceleration with inverse of mass matrices in crust/mantle,solid inner core region
 
-  use constants_solver,only: CUSTOM_REAL,NDIM
+  use constants_solver, only: CUSTOM_REAL,NDIM,ROTATION_VAL
 
   implicit none
 
-  integer :: NGLOB
+  real(kind=CUSTOM_REAL),intent(in) :: two_omega_earth
 
+  ! crust/mantle
+  integer,intent(in) :: NGLOB_CM
   ! velocity & acceleration
-  real(kind=CUSTOM_REAL), dimension(NDIM,NGLOB) :: veloc,accel
-
-  real(kind=CUSTOM_REAL) :: two_omega_earth
-
+  real(kind=CUSTOM_REAL), dimension(NDIM,NGLOB_CM),intent(in) :: veloc_cm
+  real(kind=CUSTOM_REAL), dimension(NDIM,NGLOB_CM),intent(inout) :: accel_cm
   ! mass matrices
-  real(kind=CUSTOM_REAL), dimension(NGLOB) :: rmassx,rmassy,rmassz
+  real(kind=CUSTOM_REAL), dimension(NGLOB_CM),intent(in) :: rmassx_cm,rmassy_cm,rmassz_cm
+
+  ! inner core
+  integer,intent(in) :: NGLOB_IC
+  ! velocity & acceleration
+  real(kind=CUSTOM_REAL), dimension(NDIM,NGLOB_IC),intent(in) :: veloc_ic
+  real(kind=CUSTOM_REAL), dimension(NDIM,NGLOB_IC),intent(inout) :: accel_ic
+  ! mass matrices
+  real(kind=CUSTOM_REAL), dimension(NGLOB_IC),intent(in) :: rmassx_ic,rmassy_ic,rmassz_ic
 
   ! local parameters
   integer :: i
@@ -75,17 +85,68 @@
   ! updates acceleration w/ rotation in elastic region
 
   ! see input call, differs for corrected mass matrices for rmassx,rmassy,rmassz
-!$OMP PARALLEL DEFAULT(NONE) &
-!$OMP SHARED(NGLOB, accel, rmassx, rmassy, rmassz, two_omega_earth, veloc) &
+
+  ! divides by mass matrix
+  ! (rmassx holds inverted mass matrix; numerically multiplication is faster than division)
+  if (ROTATION_VAL) then
+    ! adds contributions due to rotation
+
+! openmp solver
+!$OMP PARALLEL &
+!$OMP DEFAULT(NONE) &
+!$OMP SHARED(two_omega_earth, &
+!$OMP NGLOB_CM, accel_cm, veloc_cm, rmassx_cm, rmassy_cm, rmassz_cm, &
+!$OMP NGLOB_IC, accel_ic, veloc_ic, rmassx_ic, rmassy_ic, rmassz_ic) &
 !$OMP PRIVATE(i)
-!$OMP DO SCHEDULE(GUIDED)
-  do i = 1,NGLOB
-    accel(1,i) = accel(1,i)*rmassx(i) + two_omega_earth*veloc(2,i)
-    accel(2,i) = accel(2,i)*rmassy(i) - two_omega_earth*veloc(1,i)
-    accel(3,i) = accel(3,i)*rmassz(i)
-  enddo
-!$OMP enddo
+
+    ! crust/mantle
+!$OMP DO
+    do i = 1,NGLOB_CM
+      accel_cm(1,i) = accel_cm(1,i)*rmassx_cm(i) + two_omega_earth * veloc_cm(2,i)
+      accel_cm(2,i) = accel_cm(2,i)*rmassy_cm(i) - two_omega_earth * veloc_cm(1,i)
+      accel_cm(3,i) = accel_cm(3,i)*rmassz_cm(i)
+    enddo
+!$OMP ENDDO NOWAIT
+
+    ! inner core
+!$OMP DO
+    do i = 1,NGLOB_IC
+      accel_ic(1,i) = accel_ic(1,i)*rmassx_ic(i) + two_omega_earth * veloc_ic(2,i)
+      accel_ic(2,i) = accel_ic(2,i)*rmassy_ic(i) - two_omega_earth * veloc_ic(1,i)
+      accel_ic(3,i) = accel_ic(3,i)*rmassz_ic(i)
+    enddo
+!$OMP ENDDO
 !$OMP END PARALLEL
+
+  else
+    ! no rotation
+!$OMP PARALLEL &
+!$OMP DEFAULT(NONE) &
+!$OMP SHARED(two_omega_earth, &
+!$OMP NGLOB_CM, accel_cm, veloc_cm, rmassx_cm, rmassy_cm, rmassz_cm, &
+!$OMP NGLOB_IC, accel_ic, veloc_ic, rmassx_ic, rmassy_ic, rmassz_ic) &
+!$OMP PRIVATE(i)
+
+    ! crust/mantle
+!$OMP DO
+    do i = 1,NGLOB_CM
+      accel_cm(1,i) = accel_cm(1,i)*rmassx_cm(i)
+      accel_cm(2,i) = accel_cm(2,i)*rmassy_cm(i)
+      accel_cm(3,i) = accel_cm(3,i)*rmassz_cm(i)
+    enddo
+!$OMP ENDDO NOWAIT
+
+    ! inner core
+!$OMP DO
+    do i = 1,NGLOB_IC
+      accel_ic(1,i) = accel_ic(1,i)*rmassx_ic(i)
+      accel_ic(2,i) = accel_ic(2,i)*rmassy_ic(i)
+      accel_ic(3,i) = accel_ic(3,i)*rmassz_ic(i)
+    enddo
+!$OMP ENDDO
+!$OMP END PARALLEL
+
+  endif
 
   end subroutine multiply_accel_elastic
 
@@ -102,7 +163,7 @@
 
 ! multiplies acceleration with inverse of mass matrix in outer core region
 
-  use constants_solver,only: CUSTOM_REAL
+  use constants_solver, only: CUSTOM_REAL
 
   implicit none
 
@@ -121,93 +182,17 @@
   ! note: mass matrices for fluid region has no Stacey or rotation correction
   !       it is also the same for forward and backward/reconstructed wavefields
 
+! openmp solver
+!$OMP PARALLEL &
+!$OMP DEFAULT(NONE) &
+!$OMP SHARED(NGLOB, accel, rmass) &
+!$OMP PRIVATE(i)
+!$OMP DO
   do i = 1,NGLOB
     accel(i) = accel(i)*rmass(i)
   enddo
+!$OMP ENDDO
+!$OMP END PARALLEL
 
   end subroutine multiply_accel_acoustic
-
-
-
-!-------------------------------------------------------------------------------------------------
-!
-! interpolated source arrays
-!
-!-------------------------------------------------------------------------------------------------
-
-  subroutine multiply_arrays_source(sourcearrayd,G11,G12,G13,G21,G22,G23, &
-                  G31,G32,G33,hxis,hpxis,hetas,hpetas,hgammas,hpgammas,k,l,m)
-
-  use constants
-
-  implicit none
-
-  ! source arrays
-  double precision, dimension(NDIM,NGLLX,NGLLY,NGLLZ) :: sourcearrayd
-  double precision, dimension(NGLLX,NGLLY,NGLLZ) :: G11,G12,G13,G21,G22,G23,G31,G32,G33
-  double precision, dimension(NGLLX) :: hxis,hpxis
-  double precision, dimension(NGLLY) :: hetas,hpetas
-  double precision, dimension(NGLLZ) :: hgammas,hpgammas
-
-  integer :: k,l,m
-
-  ! local parameters
-  integer :: ir,it,iv
-
-  ! initializes
-  sourcearrayd(:,k,l,m) = ZERO
-
-  do iv = 1,NGLLZ
-    do it = 1,NGLLY
-      do ir = 1,NGLLX
-
-        sourcearrayd(1,k,l,m) = sourcearrayd(1,k,l,m) + hxis(ir)*hetas(it)*hgammas(iv) &
-                           *(G11(ir,it,iv)*hpxis(k)*hetas(l)*hgammas(m) &
-                           +G12(ir,it,iv)*hxis(k)*hpetas(l)*hgammas(m) &
-                           +G13(ir,it,iv)*hxis(k)*hetas(l)*hpgammas(m))
-
-        sourcearrayd(2,k,l,m) = sourcearrayd(2,k,l,m) + hxis(ir)*hetas(it)*hgammas(iv) &
-                           *(G21(ir,it,iv)*hpxis(k)*hetas(l)*hgammas(m) &
-                           +G22(ir,it,iv)*hxis(k)*hpetas(l)*hgammas(m) &
-                           +G23(ir,it,iv)*hxis(k)*hetas(l)*hpgammas(m))
-
-        sourcearrayd(3,k,l,m) = sourcearrayd(3,k,l,m) + hxis(ir)*hetas(it)*hgammas(iv) &
-                           *(G31(ir,it,iv)*hpxis(k)*hetas(l)*hgammas(m) &
-                           +G32(ir,it,iv)*hxis(k)*hpetas(l)*hgammas(m) &
-                           +G33(ir,it,iv)*hxis(k)*hetas(l)*hpgammas(m))
-
-      enddo
-    enddo
-  enddo
-
-  end subroutine multiply_arrays_source
-
-!
-!-------------------------------------------------------------------------------------------------
-!
-
-  subroutine multiply_arrays_adjoint(sourcearrayd,hxir,hetar,hgammar,adj_src_ud)
-
-  use constants
-
-  implicit none
-
-  double precision, dimension(NDIM,NGLLX,NGLLY,NGLLZ) :: sourcearrayd
-  double precision, dimension(NGLLX) :: hxir
-  double precision, dimension(NGLLY) :: hetar
-  double precision, dimension(NGLLZ) :: hgammar
-  double precision, dimension(NDIM) :: adj_src_ud
-
-  integer :: i,j,k
-
-  ! adds interpolated source contribution to all GLL points within this element
-  do k = 1, NGLLZ
-    do j = 1, NGLLY
-      do i = 1, NGLLX
-        sourcearrayd(:,i,j,k) = hxir(i) * hetar(j) * hgammar(k) * adj_src_ud(:)
-      enddo
-    enddo
-  enddo
-
-  end subroutine multiply_arrays_adjoint
 

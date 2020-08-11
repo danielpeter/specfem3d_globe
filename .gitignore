@@ -5,7 +5,7 @@
 *~
 
 # Configure time
-./Makefile
+/Makefile
 aclocal.m4
 autom4te.cache
 config.log
@@ -15,6 +15,9 @@ setup/config.h
 setup/constants.h
 setup/constants_tomography.h
 setup/precision.h
+setup/version.fh
+# local archives
+arc/
 
 # Build time
 bin/
@@ -24,3 +27,6 @@ OUTPUT_FILES/*
 # Documentation
 doc/USER_MANUAL/figures/*-eps-converted-to.pdf
 
+#
+slurm*
+submit*

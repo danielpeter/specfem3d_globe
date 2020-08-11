@@ -11,7 +11,7 @@
 !
 ! This program is free software; you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by
-! the Free Software Foundation; either version 2 of the License, or
+! the Free Software Foundation; either version 3 of the License, or
 ! (at your option) any later version.
 !
 ! This program is distributed in the hope that it will be useful,
@@ -32,7 +32,7 @@
   subroutine assemble_MPI_scalar(NPROC,nglob,array_val, &
                         num_interfaces,max_nibool_interfaces, &
                         nibool_interfaces,ibool_interfaces, &
-                        my_neighbours)
+                        my_neighbors)
 
 ! blocking send/receive
 
@@ -47,7 +47,7 @@
   real(kind=CUSTOM_REAL), dimension(nglob), intent(inout) :: array_val
 
   integer :: num_interfaces,max_nibool_interfaces
-  integer, dimension(num_interfaces) :: nibool_interfaces,my_neighbours
+  integer, dimension(num_interfaces) :: nibool_interfaces,my_neighbors
   integer, dimension(max_nibool_interfaces,num_interfaces) :: ibool_interfaces
 
   ! local parameters
@@ -83,11 +83,11 @@
     do iinterface = 1, num_interfaces
       ! non-blocking synchronous send request
       call isend_cr(buffer_send_scalar(1:nibool_interfaces(iinterface),iinterface), &
-                   nibool_interfaces(iinterface),my_neighbours(iinterface), &
+                   nibool_interfaces(iinterface),my_neighbors(iinterface), &
                    itag,request_send_scalar(iinterface) )
       ! receive request
       call irecv_cr(buffer_recv_scalar(1:nibool_interfaces(iinterface),iinterface), &
-                   nibool_interfaces(iinterface),my_neighbours(iinterface), &
+                   nibool_interfaces(iinterface),my_neighbors(iinterface), &
                    itag,request_recv_scalar(iinterface) )
     enddo
 
@@ -96,7 +96,7 @@
       call wait_req(request_recv_scalar(iinterface))
     enddo
 
-    ! adding contributions of neighbours
+    ! adding contributions of neighbors
     do iinterface = 1, num_interfaces
       do ipoin = 1, nibool_interfaces(iinterface)
         array_val(ibool_interfaces(ipoin,iinterface)) = &
@@ -126,7 +126,7 @@
                         buffer_send_scalar,buffer_recv_scalar, &
                         num_interfaces,max_nibool_interfaces, &
                         nibool_interfaces,ibool_interfaces, &
-                        my_neighbours, &
+                        my_neighbors, &
                         request_send_scalar,request_recv_scalar)
 
 ! non-blocking MPI send
@@ -146,7 +146,7 @@
   real(kind=CUSTOM_REAL), dimension(max_nibool_interfaces,num_interfaces) :: &
        buffer_send_scalar,buffer_recv_scalar
 
-  integer, dimension(num_interfaces) :: nibool_interfaces,my_neighbours
+  integer, dimension(num_interfaces) :: nibool_interfaces,my_neighbors
   integer, dimension(max_nibool_interfaces,num_interfaces) :: ibool_interfaces
   integer, dimension(num_interfaces) :: request_send_scalar,request_recv_scalar
 
@@ -167,11 +167,11 @@
     do iinterface = 1, num_interfaces
       ! non-blocking synchronous send request
       call isend_cr(buffer_send_scalar(1:nibool_interfaces(iinterface),iinterface), &
-                   nibool_interfaces(iinterface),my_neighbours(iinterface), &
+                   nibool_interfaces(iinterface),my_neighbors(iinterface), &
                    itag,request_send_scalar(iinterface))
       ! receive request
       call irecv_cr(buffer_recv_scalar(1:nibool_interfaces(iinterface),iinterface), &
-                   nibool_interfaces(iinterface),my_neighbours(iinterface), &
+                   nibool_interfaces(iinterface),my_neighbors(iinterface), &
                    itag,request_recv_scalar(iinterface))
 
     enddo
@@ -202,7 +202,6 @@
 ! array to assemble
   real(kind=CUSTOM_REAL), dimension(nglob) :: array_val
 
-
   real(kind=CUSTOM_REAL), dimension(max_nibool_interfaces,num_interfaces) :: &
        buffer_recv_scalar
 
@@ -220,7 +219,7 @@
       call wait_req(request_recv_scalar(iinterface))
     enddo
 
-    ! adding contributions of neighbours
+    ! adding contributions of neighbors
     do iinterface = 1, num_interfaces
       do ipoin = 1, nibool_interfaces(iinterface)
         array_val(ibool_interfaces(ipoin,iinterface)) = &
@@ -250,7 +249,7 @@
                                           buffer_send_scalar,buffer_recv_scalar, &
                                           num_interfaces,max_nibool_interfaces, &
                                           nibool_interfaces, &
-                                          my_neighbours, &
+                                          my_neighbors, &
                                           request_send_scalar,request_recv_scalar)
 
 ! non-blocking MPI send
@@ -268,7 +267,7 @@
   real(kind=CUSTOM_REAL), dimension(max_nibool_interfaces,num_interfaces) :: &
        buffer_send_scalar,buffer_recv_scalar
 
-  integer, dimension(num_interfaces) :: nibool_interfaces,my_neighbours
+  integer, dimension(num_interfaces) :: nibool_interfaces,my_neighbors
   integer, dimension(num_interfaces) :: request_send_scalar,request_recv_scalar
 
   ! local parameters
@@ -284,11 +283,11 @@
     do iinterface = 1, num_interfaces
       ! non-blocking synchronous send request
       call isend_cr(buffer_send_scalar(1:nibool_interfaces(iinterface),iinterface), &
-                   nibool_interfaces(iinterface),my_neighbours(iinterface), &
+                   nibool_interfaces(iinterface),my_neighbors(iinterface), &
                    itag,request_send_scalar(iinterface))
       ! receive request
       call irecv_cr(buffer_recv_scalar(1:nibool_interfaces(iinterface),iinterface), &
-                   nibool_interfaces(iinterface),my_neighbours(iinterface), &
+                   nibool_interfaces(iinterface),my_neighbors(iinterface), &
                    itag,request_recv_scalar(iinterface) )
 
     enddo
@@ -335,10 +334,10 @@
       call wait_req(request_recv_scalar(iinterface))
     enddo
 
-    ! adding contributions of neighbours
+    ! adding contributions of neighbors
     call transfer_asmbl_pot_to_device(Mesh_pointer,buffer_recv_scalar,FORWARD_OR_ADJOINT)
 
-    ! note: adding contributions of neighbours has been done just above for gpu
+    ! note: adding contributions of neighbors has been done just above for gpu
     !do iinterface = 1, num_interfaces
     !  do ipoin = 1, nibool_interfaces(iinterface)
     !    array_val(ibool_interfaces(ipoin,iinterface)) = &
@@ -364,7 +363,7 @@
 
   subroutine transfer_boundarypot_to_device(Mesh_pointer, NPROC, &
                                             buffer_recv_scalar, &
-                                            num_interfaces,max_nibool_interfaces,&
+                                            num_interfaces,max_nibool_interfaces, &
                                             request_recv_scalar, &
                                             IREGION,FORWARD_OR_ADJOINT)
 

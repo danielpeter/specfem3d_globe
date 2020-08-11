@@ -11,7 +11,7 @@
 !
 ! This program is free software; you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by
-! the Free Software Foundation; either version 2 of the License, or
+! the Free Software Foundation; either version 3 of the License, or
 ! (at your option) any later version.
 !
 ! This program is distributed in the hope that it will be useful,
@@ -25,34 +25,33 @@
 !
 !=====================================================================
 
-  subroutine get_attenuation_model_3D(myrank,iregion_code, &
+
+  subroutine get_attenuation_model_3D(iregion_code, &
                                       one_minus_sum_beta, &
                                       factor_common, &
-                                      scale_factor, tau_s, vnspec)
+                                      factor_scale, tau_s, vnspec)
 
   use constants_solver
-  use specfem_par,only: ATTENUATION_VAL,ADIOS_FOR_ARRAYS_SOLVER,LOCAL_PATH
+  use specfem_par, only: ATTENUATION_VAL,ADIOS_FOR_ARRAYS_SOLVER,LOCAL_PATH, &
+    scale_t_inv
 
   implicit none
 
-  integer :: myrank
+  integer,intent(in) :: iregion_code
 
-  integer :: vnspec
-
-  ! note: factor_common,one_minus_sum_beta and scale_factor are real custom.
+  ! note: factor_common,one_minus_sum_beta and factor_scale are real custom.
   !       this is better, it works fine and these arrays are really huge
   !       in the crust_mantle region, thus let us not double their size
-  real(kind=CUSTOM_REAL), dimension(ATT1_VAL,ATT2_VAL,ATT3_VAL,vnspec),intent(out) :: one_minus_sum_beta, scale_factor
+  integer,intent(in) :: vnspec
+  real(kind=CUSTOM_REAL), dimension(ATT1_VAL,ATT2_VAL,ATT3_VAL,vnspec),intent(out) :: one_minus_sum_beta, factor_scale
   real(kind=CUSTOM_REAL), dimension(ATT1_VAL,ATT2_VAL,ATT3_VAL,N_SLS,vnspec),intent(out) :: factor_common
 
   double precision, dimension(N_SLS),intent(out) :: tau_s
 
-  integer :: iregion_code
-
   ! local parameters
   integer :: i,j,k,ispec,ier,i_sls
   double precision, dimension(N_SLS) :: tau_e, fc
-  double precision :: omsb, Q_mu, sf, T_c_source, scale_t
+  double precision :: omsb, Q_mu, sf, T_c_source
   character(len=MAX_STRING_LEN) :: prname
 
   ! checks if attenuation is on and anything to do
@@ -62,8 +61,8 @@
   ! All of the following reads use the output parameters as their temporary arrays
   ! use the filename to determine the actual contents of the read
   if (ADIOS_FOR_ARRAYS_SOLVER) then
-    call read_attenuation_adios(myrank, iregion_code, &
-                                factor_common, scale_factor, tau_s, vnspec, T_c_source)
+    call read_attenuation_adios(iregion_code, &
+                                factor_common, factor_scale, tau_s, vnspec, T_c_source)
   else
 
     ! opens corresponding databases file
@@ -75,17 +74,15 @@
 
     read(IIN) tau_s
     read(IIN) factor_common ! tau_e_store
-    read(IIN) scale_factor  ! Qmu_store
+    read(IIN) factor_scale  ! Qmu_store
     read(IIN) T_c_source
     close(IIN)
   endif
 
-  scale_t = ONE/dsqrt(PI*GRAV*RHOAV)
-
-  factor_common(:,:,:,:,:) = factor_common(:,:,:,:,:) / scale_t ! This is really tau_e, not factor_common
-  tau_s(:)                 = tau_s(:) / scale_t
+  factor_common(:,:,:,:,:) = factor_common(:,:,:,:,:) * scale_t_inv ! This is really tau_e, not factor_common
+  tau_s(:)                 = tau_s(:) * scale_t_inv
   T_c_source               = 1000.0d0 / T_c_source
-  T_c_source               = T_c_source / scale_t
+  T_c_source               = T_c_source * scale_t_inv
 
   ! loops over elements
   do ispec = 1, vnspec
@@ -97,7 +94,7 @@
           do i_sls = 1,N_SLS
             tau_e(i_sls) = factor_common(i,j,k,i_sls,ispec)
           enddo
-          Q_mu     = scale_factor(i,j,k,ispec)
+          Q_mu     = factor_scale(i,j,k,ispec)
 
           ! Determine the factor_common and one_minus_sum_beta from tau_s and tau_e
           call get_attenuation_property_values(tau_s, tau_e, fc, omsb)
@@ -105,12 +102,15 @@
           do i_sls = 1,N_SLS
             factor_common(i,j,k,i_sls,ispec) = real(fc(i_sls), kind=CUSTOM_REAL)
           enddo
+
+          ! unrelaxed moduli: factor to scale from relaxed to unrelaxed moduli
           one_minus_sum_beta(i,j,k,ispec) = real(omsb, kind=CUSTOM_REAL)
 
-          ! Determine the "scale_factor" from tau_s, tau_e, central source frequency, and Q
-          call get_attenuation_scale_factor(myrank, T_c_source, tau_e, tau_s, Q_mu, sf)
+          ! physical dispersion factor: scales moduli from reference frequency to simulation (source) center frequency
+          ! Determine the "factor_scale" from tau_s, tau_e, central source frequency, and Q
+          call get_attenuation_scale_factor(T_c_source, tau_e, tau_s, Q_mu, sf)
 
-          scale_factor(i,j,k,ispec) = real(sf, kind=CUSTOM_REAL)
+          factor_scale(i,j,k,ispec) = real(sf, kind=CUSTOM_REAL)
         enddo
       enddo
     enddo
@@ -140,6 +140,7 @@
   beta(:) = 1.0d0 - tau_e(:) / tau_s(:)
   one_minus_sum_beta = 1.0d0
 
+  ! factor to scale from relaxed to unrelaxed moduli: see e.g. Komatitsch & Tromp 1999, eq. (7)
   do i = 1,N_SLS
      one_minus_sum_beta = one_minus_sum_beta - beta(i)
   enddo
@@ -158,27 +159,24 @@
 !-------------------------------------------------------------------------------------------------
 !
 
-  subroutine get_attenuation_scale_factor(myrank, T_c_source, tau_mu, tau_sigma, Q_mu, scale_factor)
+  subroutine get_attenuation_scale_factor(T_c_source, tau_mu, tau_sigma, Q_mu, scale_factor)
 
-  use constants,only: ZERO,ONE,TWO,PI,GRAV,RHOAV,TWO_PI,N_SLS
+  use constants, only: ZERO,ONE,TWO,PI,GRAV,RHOAV,TWO_PI,N_SLS,myrank
+  use specfem_par, only: scale_t
 
   implicit none
 
-  integer,intent(in) :: myrank
   double precision,intent(in) :: T_c_source,Q_mu
   double precision, dimension(N_SLS),intent(in) :: tau_mu, tau_sigma
 
   double precision,intent(out) :: scale_factor
 
   ! local parameters
-  double precision :: scale_t
   double precision :: f_c_source, w_c_source, f_0_prem
   double precision :: factor_scale_mu0, factor_scale_mu
   double precision :: a_val, b_val
   double precision :: big_omega
   integer :: i
-
-  scale_t = ONE/dsqrt(PI*GRAV*RHOAV)
 
   !--- compute central angular frequency of source (non dimensionalized)
   f_c_source = ONE / T_c_source
@@ -255,7 +253,7 @@
 !-------------------------------------------------------------------------------------------------
 !
 
-  subroutine bcast_attenuation_model_3D(one_minus_sum_beta,factor_common,scale_factor,tau_s,vnspec)
+  subroutine bcast_attenuation_model_3D(one_minus_sum_beta,factor_common,factor_scale,tau_s,vnspec)
 
   use constants_solver
 
@@ -263,13 +261,13 @@
 
   integer :: vnspec
 
-  real(kind=CUSTOM_REAL), dimension(ATT1_VAL,ATT2_VAL,ATT3_VAL,vnspec) :: one_minus_sum_beta, scale_factor
+  real(kind=CUSTOM_REAL), dimension(ATT1_VAL,ATT2_VAL,ATT3_VAL,vnspec) :: one_minus_sum_beta, factor_scale
   real(kind=CUSTOM_REAL), dimension(ATT1_VAL,ATT2_VAL,ATT3_VAL,N_SLS,vnspec) :: factor_common
   double precision, dimension(N_SLS) :: tau_s
 
   call bcast_all_cr_for_database(one_minus_sum_beta(1,1,1,1), size(one_minus_sum_beta))
-  call bcast_all_cr_for_database(scale_factor(1,1,1,1), size(scale_factor))
+  call bcast_all_cr_for_database(factor_scale(1,1,1,1), size(factor_scale))
   call bcast_all_cr_for_database(factor_common(1,1,1,1,1), size(factor_common))
   call bcast_all_dp_for_database(tau_s(1), size(tau_s))
 
-  endsubroutine bcast_attenuation_model_3D
+  end subroutine bcast_attenuation_model_3D

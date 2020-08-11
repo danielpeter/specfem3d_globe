@@ -11,7 +11,7 @@
 !
 ! This program is free software; you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by
-! the Free Software Foundation; either version 2 of the License, or
+! the Free Software Foundation; either version 3 of the License, or
 ! (at your option) any later version.
 !
 ! This program is distributed in the hope that it will be useful,
@@ -46,7 +46,7 @@
 ! @ARTICLE{TrKoLi08,
 ! author = {Jeroen Tromp and Dimitri Komatitsch and Qinya Liu},
 ! title = {Spectral-Element and Adjoint Methods in Seismology},
-! journal = {Communications in Computational Physics},
+! journal = {communications in Computational Physics},
 ! year = {2008},
 ! volume = {3},
 ! pages = {1-32},
@@ -220,7 +220,7 @@
 ! @ARTICLE{TrKoLi08,
 ! author = {Jeroen Tromp and Dimitri Komatitsch and Qinya Liu},
 ! title = {Spectral-Element and Adjoint Methods in Seismology},
-! journal = {Communications in Computational Physics},
+! journal = {communications in Computational Physics},
 ! year = {2008},
 ! volume = {3},
 ! pages = {1-32},
@@ -284,8 +284,7 @@
 !  - Y axis is East
 !  - Z axis is up
 !
-! To report bugs or suggest improvements to the code, please send an email
-! to Jeroen Tromp <jtromp AT princeton.edu> and/or use our online
+! To report bugs or suggest improvements to the code, please use our online
 ! bug tracking system at http://www.geodynamics.org/roundup .
 !
 ! Evolution of the code:
@@ -456,16 +455,18 @@
   call init_mpi()
 
   ! force Flush-To-Zero if available to avoid very slow Gradual Underflow trapping
+#ifndef __MIC__
   call force_ftz()
+#endif
 
   ! initializes simulation parameters
   call initialize_simulation()
 
-  ! starts reading the databases
-  call read_mesh_databases()
-
   ! sets up reference element GLL points/weights/derivatives
   call setup_GLL_points()
+
+  ! starts reading the databases
+  call read_mesh_databases()
 
   ! reads topography & bathymetry & ellipticity
   call read_topography_bathymetry()

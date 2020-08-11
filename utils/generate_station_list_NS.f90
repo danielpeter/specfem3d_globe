@@ -11,7 +11,7 @@
 !
 ! This program is free software; you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by
-! the Free Software Foundation; either version 2 of the License, or
+! the Free Software Foundation; either version 3 of the License, or
 ! (at your option) any later version.
 !
 ! This program is distributed in the hope that it will be useful,
@@ -62,7 +62,7 @@
   do ilatitude = -90,+89
 
     stlat = ilatitude
-    if(ilatitude < 0) then
+    if (ilatitude < 0) then
       write(station_name,"('FRONT_MINUS_',i2.2,'_00')") int(abs(stlat))
     else
       write(station_name,"('FRONT_PLUS_',i2.2,'_00')") int(abs(stlat))
@@ -70,7 +70,7 @@
     write(IOUT,*) trim(station_name),' ',trim(network_name),' ',sngl(stlat),' 0 0 0'
 
     stlat = ilatitude + 0.5d0
-    if(stlat < 0) then
+    if (stlat < 0) then
       write(station_name,"('FRONT_MINUS_',i2.2,'_50')") int(abs(stlat))
     else
       write(station_name,"('FRONT_PLUS_',i2.2,'_50')") int(abs(stlat))
@@ -84,7 +84,7 @@
   do ilatitude = -90,+89
 
     stlat = ilatitude
-    if(ilatitude < 0) then
+    if (ilatitude < 0) then
       write(station_name,"('BACK_MINUS_',i2.2,'_00')") int(abs(stlat))
     else
       write(station_name,"('BACK_PLUS_',i2.2,'_00')") int(abs(stlat))
@@ -92,7 +92,7 @@
     write(IOUT,*) trim(station_name),' ',trim(network_name),' ',sngl(stlat),' 180 0 0'
 
     stlat = ilatitude + 0.5d0
-    if(stlat < 0) then
+    if (stlat < 0) then
       write(station_name,"('BACK_MINUS_',i2.2,'_50')") int(abs(stlat))
     else
       write(station_name,"('BACK_PLUS_',i2.2,'_50')") int(abs(stlat))

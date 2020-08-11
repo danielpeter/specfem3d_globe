@@ -10,7 +10,7 @@
 !
 ! This program is free software; you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by
-! the Free Software Foundation; either version 2 of the License, or
+! the Free Software Foundation; either version 3 of the License, or
 ! (at your option) any later version.
 !
 ! This program is distributed in the hope that it will be useful,
@@ -70,11 +70,11 @@
 
   call c_add(a,c,NELEM_ARRAY)
 
-  if(NELEM_ARRAY <= 1000) then
+  if (NELEM_ARRAY <= 1000) then
     NLOOP = 10000000
-  else if(NELEM_ARRAY <= 10000) then
+  else if (NELEM_ARRAY <= 10000) then
     NLOOP = 600000
-  else if(NELEM_ARRAY <= 100000) then
+  else if (NELEM_ARRAY <= 100000) then
     NLOOP = 60000
   else
     NLOOP = 5000
@@ -98,7 +98,7 @@
 
   megaflops = dble(NELEM_ARRAY) * dble(NLOOP) / (time_end - time_start) / 1.d3
 
-  print *,NELEM_ARRAY,' elements -> megaflops = ',megaflops
+  print *,NELEM_ARRAY,' elements - > megaflops = ',megaflops
 
   enddo
 

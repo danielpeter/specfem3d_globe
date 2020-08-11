@@ -11,7 +11,7 @@
 !
 ! This program is free software; you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by
-! the Free Software Foundation; either version 2 of the License, or
+! the Free Software Foundation; either version 3 of the License, or
 ! (at your option) any later version.
 !
 ! This program is distributed in the hope that it will be useful,
@@ -28,6 +28,7 @@
   subroutine setup_model()
 
   use meshfem3D_par
+
   implicit none
 
   ! user output
@@ -40,13 +41,12 @@
   allocate(iproc_eta_slice(0:NPROCTOT-1))
 
   ! creates global slice addressing for solver
-  call create_addressing(myrank,NCHUNKS,NPROC,NPROC_ETA,NPROC_XI,NPROCTOT, &
+  call create_addressing(NCHUNKS,NPROC,NPROC_ETA,NPROC_XI,NPROCTOT, &
                          addressing,ichunk_slice,iproc_xi_slice,iproc_eta_slice, &
                          OUTPUT_FILES)
 
   ! this for the different counters (which are now different if the superbrick is cut in the outer core)
-  call setup_counters(myrank, &
-                      NSPEC1D_RADIAL,NSPEC2D_XI,NSPEC2D_ETA,NGLOB1D_RADIAL, &
+  call setup_counters(NSPEC1D_RADIAL,NSPEC2D_XI,NSPEC2D_ETA,NGLOB1D_RADIAL, &
                       DIFF_NSPEC1D_RADIAL,DIFF_NSPEC2D_XI,DIFF_NSPEC2D_ETA, &
                       CUT_SUPERBRICK_XI,CUT_SUPERBRICK_ETA, &
                       NPROCTOT,iproc_xi_slice,iproc_eta_slice, &
@@ -54,8 +54,7 @@
                       NSPEC2D_ETA_FACE,NGLOB1D_RADIAL_CORNER)
 
   ! distributes 3D models
-  call meshfem3D_models_broadcast(myrank,NSPEC, &
-                                  MIN_ATTENUATION_PERIOD,MAX_ATTENUATION_PERIOD,&
+  call meshfem3D_models_broadcast(NSPEC_REGIONS,MIN_ATTENUATION_PERIOD,MAX_ATTENUATION_PERIOD, &
                                   R80,R220,R670,RCMB,RICB, &
                                   LOCAL_PATH)
 
@@ -96,7 +95,8 @@
     write(IMAIN,*) 'internal topography 410/660:'
     if ((.not. SUPPRESS_INTERNAL_TOPOGRAPHY) .and. &
         (THREE_D_MODEL == THREE_D_MODEL_S362ANI .or. THREE_D_MODEL == THREE_D_MODEL_S362WMANI &
-         .or. THREE_D_MODEL == THREE_D_MODEL_S362ANI_PREM .or. THREE_D_MODEL == THREE_D_MODEL_S29EA)) then
+         .or. THREE_D_MODEL == THREE_D_MODEL_S362ANI_PREM .or. THREE_D_MODEL == THREE_D_MODEL_S29EA &
+         .or. THREE_D_MODEL == THREE_D_MODEL_MANTLE_SH)) then
       write(IMAIN,*) '  incorporating element stretching for 3-D internal surfaces'
     else
       write(IMAIN,*) '  no element stretching for 3-D internal surfaces'
@@ -120,7 +120,7 @@
   subroutine sm_output_info()
 
   use meshfem3D_models_par
-  use meshfem3D_par,only: &
+  use meshfem3D_par, only: &
     MODEL,NEX_XI,NEX_ETA, &
     NPROC_XI,NPROC_ETA,NPROC,NCHUNKS,NPROCTOT, &
     R_CENTRAL_CUBE
@@ -201,7 +201,7 @@
     write(IMAIN,*) '  no crustal variations'
   endif
   if (ONE_CRUST) then
-    write(IMAIN,*) '  using one layer only in PREM crust'
+    write(IMAIN,*) '  using one layer only in crust'
   else
     write(IMAIN,*) '  using unmodified 1D crustal model with two layers'
   endif

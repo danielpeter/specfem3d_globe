@@ -11,7 +11,7 @@
 !
 ! This program is free software; you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by
-! the Free Software Foundation; either version 2 of the License, or
+! the Free Software Foundation; either version 3 of the License, or
 ! (at your option) any later version.
 !
 ! This program is distributed in the hope that it will be useful,
@@ -25,7 +25,7 @@
 !
 !=====================================================================
 
-  subroutine get_MPI_1D_buffers(myrank,prname,nspec,iMPIcut_xi,iMPIcut_eta, &
+  subroutine get_MPI_1D_buffers(prname,nspec,iMPIcut_xi,iMPIcut_eta, &
                                 ibool,idoubling,xstore,ystore,zstore,mask_ibool,npointot, &
                                 NSPEC1D_RADIAL_CORNER,NGLOB1D_RADIAL_CORNER,iregion, &
                                 ibool1D_leftxi_lefteta,ibool1D_rightxi_lefteta, &
@@ -40,7 +40,7 @@
 
   implicit none
 
-  integer :: nspec,myrank
+  integer :: nspec
 
   logical,dimension(2,nspec) :: iMPIcut_xi,iMPIcut_eta
 

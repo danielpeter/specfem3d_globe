@@ -11,7 +11,7 @@
 !
 ! This program is free software; you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by
-! the Free Software Foundation; either version 2 of the License, or
+! the Free Software Foundation; either version 3 of the License, or
 ! (at your option) any later version.
 !
 ! This program is distributed in the hope that it will be useful,
@@ -25,12 +25,11 @@
 !
 !=====================================================================
 
-
 subroutine get_gradient_cg_tiso()
 
 ! calculates TI gradient based on a conjugate gradient method
 !
-! based on: Tarantola, inverse problem theory, 2005.
+! based on: Tarantola, Inverse problem theory, 2005.
 !                  section 6.22.7 conjugate directions, page 217.
 !                  formula for alpha_n based on Polak & Ribiere (1969)
 !
@@ -126,7 +125,7 @@ subroutine get_gradient_cg_tiso()
     ratio_eta = norm_eta_sum / norm_eta_old
 
     ! if ratio > 0.2 (empirical threshold value), then one should restart with a steepest descent
-    print *,'Powell ratio: (> 0.2 then restart with steepest descent)'
+    print *,'Powell ratio: ( > 0.2 then restart with steepest descent)'
     print *,'  bulk : ',ratio_bulk
     print *,'  betav: ',ratio_betav
     print *,'  betah: ',ratio_betah

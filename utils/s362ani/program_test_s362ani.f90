@@ -11,7 +11,7 @@
 !
 ! This program is free software; you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by
-! the Free Software Foundation; either version 2 of the License, or
+! the Free Software Foundation; either version 3 of the License, or
 ! (at your option) any later version.
 !
 ! This program is distributed in the hope that it will be useful,
@@ -106,17 +106,17 @@
   double precision theta,phi,sint,cost,x(2*NL_OCEAN_CONTINENT+1),dx(2*NL_OCEAN_CONTINENT+1)
   double precision ocf
 
-!  call define_model_ref(.FALSE.,Mref_V)
+!  call define_model_ref(.false.,Mref_V)
 !
 !  scaleval=dsqrt(PI*GRAV*RHOAV)
 !  do i=1,NR_REF
 !    x = dble(i-1)/dble(NR_REF-1)
 !    call model_ref(xr,rho,vpv,vph,vsv,vsh,eta,Qkappa,Qmu,iregion_code,Mref_V)
-!    print *,i,sngl(x*R_EARTH),sngl(rho*RHOAV),sngl(vpv*(R_EARTH*scaleval)),sngl(vph*(R_EARTH*scaleval)),&
+!    print *,i,sngl(x*R_EARTH),sngl(rho*RHOAV),sngl(vpv*(R_EARTH*scaleval)),sngl(vph*(R_EARTH*scaleval)), &
 !            sngl(vsv*(R_EARTH*scaleval)),sngl(vsh*(R_EARTH*scaleval)),sngl(eta),sngl(Qmu)
 !
 ! find and check discontinuities
-!    if(Mref_V%radius_ref(i) == Mref_V%radius_ref(i+1)) then
+!    if (Mref_V%radius_ref(i) == Mref_V%radius_ref(i+1)) then
 !      print *,i,Mref_V%radius_ref(i)
 !    endif
 !
@@ -133,7 +133,7 @@
 !  print *,"THREE_D_MODEL: "
 !  read(5,*) THREE_D_MODEL
 !!
-!  call read_model_s362ani(THREE_D_MODEL,THREE_D_MODEL_S362ANI,THREE_D_MODEL_S362WMANI,&
+!  call read_model_s362ani(THREE_D_MODEL,THREE_D_MODEL_S362ANI,THREE_D_MODEL_S362WMANI, &
 !               THREE_D_MODEL_S362ANI_PREM,THREE_D_MODEL_S29EA, &
 !               numker,numhpa,ihpa,lmxhpa,itypehpa,ihpakern,numcoe,ivarkern,itpspl, &
 !               xlaspl,xlospl,radspl,coe,hsplfl,dskker,kerstr,varstr,refmdl)
@@ -143,16 +143,16 @@
 !               lmxhpa,itypehpa,ihpakern,numcoe,ivarkern, &
 !               nconpt,iver,iconpt,conpt,xlaspl,xlospl,radspl, &
 !               coe,vercof,vercofd,ylmcof,wk1,wk2,wk3,kerstr,varstr)
-!  write(6,"('    dvsh      dvsv      dvph      dvpv    ')")
-!  write(6,"(6f10.5)") 100.0*dvsh,100.0*dvsv,100.0*dvph,100.0*dvpv
+!  write(*,"('    dvsh      dvsv      dvph      dvpv    ')")
+!  write(*,"(6f10.5)") 100.0*dvsh,100.0*dvsv,100.0*dvph,100.0*dvpv
 !
 !  call subtopo(xcolat,xlon,topo410,topo650, &
 !               numker,numhpa,numcof,ihpa,lmax,nylm, &
 !               lmxhpa,itypehpa,ihpakern,numcoe,ivarkern, &
 !               nconpt,iver,iconpt,conpt,xlaspl,xlospl,radspl, &
 !               coe,ylmcof,wk1,wk2,wk3,varstr)
-!  write(6,"('   topo410    topo650 ')")
-!  write(6,"(2f11.5)") topo410,topo650
+!  write(*,"('   topo410    topo650 ')")
+!  write(*,"(2f11.5)") topo410,topo650
 !
 
 ! ocean-continent function (km)
@@ -196,7 +196,7 @@
 
 ! smoothed version of topographic variations
      elevation = 0.5d0*EMAX
-     if(topomoho < EMAX) elevation = 0.5d0 * topomoho
+     if (topomoho < EMAX) elevation = 0.5d0 * topomoho
 
 !      print *,sngl(lat),sngl(lon),sngl(moho*R_EARTH_KM),sngl(r_moho*R_EARTH_KM-RMOHO/1000.0d0),sngl(elevation*R_EARTH_KM)
     enddo

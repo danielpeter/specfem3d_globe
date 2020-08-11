@@ -11,7 +11,7 @@
 !
 ! This program is free software; you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by
-! the Free Software Foundation; either version 2 of the License, or
+! the Free Software Foundation; either version 3 of the License, or
 ! (at your option) any later version.
 !
 ! This program is distributed in the hope that it will be useful,
@@ -25,7 +25,7 @@
 !
 !=====================================================================
 
-  subroutine get_model(myrank,iregion_code,ispec,nspec,idoubling, &
+  subroutine get_model(iregion_code,ispec,nspec,idoubling, &
                       kappavstore,kappahstore,muvstore,muhstore,eta_anisostore, &
                       rhostore,dvpstore,nspec_ani, &
                       c11store,c12store,c13store,c14store,c15store,c16store,c22store, &
@@ -36,19 +36,19 @@
                       rmin,rmax, &
                       elem_in_crust,elem_in_mantle)
 
-  use meshfem3D_par,only: &
+  use meshfem3D_par, only: &
     RCMB,RICB,R670,RMOHO,RTOPDDOUBLEPRIME,R600,R220, &
     R771,R400,R120,R80,RMIDDLE_CRUST,ROCEAN, &
     ABSORBING_CONDITIONS
 
   use meshfem3D_models_par
 
-  use create_regions_mesh_par2,only: &
+  use regions_mesh_par2, only: &
     Qmu_store,tau_e_store,tau_s,T_c_source
 
   implicit none
 
-  integer :: myrank,iregion_code,ispec,nspec,idoubling
+  integer :: iregion_code,ispec,nspec,idoubling
 
   real(kind=CUSTOM_REAL),dimension(NGLLX,NGLLY,NGLLZ,nspec) :: kappavstore,kappahstore, &
     muvstore,muhstore,eta_anisostore,rhostore,dvpstore
@@ -97,7 +97,9 @@
         vph = 0.d0
         vsv = 0.d0
         vsh = 0.d0
-        eta_aniso = 0.d0
+
+        eta_aniso = 1.d0 ! default for isotropic element
+
         c11 = 0.d0
         c12 = 0.d0
         c13 = 0.d0
@@ -119,6 +121,7 @@
         c55 = 0.d0
         c56 = 0.d0
         c66 = 0.d0
+
         Qmu = 0.d0
         Qkappa = 0.d0 ! not used, not stored so far...
         tau_e(:) = 0.d0
@@ -140,21 +143,21 @@
         ! checks r_prem,rmin/rmax and assigned idoubling
         call get_model_check_idoubling(r_prem,xmesh,ymesh,zmesh,rmin,rmax,idoubling, &
                             RICB,RCMB,RTOPDDOUBLEPRIME, &
-                            R220,R670,myrank)
+                            R220,R670)
 
         ! gets reference model values: rho,vpv,vph,vsv,vsh and eta_aniso
-        call meshfem3D_models_get1D_val(myrank,iregion_code,idoubling, &
+        call meshfem3D_models_get1D_val(iregion_code,idoubling, &
                               r_prem,rho,vpv,vph,vsv,vsh,eta_aniso, &
                               Qkappa,Qmu,RICB,RCMB, &
                               RTOPDDOUBLEPRIME,R80,R120,R220,R400,R600,R670,R771, &
                               RMOHO,RMIDDLE_CRUST,ROCEAN)
 
         ! gets the 3-D model parameters for the mantle
-        call meshfem3D_models_get3Dmntl_val(iregion_code,r_prem,rho,dvp,&
+        call meshfem3D_models_get3Dmntl_val(iregion_code,r_prem,rho,dvp, &
                               vpv,vph,vsv,vsh,eta_aniso, &
                               RCMB,R670,RMOHO, &
                               xmesh,ymesh,zmesh,r, &
-                              c11,c12,c13,c14,c15,c16,c22,c23,c24,c25,c26,&
+                              c11,c12,c13,c14,c15,c16,c22,c23,c24,c25,c26, &
                               c33,c34,c35,c36,c44,c45,c46,c55,c56,c66 &
 #ifdef CEM
                               ,ispec,i,j,k &
@@ -173,8 +176,7 @@
         endif
 
         ! overwrites with tomographic model values (from iteration step) here, given at all GLL points
-        call meshfem3D_models_impose_val(vpv,vph,vsv,vsh,rho,dvp,eta_aniso,&
-                                        myrank,iregion_code,ispec,i,j,k)
+        call meshfem3D_models_impose_val(vpv,vph,vsv,vsh,rho,dvp,eta_aniso,iregion_code,ispec,i,j,k)
 
         ! checks vpv: if close to zero then there is probably an error
         if (vpv < TINYVAL) then
@@ -286,18 +288,18 @@
 
   subroutine get_model_check_idoubling(r_prem,x,y,z,rmin,rmax,idoubling, &
                             RICB,RCMB,RTOPDDOUBLEPRIME, &
-                            R220,R670,myrank)
+                            R220,R670)
 
   use meshfem3D_models_par
 
   implicit none
 
-  integer idoubling,myrank
+  integer :: idoubling
 
-  double precision r_prem,rmin,rmax,x,y,z
+  double precision :: r_prem,rmin,rmax,x,y,z
 
-  double precision RICB,RCMB,RTOPDDOUBLEPRIME,R670,R220
-  double precision r_m,r,theta,phi
+  double precision :: RICB,RCMB,RTOPDDOUBLEPRIME,R670,R220
+  double precision :: r_m,r,theta,phi
 
   ! compute real physical radius in meters
   r_m = r_prem * R_EARTH
@@ -357,7 +359,7 @@
       call xyz_2_rthetaphi_dble(x,y,z,r,theta,phi)
       print *,'Error point r/lat/lon:',r_m,90.0 - theta/DEGREES_TO_RADIANS,phi/DEGREES_TO_RADIANS
       print *,'  idoubling/IFLAG: ',idoubling,IFLAG_MANTLE_NORMAL
-      call exit_MPI(myrank,'Error  in get_model_check_idoubling() wrong doubling flag for top D" -> d670 point')
+      call exit_MPI(myrank,'Error  in get_model_check_idoubling() wrong doubling flag for top D" to d670 point')
     endif
 
   !
@@ -368,7 +370,7 @@
       call xyz_2_rthetaphi_dble(x,y,z,r,theta,phi)
       print *,'Error point r/lat/lon:',r_m,90.0 - theta/DEGREES_TO_RADIANS,phi/DEGREES_TO_RADIANS
       print *,'  idoubling/IFLAG: ',idoubling,IFLAG_670_220
-      call exit_MPI(myrank,'Error  in get_model_check_idoubling() wrong doubling flag for d670 -> d220 point')
+      call exit_MPI(myrank,'Error  in get_model_check_idoubling() wrong doubling flag for d670 to d220 point')
     endif
 
   !
@@ -379,7 +381,7 @@
       call xyz_2_rthetaphi_dble(x,y,z,r,theta,phi)
       print *,'Error point r/lat/lon:',r_m,90.0 - theta/DEGREES_TO_RADIANS,phi/DEGREES_TO_RADIANS
       print *,'  idoubling/IFLAG: ',idoubling,IFLAG_220_80,IFLAG_80_MOHO,IFLAG_CRUST
-      call exit_MPI(myrank,'Error  in get_model_check_idoubling() wrong doubling flag for d220 -> Moho -> surface point')
+      call exit_MPI(myrank,'Error  in get_model_check_idoubling() wrong doubling flag for d220 to Moho to surface point')
     endif
 
   endif

@@ -11,7 +11,7 @@
 !
 ! This program is free software; you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by
-! the Free Software Foundation; either version 2 of the License, or
+! the Free Software Foundation; either version 3 of the License, or
 ! (at your option) any later version.
 !
 ! This program is distributed in the hope that it will be useful,
@@ -33,15 +33,13 @@
 ! by default (constants.h), it uses a smoothed ETOPO 4 dataset
 !--------------------------------------------------------------------------------------------------
 
-  subroutine model_topo_bathy_broadcast(myrank,ibathy_topo,LOCAL_PATH)
+  subroutine model_topo_bathy_broadcast(ibathy_topo,LOCAL_PATH)
 
 ! standard routine to setup model
 
-  use constants
+  use constants, only: myrank,NX_BATHY,NY_BATHY,MAX_STRING_LEN,IMAIN,GRAVITY_INTEGRALS
 
   implicit none
-
-  integer :: myrank
 
   ! bathymetry and topography: use integer array to store values
   integer, dimension(NX_BATHY,NY_BATHY) :: ibathy_topo
@@ -56,6 +54,10 @@
 
     ! read/save topo file on master
     call read_topo_bathy_file(ibathy_topo)
+
+    ! user output
+    write(IMAIN,*) "  topography/bathymetry: min/max = ",minval(ibathy_topo),maxval(ibathy_topo)
+    call flush_IMAIN()
 
     if (.not. GRAVITY_INTEGRALS) call save_topo_bathy_database(ibathy_topo,LOCAL_PATH)
   endif
@@ -81,9 +83,9 @@
   integer, dimension(NX_BATHY,NY_BATHY) :: ibathy_topo
 
   ! local parameters
-  integer(kind=8) :: filesize
-  integer(kind=2) :: ival
-  integer :: indx,itopo_x,itopo_y
+  integer(kind=8) :: filesize   ! 8-bytes / 64-bits
+  integer(kind=2) :: ival       ! 2-bytes / 16-bits
+  integer :: indx,itopo_x,itopo_y,itmp
   logical :: byteswap
   integer(kind=2) :: HEADER_IS_BYTE_SWAPPED
   data HEADER_IS_BYTE_SWAPPED/z'3412'/
@@ -103,14 +105,19 @@
       indx = indx + 1
       call read_abs(10, ival, 2, indx)
       if (byteswap) then
-        ival = ishftc(ival, 8, 16)
+        ! note: ibm's xlf compiler warns about ishftc() with integer(2) input. ival should have type integer.
+        !       other compilers would use iishift for integer(2) types.
+        !ival = ishftc(ival, 8, 16)
+        ! work-around
+        itmp = ival
+        ival = ishftc(itmp, 8, 16)
       endif
 
       ! checks values
       if (ival < TOPO_MINIMUM .or. ival > TOPO_MAXIMUM) then
-        print *,'Error read topo_bathy: ival = ',ival,'ix,iy = ',itopo_x,itopo_y
+        print *,'Error read topo_bathy: ival = ',ival,'at ix/iy = ',itopo_x,itopo_y,'exceeds min/max topography bounds'
         print *,'topo_bathy dimension: nx,ny = ',NX_BATHY,NY_BATHY
-        call exit_mpi(0,'Error reading topo_bathy file')
+        call exit_mpi(0,'Error reading topo_bathy file value exceeds min/max bounds')
       endif
 
       ! stores in array
@@ -119,11 +126,8 @@
   enddo
   call close_file_abs(10)
 
-  ! user output
-  write(IMAIN,*) "  topography/bathymetry: min/max = ",minval(ibathy_topo),maxval(ibathy_topo)
-
   ! plots image
-  call plot_topo_bathy_pnm(ibathy_topo)
+  if (PLOT_PNM_IMAGE_TOPO_BATHY) call plot_topo_bathy_pnm(ibathy_topo)
 
   end subroutine read_topo_bathy_file
 
@@ -218,7 +222,7 @@
   endif
 
   ! plots image
-  call plot_topo_bathy_pnm(ibathy_topo)
+  if (PLOT_PNM_IMAGE_TOPO_BATHY) call plot_topo_bathy_pnm(ibathy_topo)
 
   end subroutine read_topo_bathy_database
 
@@ -275,16 +279,16 @@
   ! convert integer value to double precision
   !  value = dble(ibathy_topo(iel1,iadd1))
 
-  lon_corner=iel1*samples_per_degree_topo
-  lat_corner=90.d0-iadd1*samples_per_degree_topo
+  lon_corner = iel1 * samples_per_degree_topo
+  lat_corner = 90.d0 - iadd1 * samples_per_degree_topo
 
   ratio_lon = (xlo-lon_corner)/samples_per_degree_topo
   ratio_lat = (xlat-lat_corner)/samples_per_degree_topo
 
-  if (ratio_lon<0.0) ratio_lon=0.0
-  if (ratio_lon>1.0) ratio_lon=1.0
-  if (ratio_lat<0.0) ratio_lat=0.0
-  if (ratio_lat>1.0) ratio_lat=1.0
+  if (ratio_lon < 0.0) ratio_lon = 0.0
+  if (ratio_lon > 1.0) ratio_lon = 1.0
+  if (ratio_lat < 0.0) ratio_lat = 0.0
+  if (ratio_lat > 1.0) ratio_lat = 1.0
 
   ! convert integer value to double precision
   if (iadd1 <= NY_BATHY-1 .and. iel1 <= NX_BATHY-1) then
@@ -316,7 +320,7 @@
 
 ! stores topo_bathy image in PNM format with grey levels
 
-  use constants,only: NX_BATHY,NY_BATHY,IOUT,IMAIN
+  use constants, only: NX_BATHY,NY_BATHY,IOUT,IMAIN,PLOT_PNM_IMAGE_TOPO_BATHY
   use shared_input_parameters, only: OUTPUT_FILES
 
   implicit none
@@ -328,16 +332,8 @@
   integer :: ix,iy,ival,ier
   integer :: minvalue,maxvalue
 
-  !----------------------------------------------------------------------
-
-  ! for debugging: plots pnm-image showing used topography
-  !                file can become fairly big for large topo-files, e.g. ETOPO1 creates a ~2.7 GB pnm-image
-  logical,parameter :: DO_IMAGE_PLOT = .false.
-
-  !----------------------------------------------------------------------
-
   ! checks if anything to do
-  if (.not. DO_IMAGE_PLOT) return
+  if (.not. PLOT_PNM_IMAGE_TOPO_BATHY) return
 
   ! gets min and max
   minvalue = minval(ibathy_topo)
@@ -346,6 +342,7 @@
   ! creates the PNM image
   write(IMAIN,*) '  plotting PNM image ',trim(OUTPUT_FILES)//'/'//'image_topo_bathy.pnm'
   write(IMAIN,*)
+  call flush_IMAIN()
 
   ! creating the header
   open(unit=IOUT,file=trim(OUTPUT_FILES)//'/'//'image_topo_bathy.pnm',status='unknown',iostat=ier)
@@ -364,8 +361,8 @@
         ival = 255 * (ibathy_topo(ix,iy) - minvalue) / (maxvalue - minvalue)
       endif
 
-      if(ival < 1) ival = 1
-      if(ival > 255) ival = 255
+      if (ival < 1) ival = 1
+      if (ival > 255) ival = 255
 
       ! write data value (red = green = blue to produce grey levels)
       write(IOUT,'(i3)') ival

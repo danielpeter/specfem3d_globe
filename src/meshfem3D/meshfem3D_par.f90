@@ -11,7 +11,7 @@
 !
 ! This program is free software; you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by
-! the Free Software Foundation; either version 2 of the License, or
+! the Free Software Foundation; either version 3 of the License, or
 ! (at your option) any later version.
 !
 ! This program is distributed in the hope that it will be useful,
@@ -41,12 +41,12 @@
 
   use constants
 
-  use shared_input_parameters,only: &
+  use shared_input_parameters, only: &
     ELLIPTICITY,GRAVITY,ROTATION,TOPOGRAPHY,OCEANS, &
     ATTENUATION,USE_FULL_TISO_MANTLE
 
   use shared_compute_parameters, only: &
-    REFERENCE_1D_MODEL,THREE_D_MODEL, &
+    REFERENCE_1D_MODEL,REFERENCE_CRUSTAL_MODEL,THREE_D_MODEL, &
     HONOR_1D_SPHERICAL_MOHO,CRUSTAL,ONE_CRUST,CASE_3D,TRANSVERSE_ISOTROPY, &
     ISOTROPIC_3D_MANTLE,ANISOTROPIC_3D_MANTLE,HETEROGEN_3D_MANTLE, &
     ATTENUATION_3D, &
@@ -55,74 +55,73 @@
 
   implicit none
 
-! model_attenuation_variables
+  ! model_attenuation_variables
   type model_attenuation_variables
     sequence
-    double precision min_period, max_period
-    double precision                          :: QT_c_source        ! Source Frequency
-    double precision, dimension(:), pointer   :: Qtau_s             ! tau_sigma
-    double precision, dimension(:), pointer   :: QrDisc             ! Discontinuities Defined
-    double precision, dimension(:), pointer   :: Qr                 ! Radius
-    double precision, dimension(:), pointer   :: Qmu                ! Shear Attenuation
-    double precision, dimension(:,:), pointer :: Qtau_e             ! tau_epsilon
-    double precision, dimension(:), pointer   :: Qomsb, Qomsb2      ! one_minus_sum_beta
-    double precision, dimension(:,:), pointer :: Qfc, Qfc2          ! factor_common
-    double precision, dimension(:), pointer   :: Qsf, Qsf2          ! scale_factor
-    integer, dimension(:), pointer            :: Qrmin              ! Max and Mins of idoubling
-    integer, dimension(:), pointer            :: Qrmax              ! Max and Mins of idoubling
-    integer, dimension(:), pointer            :: interval_Q                 ! Steps
-    integer                                   :: Qn                 ! Number of points
-    integer dummy_pad ! padding 4 bytes to align the structure
+    double precision :: min_period, max_period
+    double precision :: QT_c_source        ! Source Frequency
+    double precision, dimension(:), allocatable   :: Qtau_s             ! tau_sigma
+    double precision, dimension(:), allocatable   :: QrDisc             ! Discontinuities Defined
+    double precision, dimension(:), allocatable   :: Qr                 ! Radius
+    double precision, dimension(:), allocatable   :: Qmu                ! Shear Attenuation
+    double precision, dimension(:,:), allocatable :: Qtau_e             ! tau_epsilon
+    double precision, dimension(:), allocatable   :: Qomsb, Qomsb2      ! one_minus_sum_beta
+    double precision, dimension(:,:), allocatable :: Qfc, Qfc2          ! factor_common
+    double precision, dimension(:), allocatable   :: Qsf, Qsf2          ! scale_factor
+    integer, dimension(:), allocatable            :: Qrmin              ! Max and Mins of idoubling
+    integer, dimension(:), allocatable            :: Qrmax              ! Max and Mins of idoubling
+    integer, dimension(:), allocatable            :: interval_Q                 ! Steps
+    integer :: Qn                 ! Number of points
+    integer :: dummy_pad ! padding 4 bytes to align the structure
   end type model_attenuation_variables
-  type (model_attenuation_variables) AM_V
-! model_attenuation_variables
+  type (model_attenuation_variables) :: AM_V
+  ! model_attenuation_variables
 
-! model_attenuation_storage_var
+  ! model_attenuation_storage_var
   type model_attenuation_storage_var
     sequence
-    double precision, dimension(:,:), pointer :: tau_e_storage
-    double precision, dimension(:), pointer :: Qmu_storage
-    integer Q_resolution
-    integer Q_max
+    double precision, dimension(:,:), allocatable :: tau_e_storage
+    double precision, dimension(:), allocatable   :: Qmu_storage
+    integer :: Q_resolution
+    integer :: Q_max
   end type model_attenuation_storage_var
-  type (model_attenuation_storage_var) AM_S
-! model_attenuation_storage_var
+  type (model_attenuation_storage_var) :: AM_S
+  ! model_attenuation_storage_var
 
-! attenuation_simplex_variables
+  ! attenuation_simplex_variables
   type attenuation_simplex_variables
     sequence
-    double precision Q  ! Q     = Desired Value of Attenuation or Q
-    double precision iQ ! iQ    = 1/Q
-    double precision, dimension(:), pointer ::  f
+    double precision :: Q  ! Q     = Desired Value of Attenuation or Q
+    double precision :: iQ ! iQ    = 1/Q
+    double precision, dimension(:), allocatable ::  f
     ! f = Frequencies at which to evaluate the solution
-    double precision, dimension(:), pointer :: tau_s
+    double precision, dimension(:), allocatable :: tau_s
     ! tau_s = Tau_sigma defined by the frequency range and
     !             number of standard linear solids
-    integer nf          ! nf    = Number of Frequencies
-    integer nsls        ! nsls  = Number of Standard Linear Solids
+    integer :: nf          ! nf    = Number of Frequencies
+    integer :: nsls        ! nsls  = Number of Standard Linear Solids
   end type attenuation_simplex_variables
-  type(attenuation_simplex_variables) AS_V
-! attenuation_simplex_variables
+  ! attenuation_simplex_variables
 
-! GLL model_variables
+  ! GLL model_variables
   type model_gll_variables
     sequence
     ! tomographic iteration model on GLL points
     double precision :: scale_velocity,scale_density
     ! isotropic model
-    real(kind=CUSTOM_REAL),dimension(:,:,:,:),pointer :: vs_new,vp_new,rho_new
+    real(kind=CUSTOM_REAL),dimension(:,:,:,:),allocatable :: vs_new,vp_new,rho_new
     ! transverse isotropic model
-    real(kind=CUSTOM_REAL),dimension(:,:,:,:),pointer :: vsv_new,vpv_new, &
+    real(kind=CUSTOM_REAL),dimension(:,:,:,:),allocatable :: vsv_new,vpv_new, &
       vsh_new,vph_new,eta_new
     logical :: MODEL_GLL
     logical,dimension(3) :: dummy_pad ! padding 3 bytes to align the structure
   end type model_gll_variables
-  type (model_gll_variables) MGLL_V
+  type (model_gll_variables) :: MGLL_V
 
-! bathymetry and topography: use integer array to store values
-  integer, dimension(NX_BATHY,NY_BATHY) :: ibathy_topo
+  ! bathymetry and topography: use integer array to store values
+  integer, dimension(:,:),allocatable :: ibathy_topo
 
-! for ellipticity
+  ! for ellipticity
   double precision,dimension(NR) :: rspl,espl,espl2
   integer :: nspl
 
@@ -147,40 +146,33 @@
   ! correct number of spectral elements in each block depending on chunk type
   integer :: npointot
 
-  ! proc number for MPI process
-  integer :: myrank
-
   ! check area and volume of the final mesh
   double precision :: volume_total
 
   ! check Earth mass and Earth center of mass computed in the final mesh
   double precision :: Earth_mass_total
   double precision :: Earth_center_of_mass_x_total,Earth_center_of_mass_y_total,Earth_center_of_mass_z_total
+  double precision :: distance_to_center_in_km
 
   ! arrays containing the positions of the observation points in non-dimensionalized value for gravity integrals
-  ! the 1D equivalenced versions are for the FORCE_VECTORIZATION version of the loops
   double precision, dimension(NX_OBSERVATION,NY_OBSERVATION,NCHUNKS_MAX) :: x_observation,y_observation,z_observation
-  double precision, dimension(NTOTAL_OBSERVATION) :: x_observation1D,y_observation1D,z_observation1D
-  equivalence(x_observation,x_observation1D)
-  equivalence(y_observation,y_observation1D)
-  equivalence(z_observation,z_observation1D)
+
+  ! daniel: compilers don't won't like equivalence statements, as they hinder internal optimizations
+  !         let's go without it and do the 1D-loops with FORCE_VECTORIZATION when no bounds-checking is done,
+  !         i.e., when compiled with run flags (already done in other code parts)
+  !
+  ! left here for referencing original way:
+  ! the 1D equivalenced versions are for the FORCE_VECTORIZATION version of the loops
+  !double precision, dimension(NTOTAL_OBSERVATION) :: x_observation1D,y_observation1D,z_observation1D
+  !equivalence(x_observation,x_observation1D)
+  !equivalence(y_observation,y_observation1D)
+  !equivalence(z_observation,z_observation1D)
 
   double precision, dimension(NX_OBSERVATION,NY_OBSERVATION,NCHUNKS_MAX) :: lon_observation,lat_observation
 
   ! arrays containing the computed fields for gravity integrals at the observation points
-  ! the 1D equivalenced versions are for the FORCE_VECTORIZATION version of the loops
   double precision, dimension(NX_OBSERVATION,NY_OBSERVATION,NCHUNKS_MAX) :: g_x,g_y,g_z,G_xx,G_yy,G_zz,G_xy,G_xz,G_yz, &
                                                                             temporary_array_for_sum
-  double precision, dimension(NTOTAL_OBSERVATION) :: g_x1D,g_y1D,g_z1D,G_xx1D,G_yy1D,G_zz1D,G_xy1D,G_xz1D,G_yz1D
-  equivalence(g_x,g_x1D)
-  equivalence(g_y,g_y1D)
-  equivalence(g_z,g_z1D)
-  equivalence(G_xx,G_xx1D)
-  equivalence(G_yy,G_yy1D)
-  equivalence(G_zz,G_zz1D)
-  equivalence(G_xy,G_xy1D)
-  equivalence(G_xz,G_xz1D)
-  equivalence(G_yz,G_yz1D)
 
   ! for loop on all the slices
   integer :: iregion_code
@@ -229,6 +221,10 @@
 
   ! arrays with the mesh in double precision
   double precision, dimension(:,:,:,:), allocatable :: xstore,ystore,zstore
+
+  ! temporary arrays with mesh only on global points
+  real(kind=CUSTOM_REAL), dimension(:),allocatable :: xstore_glob,ystore_glob,zstore_glob
+
   ! parameters needed to store the radii of the grid points
   ! in the spherically symmetric Earth
   integer, dimension(:), allocatable :: idoubling
@@ -237,15 +233,26 @@
   ! this for non blocking MPI
   logical, dimension(:), allocatable :: is_on_a_slice_edge
 
+  ! mesh global time step
+  real(kind=CUSTOM_REAL) :: dt_max_glob
+  ! mesh minimum period resolved
+  real(kind=CUSTOM_REAL) :: pmax_glob
+
+  ! number of spectral elements (in current region)
+  integer :: nspec
+
+  ! number of global GLL points (in current region)
+  integer :: nglob
+
   end module meshfem3D_par
 
 !
 !-------------------------------------------------------------------------------------------------
 !
 
-  module create_regions_mesh_par
+  module regions_mesh_par
 
-  use constants,only: NGLLX,NGLLY,NGLLZ,NGNOD,NGNOD2D,NDIM,NDIM2D
+  use constants, only: NGLLX,NGLLY,NGLLZ,NGNOD,NGNOD2D,NDIM,NDIM2D
 
   implicit none
 
@@ -269,15 +276,15 @@
   double precision, dimension(NDIM2D,NGNOD2D,NGLLX,NGLLZ) :: dershape2D_y
   double precision, dimension(NDIM2D,NGNOD2D,NGLLX,NGLLY) :: dershape2D_bottom,dershape2D_top
 
-  end module create_regions_mesh_par
+  end module regions_mesh_par
 
 !
 !-------------------------------------------------------------------------------------------------
 !
 
-  module create_regions_mesh_par2
+  module regions_mesh_par2
 
-  use constants,only: CUSTOM_REAL,N_SLS,MAX_STRING_LEN
+  use constants, only: CUSTOM_REAL,N_SLS,MAX_STRING_LEN
 
   implicit none
 
@@ -351,7 +358,7 @@
   ! layer stretching
   double precision, dimension(:,:), allocatable :: stretch_tab
 
-  ! Boundary Mesh
+  ! Boundary kernel Mesh
   integer :: NSPEC2D_MOHO,NSPEC2D_400,NSPEC2D_670,nex_eta_moho
   integer, dimension(:), allocatable :: ibelm_moho_top,ibelm_moho_bot,ibelm_400_top,ibelm_400_bot, &
     ibelm_670_top,ibelm_670_bot
@@ -368,15 +375,15 @@
   ! name of the database file
   character(len=MAX_STRING_LEN) :: prname, prname_adios
 
-  end module create_regions_mesh_par2
+  end module regions_mesh_par2
 
 !
 !-------------------------------------------------------------------------------------------------
 !
 
-  module create_MPI_interfaces_par
+  module MPI_interfaces_par
 
-  use constants,only: &
+  use constants, only: &
     CUSTOM_REAL,NDIM,IMAIN, &
     IREGION_CRUST_MANTLE,IREGION_OUTER_CORE,IREGION_INNER_CORE, &
     NUMFACES_SHARED,NB_SQUARE_EDGES_ONEDIR
@@ -443,7 +450,7 @@
   real(kind=CUSTOM_REAL), dimension(:,:),allocatable :: &
      buffer_send_chunkcorn_vector,buffer_recv_chunkcorn_vector
 
-  end module create_MPI_interfaces_par
+  end module MPI_interfaces_par
 
 !
 !-------------------------------------------------------------------------------------------------
@@ -451,7 +458,7 @@
 
   module MPI_crust_mantle_par
 
-  use constants,only: CUSTOM_REAL,NUMFACES_SHARED,NB_SQUARE_EDGES_ONEDIR
+  use constants, only: CUSTOM_REAL,NUMFACES_SHARED,NB_SQUARE_EDGES_ONEDIR
 
   implicit none
 
@@ -461,7 +468,7 @@
   !--------------------------------------
   integer :: num_interfaces_crust_mantle
   integer :: max_nibool_interfaces_cm
-  integer, dimension(:), allocatable :: my_neighbours_crust_mantle,nibool_interfaces_crust_mantle
+  integer, dimension(:), allocatable :: my_neighbors_crust_mantle,nibool_interfaces_crust_mantle
   integer, dimension(:,:), allocatable :: ibool_interfaces_crust_mantle
 
   !--------------------------------------
@@ -477,9 +484,6 @@
   integer :: NSPEC2DMAX_YMIN_YMAX_CM
   integer :: NSPEC2D_BOTTOM_CM
   integer :: NSPEC2D_TOP_CM
-
-  real(kind=CUSTOM_REAL), dimension(:),allocatable :: &
-    xstore_crust_mantle,ystore_crust_mantle,zstore_crust_mantle
 
   ! assembly
   integer, dimension(NUMFACES_SHARED) :: npoin2D_faces_crust_mantle
@@ -511,7 +515,7 @@
 
   module MPI_inner_core_par
 
-  use constants,only: CUSTOM_REAL,NUMFACES_SHARED,NB_SQUARE_EDGES_ONEDIR
+  use constants, only: CUSTOM_REAL,NUMFACES_SHARED,NB_SQUARE_EDGES_ONEDIR
 
   implicit none
 
@@ -520,7 +524,7 @@
   !--------------------------------------
   integer :: num_interfaces_inner_core
   integer :: max_nibool_interfaces_ic
-  integer, dimension(:), allocatable :: my_neighbours_inner_core,nibool_interfaces_inner_core
+  integer, dimension(:), allocatable :: my_neighbors_inner_core,nibool_interfaces_inner_core
   integer, dimension(:,:), allocatable :: ibool_interfaces_inner_core
 
   !--------------------------------------
@@ -536,9 +540,6 @@
   integer :: NSPEC2DMAX_YMIN_YMAX_IC
   integer :: NSPEC2D_BOTTOM_IC
   integer :: NSPEC2D_TOP_IC
-
-  real(kind=CUSTOM_REAL), dimension(:),allocatable :: &
-    xstore_inner_core,ystore_inner_core,zstore_inner_core
 
   ! for matching with central cube in inner core
   integer, dimension(:), allocatable :: sender_from_slices_to_cube
@@ -580,7 +581,7 @@
 
   module MPI_outer_core_par
 
-  use constants,only: CUSTOM_REAL,NUMFACES_SHARED,NB_SQUARE_EDGES_ONEDIR
+  use constants, only: CUSTOM_REAL,NUMFACES_SHARED,NB_SQUARE_EDGES_ONEDIR
 
   implicit none
 
@@ -589,7 +590,7 @@
   !--------------------------------------
   integer :: num_interfaces_outer_core
   integer :: max_nibool_interfaces_oc
-  integer, dimension(:), allocatable :: my_neighbours_outer_core,nibool_interfaces_outer_core
+  integer, dimension(:), allocatable :: my_neighbors_outer_core,nibool_interfaces_outer_core
   integer, dimension(:,:), allocatable :: ibool_interfaces_outer_core
 
   !--------------------------------------
@@ -605,9 +606,6 @@
   integer :: NSPEC2DMAX_YMIN_YMAX_OC
   integer :: NSPEC2D_BOTTOM_OC
   integer :: NSPEC2D_TOP_OC
-
-  real(kind=CUSTOM_REAL), dimension(:),allocatable :: &
-    xstore_outer_core,ystore_outer_core,zstore_outer_core
 
   ! assembly
   integer, dimension(NUMFACES_SHARED) :: npoin2D_faces_outer_core

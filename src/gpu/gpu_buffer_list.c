@@ -12,7 +12,7 @@
 !
 ! This program is free software; you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by
-! the Free Software Foundation; either version 2 of the License, or
+! the Free Software Foundation; either version 3 of the License, or
 ! (at your option) any later version.
 !
 ! This program is distributed in the hope that it will be useful,
@@ -62,9 +62,7 @@ GPU_INT_BUFFER (d_ibool_crust_mantle);
 GPU_INT_BUFFER (d_ispec_is_tiso_crust_mantle);
 
   // mesh locations
-GPU_REALW_BUFFER (d_xstore_crust_mantle);
-GPU_REALW_BUFFER (d_ystore_crust_mantle);
-GPU_REALW_BUFFER (d_zstore_crust_mantle);
+GPU_REALW_BUFFER (d_rstore_crust_mantle);
 
   // anisotropic 3D mantle
 GPU_REALW_BUFFER (d_c11store_crust_mantle);
@@ -158,9 +156,7 @@ GPU_REALW_BUFFER (d_b_rmass_outer_core);
 GPU_INT_BUFFER (d_ibool_outer_core);
 
   // mesh locations
-GPU_REALW_BUFFER (d_xstore_outer_core);
-GPU_REALW_BUFFER (d_ystore_outer_core);
-GPU_REALW_BUFFER (d_zstore_outer_core);
+GPU_REALW_BUFFER (d_rstore_outer_core);
 
   // wavefields
 GPU_REALW_BUFFER (d_displ_outer_core);
@@ -219,9 +215,7 @@ GPU_INT_BUFFER (d_ibool_inner_core);
 GPU_INT_BUFFER (d_idoubling_inner_core);
 
   // mesh locations
-GPU_REALW_BUFFER (d_xstore_inner_core);
-GPU_REALW_BUFFER (d_ystore_inner_core);
-GPU_REALW_BUFFER (d_zstore_inner_core);
+GPU_REALW_BUFFER (d_rstore_inner_core);
 
   // anisotropic 3D mantle
 GPU_REALW_BUFFER (d_c11store_inner_core);
@@ -332,7 +326,7 @@ GPU_INT_BUFFER (d_number_receiver_global);
 GPU_INT_BUFFER (d_ispec_selected_rec);
 GPU_INT_BUFFER (d_islice_selected_rec);
 GPU_REALW_BUFFER (d_station_seismo_field);
-GPU_REALW_BUFFER (d_adj_sourcearrays);
+GPU_REALW_BUFFER (d_source_adjoint);
 GPU_INT_BUFFER (d_pre_computed_irec);
 
 GPU_REALW_BUFFER (d_norm_max);

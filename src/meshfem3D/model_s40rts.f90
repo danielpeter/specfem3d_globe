@@ -11,7 +11,7 @@
 !
 ! This program is free software; you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by
-! the Free Software Foundation; either version 2 of the License, or
+! the Free Software Foundation; either version 3 of the License, or
 ! (at your option) any later version.
 !
 ! This program is distributed in the hope that it will be useful,
@@ -46,7 +46,7 @@
   integer, parameter :: NK_20 = 20
   integer, parameter :: NS_40 = 40
 
-  ! model_s20rts_variables
+  ! model_s40rts_variables
   !a = positive m  (radial, theta, phi) --> (k,l,m) (maybe other way around??)
   !b = negative m  (radial, theta, phi) --> (k,l,-m)
   double precision,dimension(:,:,:),allocatable :: &
@@ -63,7 +63,7 @@
 !--------------------------------------------------------------------------------------------------
 !
 
-  subroutine model_s40rts_broadcast(myrank)
+  subroutine model_s40rts_broadcast()
 
 ! standard routine to setup model
 
@@ -72,19 +72,17 @@
 
   implicit none
 
-  integer :: myrank
-
   ! local parameters
   integer :: ier
 
   allocate(S40RTS_V_dvs_a(0:NK_20,0:NS_40,0:NS_40), &
-          S40RTS_V_dvs_b(0:NK_20,0:NS_40,0:NS_40), &
-          S40RTS_V_dvp_a(0:NK_20,0:NS_40,0:NS_40), &
-          S40RTS_V_dvp_b(0:NK_20,0:NS_40,0:NS_40), &
-          S40RTS_V_spknt(NK_20+1), &
-          S40RTS_V_qq0(NK_20+1,NK_20+1), &
-          S40RTS_V_qq(3,NK_20+1,NK_20+1), &
-          stat=ier)
+           S40RTS_V_dvs_b(0:NK_20,0:NS_40,0:NS_40), &
+           S40RTS_V_dvp_a(0:NK_20,0:NS_40,0:NS_40), &
+           S40RTS_V_dvp_b(0:NK_20,0:NS_40,0:NS_40), &
+           S40RTS_V_spknt(NK_20+1), &
+           S40RTS_V_qq0(NK_20+1,NK_20+1), &
+           S40RTS_V_qq(3,NK_20+1,NK_20+1), &
+           stat=ier)
   if (ier /= 0 ) call exit_MPI(myrank,'Error allocating S40RTS_V arrays')
 
   ! the variables read are declared and stored in structure S40RTS_V
@@ -190,42 +188,42 @@
 
   r_moho = RMOHO_ / R_EARTH_
   r_cmb = RCMB_ / R_EARTH_
-  if (radius>=r_moho .or. radius <= r_cmb) return
+  if (radius >= r_moho .or. radius <= r_cmb) return
 
-  xr=-1.0d0+2.0d0*(radius-r_cmb)/(r_moho-r_cmb)
+  xr = -1.0d0+2.0d0*(radius-r_cmb)/(r_moho-r_cmb)
   if (xr > 1.0) print *,'xr > 1.0'
   if (xr < -1.0) print *,'xr < -1.0'
   do k = 0,NK_20
-    radial_basis(k)=s40rts_rsple(1,NK_20+1,S40RTS_V_spknt(1),S40RTS_V_qq0(1,NK_20+1-k),S40RTS_V_qq(1,1,NK_20+1-k),xr)
+    radial_basis(k) = s40rts_rsple(1,NK_20+1,S40RTS_V_spknt(1),S40RTS_V_qq0(1,NK_20+1-k),S40RTS_V_qq(1,1,NK_20+1-k),xr)
   enddo
 
   do l = 0,NS_40
-    sint=dsin(theta)
-    cost=dcos(theta)
+    sint = dsin(theta)
+    cost = dcos(theta)
     call lgndr(l,cost,sint,x,dx)
 
-    dvs_alm=0.0d0
-    dvp_alm=0.0d0
+    dvs_alm = 0.0d0
+    dvp_alm = 0.0d0
     do k = 0,NK_20
-      dvs_alm=dvs_alm+radial_basis(k)*S40RTS_V_dvs_a(k,l,0)
-      dvp_alm=dvp_alm+radial_basis(k)*S40RTS_V_dvp_a(k,l,0)
+      dvs_alm = dvs_alm+radial_basis(k)*S40RTS_V_dvs_a(k,l,0)
+      dvp_alm = dvp_alm+radial_basis(k)*S40RTS_V_dvp_a(k,l,0)
     enddo
-    dvs=dvs+dvs_alm*x(1)
-    dvp=dvp+dvp_alm*x(1)
+    dvs = dvs+dvs_alm*x(1)
+    dvp = dvp+dvp_alm*x(1)
 
     do m = 1,l
-      dvs_alm=0.0d0
-      dvp_alm=0.0d0
-      dvs_blm=0.0d0
-      dvp_blm=0.0d0
+      dvs_alm = 0.0d0
+      dvp_alm = 0.0d0
+      dvs_blm = 0.0d0
+      dvp_blm = 0.0d0
       do k = 0,NK_20
-        dvs_alm=dvs_alm+radial_basis(k)*S40RTS_V_dvs_a(k,l,m)
-        dvp_alm=dvp_alm+radial_basis(k)*S40RTS_V_dvp_a(k,l,m)
-        dvs_blm=dvs_blm+radial_basis(k)*S40RTS_V_dvs_b(k,l,m)
-        dvp_blm=dvp_blm+radial_basis(k)*S40RTS_V_dvp_b(k,l,m)
+        dvs_alm = dvs_alm+radial_basis(k)*S40RTS_V_dvs_a(k,l,m)
+        dvp_alm = dvp_alm+radial_basis(k)*S40RTS_V_dvp_a(k,l,m)
+        dvs_blm = dvs_blm+radial_basis(k)*S40RTS_V_dvs_b(k,l,m)
+        dvp_blm = dvp_blm+radial_basis(k)*S40RTS_V_dvp_b(k,l,m)
       enddo
-      dvs=dvs+(dvs_alm*dcos(dble(m)*phi)+dvs_blm*dsin(dble(m)*phi))*x(m+1)
-      dvp=dvp+(dvp_alm*dcos(dble(m)*phi)+dvp_blm*dsin(dble(m)*phi))*x(m+1)
+      dvs = dvs+(dvs_alm*dcos(dble(m)*phi)+dvs_blm*dsin(dble(m)*phi))*x(m+1)
+      dvp = dvp+(dvp_alm*dcos(dble(m)*phi)+dvp_blm*dsin(dble(m)*phi))*x(m+1)
     enddo
 
   enddo
@@ -313,48 +311,48 @@
       I=MIN0(I,II)
 
 !   SEE IF X IS INCREASING OR DECREASING.
-      if (X(I2)-X(I1) <  0) goto 1
+      if (X(I2)-X(I1) < 0) goto 1
       if (X(I2)-X(I1) >= 0) goto 2
 
 !   X IS DECREASING.  CHANGE I AS NECESSARY.
  1    if (S-X(I) <= 0) goto 3
-      if (S-X(I) >  0) goto 4
+      if (S-X(I) > 0) goto 4
 
  4    I=I-1
 
-      if (I-I1 <  0) goto 11
+      if (I-I1 < 0) goto 11
       if (I-I1 == 0) goto 6
-      if (I-I1 >  0) goto 1
+      if (I-I1 > 0) goto 1
 
- 3    if (S-X(I+1) <  0) goto 5
+ 3    if (S-X(I+1) < 0) goto 5
       if (S-X(I+1) >= 0) goto 6
 
  5    I=I+1
 
-      if (I-II <  0) goto 3
+      if (I-II < 0) goto 3
       if (I-II == 0) goto 6
-      if (I-II >  0) goto 7
+      if (I-II > 0) goto 7
 
 !   X IS INCREASING.  CHANGE I AS NECESSARY.
  2    if (S-X(I+1) <= 0) goto 8
-      if (S-X(I+1) >  0) goto 9
+      if (S-X(I+1) > 0) goto 9
 
  9    I=I+1
 
-      if (I-II <  0) goto 2
+      if (I-II < 0) goto 2
       if (I-II == 0) goto 6
-      if (I-II >  0) goto 7
+      if (I-II > 0) goto 7
 
- 8    if (S-X(I) <  0) goto 10
+ 8    if (S-X(I) < 0) goto 10
       if (S-X(I) >= 0) goto 6
 
  10   I=I-1
-      if (I-I1 <  0) goto 11
+      if (I-I1 < 0) goto 11
       if (I-I1 == 0) goto 6
-      if (I-I1 >  0) goto 8
+      if (I-I1 > 0) goto 8
 
  7    I=II
-      GOTO 6
+      goto 6
  11   I=I1
 
 !   CALCULATE RSPLE USING SPLINE COEFFICIENTS IN Y AND Q.
@@ -369,7 +367,7 @@
 
   implicit none
 
-! Subroutine rspln computes cubic spline interpolation coefficients
+! The subroutine rspln computes cubic spline interpolation coefficients
 ! for y(x) between grid points i1 and i2 saving them in q.The
 ! interpolation is continuous with continuous first and second
 ! derivatives. It agrees exactly with y at grid points and with the
@@ -393,26 +391,26 @@
       Y0=0.0d0
 
 !   BAIL OUT IF THERE ARE LESS THAN TWO POINTS TOTAL
-      if (I2-I1  < 0) return
+      if (I2-I1 < 0) return
       if (I2-I1 == 0) goto 17
-      if (I2-I1  > 0) goto 8
+      if (I2-I1 > 0) goto 8
 
  8    A0=X(J1-1)
 !   SEARCH FOR DISCONTINUITIES.
       DO 3 I=J1,I2
       B0=A0
       A0=X(I)
-      if (DABS((A0-B0)/DMAX1(A0,B0)) < SMALL) GOTO 4
- 3    CONTINUE
+      if (DABS((A0-B0)/DMAX1(A0,B0)) < SMALL) goto 4
+ 3    continue
  17   J1=J1-1
       J2=I2-2
-      GOTO 5
+      goto 5
  4    J1=J1-1
       J2=I-3
 !   SEE IF THERE ARE ENOUGH POINTS TO INTERPOLATE (AT LEAST THREE).
- 5    if (J2+1-J1 <  0) goto 9
+ 5    if (J2+1-J1 < 0) goto 9
       if (J2+1-J1 == 0) goto 10
-      if (J2+1-J1 >  0) goto 11
+      if (J2+1-J1 > 0) goto 11
 
 !   ONLY TWO POINTS.  USE LINEAR INTERPOLATION.
  10   J2=J2+2
@@ -421,7 +419,7 @@
         Q(J,J1)=YY(J)
         Q(J,J2)=YY(J)
       enddo
-      GOTO 12
+      goto 12
 
 !   MORE THAN TWO POINTS.  DO SPLINE INTERPOLATION.
  11   A0 = 0.
@@ -497,7 +495,7 @@
 !   NO.  GO BACK FOR MORE.
  6    J1=J2+2
       if (J1-I2 <= 0) goto 8
-      if (J1-I2 >  0) goto 7
+      if (J1-I2 > 0) goto 7
 
 !   THERE IS ONLY ONE POINT LEFT AFTER THE LATEST DISCONTINUITY.
  7    DO J=1,3

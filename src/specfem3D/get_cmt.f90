@@ -11,7 +11,7 @@
 !
 ! This program is free software; you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by
-! the Free Software Foundation; either version 2 of the License, or
+! the Free Software Foundation; either version 3 of the License, or
 ! (at your option) any later version.
 !
 ! This program is distributed in the hope that it will be useful,
@@ -25,10 +25,10 @@
 !
 !=====================================================================
 
-  subroutine get_cmt(yr,jda,ho,mi,sec,tshift_cmt,hdur,lat,long,depth,moment_tensor, &
-                     DT,NSOURCES,min_tshift_cmt_original)
+  subroutine get_cmt(yr,jda,mo,da,ho,mi,sec,tshift_src,hdur,lat,long,depth,moment_tensor, &
+                     DT,NSOURCES,min_tshift_src_original)
 
-  use constants,only: IIN,IMAIN,USE_FORCE_POINT_SOURCE,EXTERNAL_SOURCE_TIME_FUNCTION, &
+  use constants, only: IIN,IMAIN,EXTERNAL_SOURCE_TIME_FUNCTION, &
     RHOAV,R_EARTH,PI,GRAV,TINYVAL,MAX_STRING_LEN,mygroup
 
   use shared_parameters, only: NUMBER_OF_SIMULTANEOUS_RUNS,NOISE_TOMOGRAPHY
@@ -40,13 +40,13 @@
   integer, intent(in) :: NSOURCES
   double precision, intent(in) :: DT
 
-  integer, intent(out) :: yr,jda,ho,mi
-  double precision, intent(out) :: sec,min_tshift_cmt_original
-  double precision, dimension(NSOURCES), intent(out) :: tshift_cmt,hdur,lat,long,depth
+  integer, intent(out) :: yr,jda,ho,mi,mo,da
+  double precision, intent(out) :: sec,min_tshift_src_original
+  double precision, dimension(NSOURCES), intent(out) :: tshift_src,hdur,lat,long,depth
   double precision, dimension(6,NSOURCES), intent(out) :: moment_tensor
 
   ! local variables below
-  integer :: mo,da,julian_day,isource
+  integer :: julian_day,isource
   integer :: i,itype,istart,iend,ier, ios
   double precision :: scaleM
   double precision :: t_shift(NSOURCES)
@@ -59,7 +59,7 @@
   long(:) = 0.d0
   depth(:) = 0.d0
   t_shift(:) = 0.d0
-  tshift_cmt(:) = 0.d0
+  tshift_src(:) = 0.d0
   hdur(:) = 0.d0
   moment_tensor(:,:) = 0.d0
 
@@ -222,7 +222,7 @@
       write(IMAIN,*) 'Error reading time shift in source ',isource
       stop 'Error reading time shift in station in CMTSOLUTION file'
     endif
-    !read(string(12:len_trim(string)),*) tshift_cmt(isource)
+    !read(string(12:len_trim(string)),*) tshift_src(isource)
     read(string(12:len_trim(string)),*) t_shift(isource)
 
     ! read half duration
@@ -308,17 +308,19 @@
     read(string(5:len_trim(string)),*) moment_tensor(6,isource)
 
     ! checks half-duration
-    if (USE_FORCE_POINT_SOURCE) then
-      ! half-duration is the dominant frequency of the source
-      ! point forces use a Ricker source time function
-      ! null half-duration indicates a very low-frequency source
-      ! (see constants.h: TINYVAL = 1.d-9 )
-      if (hdur(isource) < TINYVAL ) hdur(isource) = TINYVAL
-    else
+    !!-------------POINT FORCE-----------------------------------------------
+    !if (USE_FORCE_POINT_SOURCE) then
+    !  ! half-duration is the dominant frequency of the source
+    !  ! point forces use a Ricker source time function
+    !  ! null half-duration indicates a very low-frequency source
+    !  ! (see constants.h: TINYVAL = 1.d-9 )
+    !  if (hdur(isource) < TINYVAL ) hdur(isource) = TINYVAL
+    !else
+    !-------------POINT FORCE-----------------------------------------------
       ! null half-duration indicates a Heaviside
       ! replace with very short error function
       if (hdur(isource) < 5. * DT ) hdur(isource) = 5. * DT
-    endif
+    !endif
 
   enddo
 
@@ -332,13 +334,13 @@
 
   close(IIN)
 
-  ! Sets tshift_cmt to zero to initiate the simulation!
+  ! Sets tshift_src to zero to initiate the simulation!
   if (NSOURCES == 1) then
-      tshift_cmt = 0.d0
-      min_tshift_cmt_original = t_shift(1)
+      tshift_src = 0.d0
+      min_tshift_src_original = t_shift(1)
   else
-      tshift_cmt(1:NSOURCES) = t_shift(1:NSOURCES)-minval(t_shift)
-      min_tshift_cmt_original = minval(t_shift)
+      tshift_src(1:NSOURCES) = t_shift(1:NSOURCES)-minval(t_shift)
+      min_tshift_src_original = minval(t_shift)
   endif
 
 !
@@ -398,7 +400,7 @@
 
   ! calculates scalar moment (M0)
 
-  use constants,only: RHOAV,R_EARTH,PI,GRAV
+  use constants, only: RHOAV,R_EARTH,PI,GRAV
 
   implicit none
 
@@ -422,7 +424,7 @@
   !   Mrr,Mtt,Mpp,Mrt,Mrp,Mtp
   !
   ! euclidean (or Frobenius) norm of a matrix: M0**2 = sum( Mij**2 )
-  scalar_moment = Mxx**2 + Myy**2 + Mzz**2 + 2.d0 * Mxy**2 + 2.d0 * Mxz**2 + 2.d0 * Myz**2
+  scalar_moment = Mxx**2 + Myy**2 + Mzz**2 + 2.d0 * ( Mxy**2 + Mxz**2 + Myz**2 )
 
   ! adds 1/2 to be coherent with double couple or point sources
   scalar_moment = dsqrt(scalar_moment/2.0d0)
@@ -448,7 +450,7 @@
 
   double precision function get_cmt_moment_magnitude(Mxx,Myy,Mzz,Mxy,Mxz,Myz)
 
-  ! calculates scalar moment (M0)
+  ! calculates moment magnitude (Mw)
 
   implicit none
 

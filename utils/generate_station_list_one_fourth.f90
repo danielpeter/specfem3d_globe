@@ -11,7 +11,7 @@
 !
 ! This program is free software; you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by
-! the Free Software Foundation; either version 2 of the License, or
+! the Free Software Foundation; either version 3 of the License, or
 ! (at your option) any later version.
 !
 ! This program is distributed in the hope that it will be useful,
@@ -61,7 +61,7 @@
 
 ! add 1/10th of a degree to generate stations every 0.1 degree between -90 and -50
 ! otherwise only every degree
-    if(ilatitude < -50) then
+    if (ilatitude < -50) then
       upper_bound = 9
     else
       upper_bound = 0

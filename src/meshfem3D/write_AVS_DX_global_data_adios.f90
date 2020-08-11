@@ -11,7 +11,7 @@
 !
 ! This program is free software; you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by
-! the Free Software Foundation; either version 2 of the License, or
+! the Free Software Foundation; either version 3 of the License, or
 ! (at your option) any later version.
 !
 ! This program is distributed in the hope that it will be useful,
@@ -54,7 +54,7 @@ contains
 !! \param adios_group ADIOS group where the variables belong
 !! \param group_size_inc The size of the ADIOS group to increment
 !! \param avs_dx_adios The structure holding the data to be allocated
-subroutine define_AVS_DX_global_data_adios(adios_group, myrank, nspec, ibool, &
+subroutine define_AVS_DX_global_data_adios(adios_group, nspec, ibool, &
                                            npointot, mask_ibool, group_size_inc, avs_dx_adios)
 
   use constants
@@ -65,7 +65,7 @@ subroutine define_AVS_DX_global_data_adios(adios_group, myrank, nspec, ibool, &
 
   !--- Arguments -------------------------------------------
   integer(kind=8), intent(in) :: adios_group
-  integer(kind=4), intent(in) :: nspec, npointot, myrank
+  integer(kind=4), intent(in) :: nspec, npointot
   integer(kind=4), intent(in) :: ibool(NGLLX,NGLLY,NGLLZ,nspec)
   logical, intent(inout) :: mask_ibool(npointot)
   integer(kind=8), intent(inout) :: group_size_inc
@@ -135,32 +135,32 @@ subroutine define_AVS_DX_global_data_adios(adios_group, myrank, nspec, ibool, &
 
   !--- Variables for '...AVS_DXpoints.txt'
   call define_adios_global_array1D(adios_group, group_size_inc, npoin, &
-                                   "", "points/x_value", dummy_real1d)
+                                   '', "points/x_value", dummy_real1d)
   call define_adios_global_array1D(adios_group, group_size_inc, npoin, &
-                                   "", "points/y_value", dummy_real1d)
+                                   '', "points/y_value", dummy_real1d)
   call define_adios_global_array1D(adios_group, group_size_inc, npoin, &
-                                   "", "points/z_value", dummy_real1d)
+                                   '', "points/z_value", dummy_real1d)
 
   !--- Variables for AVS_DXelements.txt
   call define_adios_global_array1D(adios_group, group_size_inc, nspec, &
-                                   "", "elements/idoubling", dummy_int1d)
+                                   '', "elements/idoubling", dummy_int1d)
 
   call define_adios_global_array1D(adios_group, group_size_inc, nspec, &
-                                   "", "elements/num_ibool_AVS_DX_iglob1", dummy_int1d)
+                                   '', "elements/num_ibool_AVS_DX_iglob1", dummy_int1d)
   call define_adios_global_array1D(adios_group, group_size_inc, nspec, &
-                                   "", "elements/num_ibool_AVS_DX_iglob2", dummy_int1d)
+                                   '', "elements/num_ibool_AVS_DX_iglob2", dummy_int1d)
   call define_adios_global_array1D(adios_group, group_size_inc, nspec, &
-                                   "", "elements/num_ibool_AVS_DX_iglob3", dummy_int1d)
+                                   '', "elements/num_ibool_AVS_DX_iglob3", dummy_int1d)
   call define_adios_global_array1D(adios_group, group_size_inc, nspec, &
-                                   "", "elements/num_ibool_AVS_DX_iglob4", dummy_int1d)
+                                   '', "elements/num_ibool_AVS_DX_iglob4", dummy_int1d)
   call define_adios_global_array1D(adios_group, group_size_inc, nspec, &
-                                   "", "elements/num_ibool_AVS_DX_iglob5", dummy_int1d)
+                                   '', "elements/num_ibool_AVS_DX_iglob5", dummy_int1d)
   call define_adios_global_array1D(adios_group, group_size_inc, nspec, &
-                                   "", "elements/num_ibool_AVS_DX_iglob6", dummy_int1d)
+                                   '', "elements/num_ibool_AVS_DX_iglob6", dummy_int1d)
   call define_adios_global_array1D(adios_group, group_size_inc, nspec, &
-                                   "", "elements/num_ibool_AVS_DX_iglob7", dummy_int1d)
+                                   '', "elements/num_ibool_AVS_DX_iglob7", dummy_int1d)
   call define_adios_global_array1D(adios_group, group_size_inc, nspec, &
-                                   "", "elements/num_ibool_AVS_DX_iglob8", dummy_int1d)
+                                   '', "elements/num_ibool_AVS_DX_iglob8", dummy_int1d)
 
 end subroutine define_AVS_DX_global_data_adios
 
@@ -168,12 +168,10 @@ end subroutine define_AVS_DX_global_data_adios
 !===============================================================================
 !> Prepare the global AVS/DX data to be written; fill the structure.
 !! \param adios_handle The handle to the ADIOS file to be written.
-!! \param myrank The MPI rank of the current process.
 !! \param avs_dx_adios The structure to be filled.
 !!
 !! Create AVS or DX 3D data for the slice, to be recombined in postprocessing.
-  subroutine prepare_AVS_DX_global_data_adios(myrank, &
-                                              nspec, ibool, idoubling, xstore, ystore, zstore, num_ibool_AVS_DX, &
+  subroutine prepare_AVS_DX_global_data_adios(nspec, ibool, idoubling, xstore, ystore, zstore, num_ibool_AVS_DX, &
                                               mask_ibool, npointot, avs_dx_adios)
 
   use constants
@@ -181,7 +179,7 @@ end subroutine define_AVS_DX_global_data_adios
 
   implicit none
 
-  integer nspec,myrank
+  integer nspec
   integer ibool(NGLLX,NGLLY,NGLLZ,nspec)
 
   integer idoubling(nspec)
@@ -365,7 +363,6 @@ subroutine write_AVS_DX_global_data_adios(adios_handle, myrank, sizeprocs, avs_d
                                    "points/y_value", avs_dx_adios%y_adios)
   call write_adios_global_1d_array(adios_handle, myrank, sizeprocs, npoin, &
                                    "points/z_value", avs_dx_adios%z_adios)
-
 
   call write_adios_global_1d_array(adios_handle, myrank, sizeprocs, nspec, &
                                    "elements/idoubling", avs_dx_adios%idoubling)

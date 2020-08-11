@@ -11,7 +11,7 @@
 !
 ! This program is free software; you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by
-! the Free Software Foundation; either version 2 of the License, or
+! the Free Software Foundation; either version 3 of the License, or
 ! (at your option) any later version.
 !
 ! This program is distributed in the hope that it will be useful,
@@ -34,7 +34,7 @@
                              yr,jda,ho,mi,sec, &
                              theta_source,phi_source)
 
-  use constants_solver,only: &
+  use constants_solver, only: &
     ELLIPTICITY_VAL,NCHUNKS_VAL,NEX_XI_VAL,NPROCTOT_VAL, &
     CUSTOM_REAL,NGLLX,NGLLY,NGLLZ,NGNOD,NDIM, &
     MAX_LENGTH_STATION_NAME,MAX_LENGTH_NETWORK_NAME, &
@@ -45,7 +45,7 @@
 
   use shared_input_parameters, only: OUTPUT_FILES
 
-  use specfem_par,only: &
+  use specfem_par, only: &
     myrank,DT,NSTEP, &
     xigll,yigll,zigll, &
     STATIONS_FILE,nrec,islice_selected_rec,ispec_selected_rec, &
@@ -54,7 +54,6 @@
     rspl,espl,espl2,nspl,ibathy_topo, &
     TOPOGRAPHY,RECEIVERS_CAN_BE_BURIED
 
-  use write_seismograms_mod, only: band_instrument_code
   implicit none
 
   integer,intent(in) :: nspec,nglob
@@ -92,7 +91,7 @@
   double precision :: sint,cost,sinp,cosp
   double precision :: r0,p20
   double precision :: theta,phi
-  double precision :: dist
+  double precision :: dist_squared
   double precision :: xi,eta,gamma,dx,dy,dz,dxi,deta,dgamma
 
 ! topology of the control points of the surface element
@@ -117,7 +116,7 @@
   double precision, dimension(:), allocatable :: final_distance
   double precision, dimension(:,:), allocatable :: final_distance_all
 
-  double precision :: distmin,final_distance_max
+  double precision :: distmin_squared,distmin_not_squared,final_distance_max
 
 ! receiver information
 ! timing information for the stations
@@ -137,7 +136,7 @@
 
   double precision :: x_target_rec,y_target_rec,z_target_rec
 
-  double precision :: typical_size
+  double precision :: typical_size_squared
 
   character(len=2) :: bic
   character(len=256) :: string
@@ -156,7 +155,7 @@
   double precision, allocatable, dimension(:,:) :: xyz_midpoints
 
   ! search range
-  double precision :: lat,lon
+  double precision :: lat,lon,r
   double precision :: lat_min,lat_max,lon_min,lon_max
   ! search margin in degrees
   double precision,parameter :: LAT_LON_MARGIN = 2.d0
@@ -183,10 +182,10 @@
   call hex_nodes(iaddx,iaddy,iaddr)
 
   ! compute typical size of elements at the surface
-  typical_size = TWO_PI * R_UNIT_SPHERE / (4.*NEX_XI_VAL)
+  typical_size_squared = TWO_PI * R_UNIT_SPHERE / (4.*NEX_XI_VAL)
 
   ! use 10 times the distance as a criterion for source detection
-  typical_size = 10. * typical_size
+  typical_size_squared = (10. * typical_size_squared)**2
 
   ! allocate memory for arrays using number of stations
   allocate(epidist(nrec), &
@@ -201,9 +200,6 @@
            z_found(nrec), &
            final_distance(nrec),stat=ier)
   if (ier /= 0) call exit_MPI(myrank,'Error allocating temporary receiver arrays')
-
-  ! initializes search distances
-  final_distance(:) = HUGEVAL
 
   ! read that STATIONS file on the master
   if (myrank == 0) then
@@ -268,8 +264,8 @@
     station_duplet(:) = 0
     do irec = 1,nrec
       do i = 1,irec-1
-        if ((station_name(irec)==station_name(i)) .and. &
-            (network_name(irec)==network_name(i))) then
+        if ((station_name(irec) == station_name(i)) .and. &
+            (network_name(irec) == network_name(i))) then
 
             station_duplet(i)=station_duplet(i)+1
             if (len_trim(station_name(irec)) <= MAX_LENGTH_STATION_NAME-3) then
@@ -335,7 +331,7 @@
   do irec = 1,nrec
 
     ! set distance to huge initial value
-    distmin = HUGEVAL
+    distmin_squared = HUGEVAL
 
     ! station lat/lon in degrees
     lat = stlat(irec)
@@ -357,7 +353,6 @@
 
     ! record three components for each station
     do iorientation = 1,3
-
       !     North
       if (iorientation == 1) then
         stazi = 0.d0
@@ -395,7 +390,6 @@
       nu(iorientation,1,irec) = n(1)*sint*cosp+n(2)*cost*cosp-n(3)*sinp
       nu(iorientation,2,irec) = n(1)*sint*sinp+n(2)*cost*sinp+n(3)*cosp
       nu(iorientation,3,irec) = n(1)*cost-n(2)*sint
-
     enddo
 
     ! normalized receiver radius
@@ -409,11 +403,12 @@
     ! ellipticity
     if (ELLIPTICITY_VAL) then
       cost=cos(theta)
-! this is the Legendre polynomial of degree two, P2(cos(theta)), see the discussion above eq (14.4) in Dahlen and Tromp (1998)
+      ! this is the Legendre polynomial of degree two, P2(cos(theta)),
+      ! see the discussion above eq (14.4) in Dahlen and Tromp (1998)
       p20=0.5d0*(3.0d0*cost*cost-1.0d0)
-! get ellipticity using spline evaluation
+      ! get ellipticity using spline evaluation
       call spline_evaluation(rspl,espl,espl2,nspl,r0,ell)
-! this is eq (14.4) in Dahlen and Tromp (1998)
+      ! this is eq (14.4) in Dahlen and Tromp (1998)
       r0=r0*(1.0d0-(2.0d0/3.0d0)*ell*p20)
     endif
 
@@ -439,7 +434,7 @@
     ix_initial_guess(irec) = MIDX
     iy_initial_guess(irec) = MIDY
     iz_initial_guess(irec) = MIDZ
-    distmin = HUGEVAL
+    distmin_squared = HUGEVAL
 
     ! searches closest GLL point
     if (USE_DISTANCE_CRITERION) then
@@ -449,22 +444,24 @@
         ! loops over all elements
         do ispec = 1,nspec
           ! exclude elements that are too far from target
-          dist = (x_target_rec - xyz_midpoints(1,ispec))*(x_target_rec - xyz_midpoints(1,ispec)) &
-               + (y_target_rec - xyz_midpoints(2,ispec))*(y_target_rec - xyz_midpoints(2,ispec)) &
-               + (z_target_rec - xyz_midpoints(3,ispec))*(z_target_rec - xyz_midpoints(3,ispec))
-          if (dist > typical_size*typical_size) cycle
+          dist_squared = (x_target_rec - xyz_midpoints(1,ispec))*(x_target_rec - xyz_midpoints(1,ispec)) &
+                       + (y_target_rec - xyz_midpoints(2,ispec))*(y_target_rec - xyz_midpoints(2,ispec)) &
+                       + (z_target_rec - xyz_midpoints(3,ispec))*(z_target_rec - xyz_midpoints(3,ispec))
+          !  we compare squared distances instead of distances themselves to significantly speed up calculations
+          if (dist_squared > typical_size_squared) cycle
           ! loop only on points inside the element
           ! exclude edges to ensure this point is not shared with other elements
           do k=2,NGLLZ-1
             do j=2,NGLLY-1
               do i=2,NGLLX-1
                 iglob = ibool(i,j,k,ispec)
-                dist = (x_target_rec - dble(xstore(iglob)))*(x_target_rec - dble(xstore(iglob))) &
-                     + (y_target_rec - dble(ystore(iglob)))*(y_target_rec - dble(ystore(iglob))) &
-                     + (z_target_rec - dble(zstore(iglob)))*(z_target_rec - dble(zstore(iglob)))
+                dist_squared = (x_target_rec - dble(xstore(iglob)))*(x_target_rec - dble(xstore(iglob))) &
+                             + (y_target_rec - dble(ystore(iglob)))*(y_target_rec - dble(ystore(iglob))) &
+                             + (z_target_rec - dble(zstore(iglob)))*(z_target_rec - dble(zstore(iglob)))
                 !  keep this point if it is closer to the receiver
-                if (dist < distmin*distmin) then
-                  distmin = dsqrt(dist)
+                !  we compare squared distances instead of distances themselves to significantly speed up calculations
+                if (dist_squared < distmin_squared) then
+                  distmin_squared = dist_squared
                   ispec_selected_rec(irec) = ispec
                   ix_initial_guess(irec) = i
                   iy_initial_guess(irec) = j
@@ -485,12 +482,13 @@
           do j=2,NGLLY-1
             do i=2,NGLLX-1
               iglob = ibool(i,j,k,ispec)
-              dist = (x_target_rec - dble(xstore(iglob)))*(x_target_rec - dble(xstore(iglob))) &
-                   + (y_target_rec - dble(ystore(iglob)))*(y_target_rec - dble(ystore(iglob))) &
-                   + (z_target_rec - dble(zstore(iglob)))*(z_target_rec - dble(zstore(iglob)))
+              dist_squared = (x_target_rec - dble(xstore(iglob)))*(x_target_rec - dble(xstore(iglob))) &
+                           + (y_target_rec - dble(ystore(iglob)))*(y_target_rec - dble(ystore(iglob))) &
+                           + (z_target_rec - dble(zstore(iglob)))*(z_target_rec - dble(zstore(iglob)))
               !  keep this point if it is closer to the receiver
-              if (dist < distmin*distmin) then
-                distmin = dsqrt(dist)
+              !  we compare squared distances instead of distances themselves to significantly speed up calculations
+              if (dist_squared < distmin_squared) then
+                distmin_squared = dist_squared
                 ispec_selected_rec(irec) = ispec
                 ix_initial_guess(irec) = i
                 iy_initial_guess(irec) = j
@@ -584,6 +582,9 @@
 ! ****************************************
 ! find the best (xi,eta) for each receiver
 ! ****************************************
+
+  ! initializes search distances
+  final_distance(:) = HUGEVAL
 
   ! loop on all the receivers
   ! gather source information in subsets to reduce memory requirements
@@ -763,11 +764,12 @@
       z_found_subset(irec_in_this_subset) = z_found(irec)
 
       ! compute final distance between asked and found (converted to km)
-      final_distance(irec) = dsqrt((x_target_rec-x)**2 + &
-                                   (y_target_rec-y)**2 + &
-                                   (z_target_rec-z)**2)*R_EARTH_KM
+      distmin_not_squared = dsqrt((x_target_rec-x)**2 + &
+                                  (y_target_rec-y)**2 + &
+                                  (z_target_rec-z)**2)*R_EARTH_KM
 
-      final_distance_subset(irec_in_this_subset) = final_distance(irec)
+      final_distance(irec) = distmin_not_squared
+      final_distance_subset(irec_in_this_subset) = distmin_not_squared
 
     enddo ! end of loop on all stations within current subset
 
@@ -800,10 +802,10 @@
         ! mapping from station number in current subset to real station number in all the subsets
         irec = irec_in_this_subset + irec_already_done
 
-        distmin = HUGEVAL
+        distmin_not_squared = HUGEVAL
         do iprocloop = 0,NPROCTOT_VAL-1
-          if (final_distance_all(irec_in_this_subset,iprocloop) < distmin) then
-            distmin = final_distance_all(irec_in_this_subset,iprocloop)
+          if (final_distance_all(irec_in_this_subset,iprocloop) < distmin_not_squared) then
+            distmin_not_squared = final_distance_all(irec_in_this_subset,iprocloop)
 
             islice_selected_rec(irec) = iprocloop
             ispec_selected_rec(irec) = ispec_selected_rec_all(irec_in_this_subset,iprocloop)
@@ -815,7 +817,7 @@
             z_found(irec) = z_found_all(irec_in_this_subset,iprocloop)
           endif
         enddo
-        final_distance(irec) = distmin
+        final_distance(irec) = distmin_not_squared
       enddo
     endif ! end of section executed by main process only
 
@@ -855,12 +857,15 @@
       if (DISPLAY_DETAILS_STATIONS .or. final_distance(irec) > 0.01d0) then
         write(IMAIN,*)
         write(IMAIN,*) 'Station #',irec,': ',trim(network_name(irec))//'.'//trim(station_name(irec))
-        write(IMAIN,*) '     original latitude: ',sngl(stlat(irec))
-        write(IMAIN,*) '    original longitude: ',sngl(stlon(irec))
-        write(IMAIN,*) '   epicentral distance: ',sngl(epidist(irec))
-        write(IMAIN,*) 'closest estimate found: ',sngl(final_distance(irec)),' km away'
-        write(IMAIN,*) ' in slice ',islice_selected_rec(irec),' in element ',ispec_selected_rec(irec)
-        write(IMAIN,*) ' at xi,eta,gamma coordinates = ',xi_receiver(irec),eta_receiver(irec),gamma_receiver(irec)
+        write(IMAIN,*) '       original latitude: ',sngl(stlat(irec))
+        write(IMAIN,*) '      original longitude: ',sngl(stlon(irec))
+        write(IMAIN,*) '     epicentral distance: ',sngl(epidist(irec))
+        write(IMAIN,*) '  closest estimate found: ',sngl(final_distance(irec)),' km away'
+        write(IMAIN,*) '   in slice ',islice_selected_rec(irec),' in element ',ispec_selected_rec(irec)
+        write(IMAIN,*) '   at xi,eta,gamma coordinates = ',xi_receiver(irec),eta_receiver(irec),gamma_receiver(irec)
+        ! converts geocentric coordinates x/y/z to geographic radius/latitude/longitude (in degrees)
+        call xyz_2_rlatlon_dble(x_found(irec),y_found(irec),z_found(irec),r,lat,lon)
+        write(IMAIN,*) '   at lat/lon = ',sngl(lat),sngl(lon)
       endif
 
       ! add warning if estimate is poor

@@ -11,7 +11,7 @@
 !
 ! This program is free software; you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by
-! the Free Software Foundation; either version 2 of the License, or
+! the Free Software Foundation; either version 3 of the License, or
 ! (at your option) any later version.
 !
 ! This program is distributed in the hope that it will be useful,
@@ -25,7 +25,7 @@
 !
 !=====================================================================
 
-  subroutine get_MPI_cutplanes_xi(myrank,prname,nspec,iMPIcut_xi,ibool, &
+  subroutine get_MPI_cutplanes_xi(prname,nspec,iMPIcut_xi,ibool, &
                                   xstore,ystore,zstore,mask_ibool,npointot, &
                                   NSPEC2D_ETA_FACE,iregion,npoin2D_xi, &
                                   iboolleft_xi,iboolright_xi, &
@@ -40,7 +40,7 @@
 
   implicit none
 
-  integer :: nspec,myrank
+  integer :: nspec
 
   logical,dimension(2,nspec) :: iMPIcut_xi
 

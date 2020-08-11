@@ -11,7 +11,7 @@
 !
 ! This program is free software; you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by
-! the Free Software Foundation; either version 2 of the License, or
+! the Free Software Foundation; either version 3 of the License, or
 ! (at your option) any later version.
 !
 ! This program is distributed in the hope that it will be useful,
@@ -25,10 +25,11 @@
 !
 !=====================================================================
 
-  subroutine initialize_layers(myrank,ipass,xigll,yigll,zigll,wxgll,wygll,wzgll, &
+  subroutine initialize_layers(ipass,xigll,yigll,zigll,wxgll,wygll,wzgll, &
                         shape3D,dershape3D,shape2D_x,shape2D_y,shape2D_bottom,shape2D_top, &
                         dershape2D_x,dershape2D_y,dershape2D_bottom,dershape2D_top, &
-                        iaddx,iaddy,iaddz,nspec,xstore,ystore,zstore,ibool,idoubling, &
+                        iaddx,iaddy,iaddz, &
+                        nspec,xstore,ystore,zstore,ibool,idoubling, &
                         iboun,iMPIcut_xi,iMPIcut_eta,ispec2D_moho_top,ispec2D_moho_bot, &
                         ispec2D_400_top,ispec2D_400_bot,ispec2D_670_top,ispec2D_670_bot, &
                         NEX_PER_PROC_ETA,nex_eta_moho,RMOHO,R400,R670,r_moho,r_400,r_670, &
@@ -42,45 +43,47 @@
 
   implicit none
 
-  integer :: myrank,ipass
+  integer,intent(in) :: ipass
 
-  double precision xigll(NGLLX),yigll(NGLLY),zigll(NGLLZ)
-  double precision wxgll(NGLLX),wygll(NGLLY),wzgll(NGLLZ)
+  double precision,intent(out) :: xigll(NGLLX),yigll(NGLLY),zigll(NGLLZ)
+  double precision,intent(out) :: wxgll(NGLLX),wygll(NGLLY),wzgll(NGLLZ)
 
-  double precision shape3D(NGNOD,NGLLX,NGLLY,NGLLZ),dershape3D(NDIM,NGNOD,NGLLX,NGLLY,NGLLZ)
+  double precision,intent(out) :: shape3D(NGNOD,NGLLX,NGLLY,NGLLZ),dershape3D(NDIM,NGNOD,NGLLX,NGLLY,NGLLZ)
 
-  double precision shape2D_x(NGNOD2D,NGLLY,NGLLZ),shape2D_y(NGNOD2D,NGLLX,NGLLZ)
-  double precision shape2D_bottom(NGNOD2D,NGLLX,NGLLY),shape2D_top(NGNOD2D,NGLLX,NGLLY)
-  double precision dershape2D_x(NDIM2D,NGNOD2D,NGLLY,NGLLZ),dershape2D_y(NDIM2D,NGNOD2D,NGLLX,NGLLZ)
-  double precision dershape2D_bottom(NDIM2D,NGNOD2D,NGLLX,NGLLY),dershape2D_top(NDIM2D,NGNOD2D,NGLLX,NGLLY)
+  double precision,intent(out) :: shape2D_x(NGNOD2D,NGLLY,NGLLZ),shape2D_y(NGNOD2D,NGLLX,NGLLZ)
+  double precision,intent(out) :: shape2D_bottom(NGNOD2D,NGLLX,NGLLY),shape2D_top(NGNOD2D,NGLLX,NGLLY)
+  double precision,intent(out) :: dershape2D_x(NDIM2D,NGNOD2D,NGLLY,NGLLZ),dershape2D_y(NDIM2D,NGNOD2D,NGLLX,NGLLZ)
+  double precision,intent(out) :: dershape2D_bottom(NDIM2D,NGNOD2D,NGLLX,NGLLY),dershape2D_top(NDIM2D,NGNOD2D,NGLLX,NGLLY)
 
-  integer, dimension(NGNOD) :: iaddx,iaddy,iaddz
+  integer, dimension(NGNOD),intent(out) :: iaddx,iaddy,iaddz
 
-  integer nspec
-  double precision xstore(NGLLX,NGLLY,NGLLZ,nspec)
-  double precision ystore(NGLLX,NGLLY,NGLLZ,nspec)
-  double precision zstore(NGLLX,NGLLY,NGLLZ,nspec)
-  integer ibool(NGLLX,NGLLY,NGLLZ,nspec)
-  integer idoubling(nspec)
+  integer,intent(in) :: nspec
+  double precision,intent(out) :: xstore(NGLLX,NGLLY,NGLLZ,nspec)
+  double precision,intent(out) :: ystore(NGLLX,NGLLY,NGLLZ,nspec)
+  double precision,intent(out) :: zstore(NGLLX,NGLLY,NGLLZ,nspec)
+  integer,intent(out) :: ibool(NGLLX,NGLLY,NGLLZ,nspec)
+  integer,intent(out) :: idoubling(nspec)
 
-  logical iboun(6,nspec)
-  logical iMPIcut_xi(2,nspec),iMPIcut_eta(2,nspec)
+  logical,intent(out) :: iboun(6,nspec)
+  logical,intent(out) :: iMPIcut_xi(2,nspec),iMPIcut_eta(2,nspec)
 
-  integer ispec2D_moho_top,ispec2D_moho_bot,ispec2D_400_top,ispec2D_400_bot, &
+  integer,intent(out) :: ispec2D_moho_top,ispec2D_moho_bot,ispec2D_400_top,ispec2D_400_bot, &
     ispec2D_670_top,ispec2D_670_bot
-  integer NEX_PER_PROC_ETA,nex_eta_moho
-  double precision RMOHO,R400,R670
-  double precision r_moho,r_400,r_670
+  integer,intent(in) :: NEX_PER_PROC_ETA
+  integer,intent(out) :: nex_eta_moho
+  double precision,intent(in) :: RMOHO,R400,R670
+  double precision,intent(out) :: r_moho,r_400,r_670
 
-  logical ONE_CRUST
-  integer NUMBER_OF_MESH_LAYERS,layer_shift
+  logical,intent(in) :: ONE_CRUST
+  integer,intent(out) :: NUMBER_OF_MESH_LAYERS,layer_shift
 
   ! code for the four regions of the mesh
-  integer iregion_code,ifirst_region,ilast_region
-  integer first_layer_aniso,last_layer_aniso
+  integer,intent(in) :: iregion_code
+  integer,intent(out) :: ifirst_region,ilast_region
+  integer,intent(out) :: first_layer_aniso,last_layer_aniso
 
 ! this for non blocking MPI
-  logical, dimension(nspec) :: is_on_a_slice_edge
+  logical, dimension(nspec),intent(out) :: is_on_a_slice_edge
 
 ! set up coordinates of the Gauss-Lobatto-Legendre points
   call zwgljd(xigll,wxgll,NGLLX,GAUSSALPHA,GAUSSBETA)
@@ -88,13 +91,13 @@
   call zwgljd(zigll,wzgll,NGLLZ,GAUSSALPHA,GAUSSBETA)
 
 ! get the 3-D shape functions
-  call get_shape3D(myrank,shape3D,dershape3D,xigll,yigll,zigll)
+  call get_shape3D(shape3D,dershape3D,xigll,yigll,zigll)
 
 ! get the 2-D shape functions
-  call get_shape2D(myrank,shape2D_x,dershape2D_x,yigll,zigll,NGLLY,NGLLZ)
-  call get_shape2D(myrank,shape2D_y,dershape2D_y,xigll,zigll,NGLLX,NGLLZ)
-  call get_shape2D(myrank,shape2D_bottom,dershape2D_bottom,xigll,yigll,NGLLX,NGLLY)
-  call get_shape2D(myrank,shape2D_top,dershape2D_top,xigll,yigll,NGLLX,NGLLY)
+  call get_shape2D(shape2D_x,dershape2D_x,yigll,zigll,NGLLY,NGLLZ)
+  call get_shape2D(shape2D_y,dershape2D_y,xigll,zigll,NGLLX,NGLLZ)
+  call get_shape2D(shape2D_bottom,dershape2D_bottom,xigll,yigll,NGLLX,NGLLY)
+  call get_shape2D(shape2D_top,dershape2D_top,xigll,yigll,NGLLX,NGLLY)
 
 ! create the shape of the corner nodes of a regular mesh element
   call hex_nodes(iaddx,iaddy,iaddz)

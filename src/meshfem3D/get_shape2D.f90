@@ -11,7 +11,7 @@
 !
 ! This program is free software; you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by
-! the Free Software Foundation; either version 2 of the License, or
+! the Free Software Foundation; either version 3 of the License, or
 ! (at your option) any later version.
 !
 ! This program is distributed in the hope that it will be useful,
@@ -25,7 +25,7 @@
 !
 !=====================================================================
 
-  subroutine get_shape2D(myrank,shape2D,dershape2D,xigll,yigll,NGLLA,NGLLB)
+  subroutine get_shape2D(shape2D,dershape2D,xigll,yigll,NGLLA,NGLLB)
 
   use constants
 
@@ -33,7 +33,7 @@
 
 ! generic routine that accepts any polynomial degree in each direction
 
-  integer NGLLA,NGLLB,myrank
+  integer NGLLA,NGLLB
 
   double precision xigll(NGLLA)
   double precision yigll(NGLLB)
@@ -144,13 +144,13 @@
     enddo
 
 !   the sum of the shape functions should be 1
-    if (abs(sumshape-ONE)>TINYVAL) call exit_MPI(myrank,'Error in 2D shape functions')
+    if (abs(sumshape-ONE) > TINYVAL) call exit_MPI(myrank,'Error in 2D shape functions')
 
 !   the sum of the derivatives of the shape functions should be 0
-    if (abs(sumdershapexi)>TINYVAL) &
+    if (abs(sumdershapexi) > TINYVAL) &
       call exit_MPI(myrank,'Error in xi derivatives of 2D shape function')
 
-    if (abs(sumdershapeeta)>TINYVAL) &
+    if (abs(sumdershapeeta) > TINYVAL) &
       call exit_MPI(myrank,'Error in eta derivatives of 2D shape function')
 
     enddo

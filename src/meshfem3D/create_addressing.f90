@@ -11,7 +11,7 @@
 !
 ! This program is free software; you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by
-! the Free Software Foundation; either version 2 of the License, or
+! the Free Software Foundation; either version 3 of the License, or
 ! (at your option) any later version.
 !
 ! This program is distributed in the hope that it will be useful,
@@ -26,7 +26,7 @@
 !=====================================================================
 
 
-  subroutine create_addressing(myrank,NCHUNKS,NPROC,NPROC_ETA,NPROC_XI,NPROCTOT, &
+  subroutine create_addressing(NCHUNKS,NPROC,NPROC_ETA,NPROC_XI,NPROCTOT, &
                         addressing,ichunk_slice,iproc_xi_slice,iproc_eta_slice, &
                         OUTPUT_FILES)
 
@@ -34,7 +34,7 @@
 
   implicit none
 
-  integer :: myrank,NCHUNKS,NPROC,NPROC_ETA,NPROC_XI,NPROCTOT
+  integer :: NCHUNKS,NPROC,NPROC_ETA,NPROC_XI,NPROCTOT
 
   integer, dimension(NCHUNKS,0:NPROC_XI-1,0:NPROC_ETA-1) :: addressing
   integer, dimension(0:NPROCTOT-1) :: ichunk_slice,iproc_xi_slice,iproc_eta_slice

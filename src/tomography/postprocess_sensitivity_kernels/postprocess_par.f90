@@ -11,7 +11,7 @@
 !
 ! This program is free software; you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by
-! the Free Software Foundation; either version 2 of the License, or
+! the Free Software Foundation; either version 3 of the License, or
 ! (at your option) any later version.
 !
 ! This program is distributed in the hope that it will be useful,
@@ -28,9 +28,9 @@
 
 module postprocess_par
 
-  use shared_input_parameters,only: LOCAL_PATH
+  use shared_input_parameters, only: LOCAL_PATH
 
-  use constants,only: CUSTOM_REAL,MAX_STRING_LEN, &
+  use constants, only: CUSTOM_REAL,MAX_STRING_LEN, &
     NGLLX,NGLLY,NGLLZ,IIN,IOUT, &
     FOUR_THIRDS,R_EARTH_KM,GAUSSALPHA,GAUSSBETA
 
@@ -53,7 +53,7 @@ module postprocess_par
   integer, dimension(:,:,:,:),allocatable :: ibool
   logical, dimension(:),allocatable :: ispec_is_tiso
 
-  ! mpi process
+  ! MPI process
   integer :: myrank,sizeprocs
 
 end module postprocess_par

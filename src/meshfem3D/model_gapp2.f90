@@ -11,7 +11,7 @@
 !
 ! This program is free software; you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by
-! the Free Software Foundation; either version 2 of the License, or
+! the Free Software Foundation; either version 3 of the License, or
 ! (at your option) any later version.
 !
 ! This program is distributed in the hope that it will be useful,
@@ -48,7 +48,7 @@
 !--------------------------------------------------------------------------------------------------
 !
 
-  subroutine model_gapp2_broadcast(myrank)
+  subroutine model_gapp2_broadcast()
 
 ! standard routine to setup model
 
@@ -57,7 +57,6 @@
 
   implicit none
 
-  integer :: myrank
   integer :: ier
 
   ! allocates arrays only when called and needed
@@ -206,12 +205,12 @@
 
   call d2id(d,nnr,dep,id,icon)
   if (icon /= 0) then
-     write(6,*)icon
-     write(6,*) radius,theta,phi,dvp,dvs,drho
+     write(*,*)icon
+     write(*,*) radius,theta,phi,dvp,dvs,drho
   endif
 
   ! latitude
-  if (theta>=PI) then
+  if (theta >= PI) then
      ia = na
   else
      ia = int(theta / dtheta) + 1
@@ -219,7 +218,7 @@
   ! longitude
   if (phi < 0.0d0) phi = phi + 2.*PI
   io=int(phi / dphi) + 1
-  if (io>no) io=io-no
+  if (io > no) io=io-no
 
   ! velocity and density perturbations
   dvp = vp3(ia,io,id)/100.d0
@@ -250,15 +249,15 @@
     icon = 0
     dmax=di(mr)
     dmin=di(0)
-    if (d>dmax) then
+    if (d > dmax) then
        icon=99
-    else if (d<dmin) then
+    else if (d < dmin) then
        icon=-99
-    else if (d==dmax) then
+    else if (d == dmax) then
        id=mr+1
     else
        do i = 0, mr
-          if (d<di(i)) then
+          if (d < di(i)) then
              id=i
              goto 900
           endif

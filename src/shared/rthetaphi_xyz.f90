@@ -11,7 +11,7 @@
 !
 ! This program is free software; you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by
-! the Free Software Foundation; either version 2 of the License, or
+! the Free Software Foundation; either version 3 of the License, or
 ! (at your option) any later version.
 !
 ! This program is distributed in the hope that it will be useful,
@@ -44,9 +44,12 @@
 
   if (zmesh > -SMALL_VAL_ANGLE .and. zmesh <= ZERO) zmesh = -SMALL_VAL_ANGLE
   if (zmesh < SMALL_VAL_ANGLE .and. zmesh >= ZERO) zmesh = SMALL_VAL_ANGLE
+
   theta = real(datan2(dsqrt(xmesh*xmesh+ymesh*ymesh),zmesh), kind=CUSTOM_REAL)
+
   if (xmesh > -SMALL_VAL_ANGLE .and. xmesh <= ZERO) xmesh = -SMALL_VAL_ANGLE
   if (xmesh < SMALL_VAL_ANGLE .and. xmesh >= ZERO) xmesh = SMALL_VAL_ANGLE
+
   phi = real(datan2(ymesh,xmesh), kind=CUSTOM_REAL)
 
   r = real(dsqrt(xmesh*xmesh + ymesh*ymesh + zmesh*zmesh), kind=CUSTOM_REAL)
@@ -59,7 +62,7 @@
 
 ! convert x y z to r theta phi, double precision call
 
-  use constants,only: SMALL_VAL_ANGLE,ZERO
+  use constants, only: SMALL_VAL_ANGLE,ZERO
 
   implicit none
 
@@ -92,11 +95,12 @@
 
 ! convert r theta phi to x y z
 
-  use constants,only: CUSTOM_REAL
+  use constants, only: CUSTOM_REAL
 
   implicit none
 
-  real(kind=CUSTOM_REAL) :: x,y,z,r,theta,phi
+  real(kind=CUSTOM_REAL),intent(in) :: r,theta,phi
+  real(kind=CUSTOM_REAL),intent(out) :: x,y,z
 
   x = r * sin(theta) * cos(phi)
   y = r * sin(theta) * sin(phi)
@@ -107,11 +111,29 @@
 
 !-------------------------------------------------------------
 
+  subroutine rthetaphi_2_xyz_dble(x,y,z,r,theta,phi)
+
+! convert r theta phi to x y z
+
+  implicit none
+
+  double precision,intent(in) :: r,theta,phi
+  double precision,intent(out) :: x,y,z
+
+  x = r * sin(theta) * cos(phi)
+  y = r * sin(theta) * sin(phi)
+  z = r * cos(theta)
+
+  end subroutine rthetaphi_2_xyz_dble
+
+
+!-------------------------------------------------------------
+
   subroutine xyz_2_rlatlon_dble(x,y,z,r,lat,lon)
 
 ! converts geocentric coordinates x/y/z to geographic radius/latitude/longitude (in degrees)
 
-  use constants,only: RADIANS_TO_DEGREES,PI_OVER_TWO
+  use constants, only: RADIANS_TO_DEGREES,PI_OVER_TWO
 
   implicit none
 
@@ -146,7 +168,7 @@
 
 ! converts geocentric colatitude (theta) to geographic colatitude (theta_prime) (in radians)
 
-! see: Dahlen & Tromp, 1998: chapter 14.1.5 Geographic versus geocentric colatitude
+! see the book of Dahlen and Tromp, 1998: chapter 14.1.5 Geographic versus geocentric colatitude
 
 ! (see also in file geographic_versus_geocentric_coordinates_from_Dahlen_Tromp_1998.pdf in the "doc" directory of the code)
 
@@ -161,8 +183,8 @@
 !
 ! @jeroen:
 ! "
-! The conversion is given by D & T (14.32), and using the observed ellipticity given by (14.24)
-! this gives 1.00670466 (not 1.006760466).
+! The conversion is given in the book of Dahlen and Tromp, 1998 (equation 14.32),
+! and using the observed ellipticity given by (14.24) this gives 1.00670466 (not 1.006760466).
 ! If you use the hydrostatic value given by (14.23),
 ! you would get 1.0066711.
 ! One could argue for either one, but I prefer to use the best fitting observed value.

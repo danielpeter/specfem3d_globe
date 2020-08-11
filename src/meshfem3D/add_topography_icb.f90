@@ -11,7 +11,7 @@
 !
 ! This program is free software; you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by
-! the Free Software Foundation; either version 2 of the License, or
+! the Free Software Foundation; either version 3 of the License, or
 ! (at your option) any later version.
 !
 ! This program is distributed in the hope that it will be useful,
@@ -25,21 +25,18 @@
 !
 !=====================================================================
 
-  subroutine add_topography_icb(myrank,xelm,yelm,zelm,RICB,RCMB)
+  subroutine add_topography_icb(xelm,yelm,zelm)
 
 ! this is only a placeholder routine, which is not used yet... user must supply the sutopo_icb() routine
 
   use constants
+  use meshfem3D_par, only: RICB,RCMB
 
   implicit none
 
-  integer :: myrank
-
-  double precision :: xelm(NGNOD)
-  double precision :: yelm(NGNOD)
-  double precision :: zelm(NGNOD)
-
-  double precision :: RICB,RCMB
+  double precision,intent(inout) :: xelm(NGNOD)
+  double precision,intent(inout) :: yelm(NGNOD)
+  double precision,intent(inout) :: zelm(NGNOD)
 
   ! local parameters
   integer :: ia
@@ -54,14 +51,16 @@
   do ia = 1,NGNOD
 
     x = xelm(ia)
-    y = xelm(ia)
-    z = xelm(ia)
+    y = yelm(ia)
+    z = zelm(ia)
 
     ! converts geocentric coordinates x/y/z to geographic radius/latitude/longitude (in degrees)
     call xyz_2_rlatlon_dble(x,y,z,r,lat,lon)
 
     ! compute topography on ICB; the routine subtopo_icb needs to be supplied by the user
+    ! (see for example routine subtopo_sh_cmb() in model_full_sh.f90 for CMB topography)
     !   call subtopo_icb(lat,lon,topoicb)
+    ! until then, no topography pertubations...
     topoicb = 0.0d0
 
     ! non-dimensionalize the topography, which is in km
@@ -72,7 +71,7 @@
     if (r > 0.0d0 .and. r <= RICB/R_EARTH) then
       ! stretching between center and RICB
       gamma = r/(RICB/R_EARTH)
-    else if (r>= RICB/R_EARTH .and. r <= RCMB/R_EARTH) then
+    else if (r >= RICB/R_EARTH .and. r <= RCMB/R_EARTH) then
       ! stretching between RICB and RCMB
       gamma = (r - RCMB/R_EARTH) / (RICB/R_EARTH - RCMB/R_EARTH)
     endif

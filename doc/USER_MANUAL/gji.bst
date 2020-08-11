@@ -16,6 +16,9 @@
  %
  % Copyright (C) 1994, 1995, 1996 Patrick W. Daly
  %  modified by B.L.N. Kennett, 1998
+ % Minor adjustments by Richard Holme to try to correct full stops plus a
+ % couple of other minor details. Please send corrections / other formatting
+ % issues FOR REFERENCES ONLY to holme@liv.ac.uk
  %-------------------------------------------------------------------
  %   For use with BibTeX version 0.99a or later
  %-------------------------------------------------------------------
@@ -68,6 +71,9 @@ ENTRY
     type
     volume
     year
+%% DK DK dec 2017, added this for DOI support
+    doi
+%% DK DK dec 2017, added this for DOI support
   }
   {}
   { label extra.label sort.label short.list }
@@ -232,7 +238,7 @@ FUNCTION {bbl.and}
 { "\&"}
 
 FUNCTION {bbl.editors}
-{ "eds." }
+{ "eds" }
 
 FUNCTION {bbl.editor}
 { "ed." }
@@ -241,7 +247,7 @@ FUNCTION {bbl.edby}
 { "edited by" }
 
 FUNCTION {bbl.edition}
-{ "edn." }
+{ "edition." }
 
 FUNCTION {bbl.volume}
 { "vol." }
@@ -677,10 +683,9 @@ FUNCTION {format.editors}
 { editor empty$
     { "" }
     {
-      editor format.names
       editor num.names$ #1 >
-        { ", " * bbl.editors * }
-        { ", " * bbl.editor * }
+        { bbl.editors " " * editor format.names *}
+        { bbl.editor " " * editor format.names *}
       if$
     }
   if$
@@ -835,6 +840,8 @@ FUNCTION {format.date}
        pop$ "????" }
     'skip$
   if$
+  before.all 'output.state :=
+  ", " swap$ * extra.label * "" *
 }
 
 FUNCTION {format.btitle}
@@ -1032,11 +1039,12 @@ FUNCTION {format.in.ed.booktitle}
     { editor empty$
         { word.in booktitle emphasize * }
         { word.in booktitle emphasize *
-          ", " *
-          bbl.edby
-          *
-          " " *
-          format.in.editors *
+%           ", " *
+%           bbl.edby
+%           *
+%           " " *
+%           format.in.editors *
+%           format.editors *
         }
       if$
     }
@@ -1119,6 +1127,7 @@ FUNCTION {article}
   format.authors "author" output.check
   author format.key output
   format.date "year" output.check 
+  new.block
 %  fin.year 
   format.title "title" output.check
   crossref missing$ 
@@ -1131,6 +1140,12 @@ FUNCTION {article}
       format.pages output
     }
   if$
+%% DK DK dec 2017, added this for DOI support
+   doi empty$
+   'skip$
+   {"doi: " doi * output}
+   if$
+%% DK DK dec 2017, added this for DOI support
   note output
   fin.entry
 }
@@ -1149,6 +1164,7 @@ FUNCTION {book}
     }
   if$
   format.date "year" output.check 
+  new.block
 %  fin.year
   format.btitle "title" output.check
   crossref missing$
@@ -1161,6 +1177,12 @@ FUNCTION {book}
     }
   if$
   format.edition output
+%% DK DK dec 2017, added this for DOI support
+   doi empty$
+   'skip$
+   {"doi: " doi * output}
+   if$
+%% DK DK dec 2017, added this for DOI support
   note output
   fin.entry
 }
@@ -1170,9 +1192,16 @@ FUNCTION {booklet}
   format.authors output
   author format.key output
   format.date "year" output.check 
+  new.block
   format.title "title" output.check
   howpublished output
   address output
+%% DK DK dec 2017, added this for DOI support
+   doi empty$
+   'skip$
+   {"doi: " doi * output}
+   if$
+%% DK DK dec 2017, added this for DOI support
   note output
   fin.entry
 }
@@ -1191,6 +1220,7 @@ FUNCTION {inbook}
     }
   if$
   format.date "year" output.check 
+  new.block
   format.btitle "title" output.check
   crossref missing$
     {
@@ -1205,6 +1235,12 @@ FUNCTION {inbook}
     }
   if$
   format.edition output
+%% DK DK dec 2017, added this for DOI support
+   doi empty$
+   'skip$
+   {"doi: " doi * output}
+   if$
+%% DK DK dec 2017, added this for DOI support
   note output
   fin.entry
 }
@@ -1214,12 +1250,14 @@ FUNCTION {incollection}
   format.authors "author" output.check
   author format.key output
   format.date "year" output.check 
+  new.block
   format.title "title" output.check
   crossref missing$
     { format.in.ed.booktitle "booktitle" output.check
       format.bvolume output
       format.number.series output
       format.chapter.pages output
+      format.editors output
       format.publisher
       format.edition output
     }
@@ -1227,6 +1265,12 @@ FUNCTION {incollection}
       format.chapter.pages output
     }
   if$
+%% DK DK dec 2017, added this for DOI support
+   doi empty$
+   'skip$
+   {"doi: " doi * output}
+   if$
+%% DK DK dec 2017, added this for DOI support
   note output
   fin.entry
 }
@@ -1236,6 +1280,7 @@ FUNCTION {inproceedings}
   format.authors "author" output.check
   author format.key output
   format.date "year" output.check 
+  new.block
   format.title "title" output.check
   crossref missing$
     { format.in.ed.booktitle "booktitle" output.check
@@ -1255,6 +1300,12 @@ FUNCTION {inproceedings}
       format.pages output
     }
   if$
+%% DK DK dec 2017, added this for DOI support
+   doi empty$
+   'skip$
+   {"doi: " doi * output}
+   if$
+%% DK DK dec 2017, added this for DOI support
   note output
   fin.entry
 }
@@ -1266,10 +1317,17 @@ FUNCTION {manual}
   format.authors output
   author format.key output
   format.date "year" output.check 
+  new.block
   format.btitle "title" output.check
   organization output
   address output
   format.edition output
+%% DK DK dec 2017, added this for DOI support
+   doi empty$
+   'skip$
+   {"doi: " doi * output}
+   if$
+%% DK DK dec 2017, added this for DOI support
   note output
   fin.entry
 }
@@ -1279,10 +1337,17 @@ FUNCTION {mastersthesis}
   format.authors "author" output.check
   author format.key output
   format.date "year" output.check 
+  new.block
   format.btitle "title" output.check
   bbl.mthesis format.thesis.type output.nonnull
   school "school" output.check
   address output
+%% DK DK dec 2017, added this for DOI support
+   doi empty$
+   'skip$
+   {"doi: " doi * output}
+   if$
+%% DK DK dec 2017, added this for DOI support
   note output
   fin.entry
 }
@@ -1292,8 +1357,15 @@ FUNCTION {misc}
   format.authors output
   author format.key output
   format.date "year" output.check 
+  new.block
   format.title output
   howpublished output
+%% DK DK dec 2017, added this for DOI support
+   doi empty$
+   'skip$
+   {"doi: " doi * output}
+   if$
+%% DK DK dec 2017, added this for DOI support
   note output
   fin.entry
 }
@@ -1303,10 +1375,17 @@ FUNCTION {phdthesis}
   format.authors "author" output.check
   author format.key output
   format.date "year" output.check 
+  new.block
   format.btitle "title" output.check
   bbl.phdthesis format.thesis.type output.nonnull
   school "school" output.check
   address output
+%% DK DK dec 2017, added this for DOI support
+   doi empty$
+   'skip$
+   {"doi: " doi * output}
+   if$
+%% DK DK dec 2017, added this for DOI support
   note output
   fin.entry
 }
@@ -1316,12 +1395,19 @@ FUNCTION {proceedings}
   format.editors output
   editor format.key output
   format.date "year" output.check 
+  new.block
   format.btitle "title" output.check
   format.bvolume output
   format.number.series output
   address output
   organization output
   publisher output
+%% DK DK dec 2017, added this for DOI support
+   doi empty$
+   'skip$
+   {"doi: " doi * output}
+   if$
+%% DK DK dec 2017, added this for DOI support
   note output
   fin.entry
 }
@@ -1331,10 +1417,17 @@ FUNCTION {techreport}
   format.authors "author" output.check
   author format.key output
   format.date "year" output.check 
+  new.block
   format.title "title" output.check
   format.tr.number output.nonnull
   institution "institution" output.check
   address output
+%% DK DK dec 2017, added this for DOI support
+   doi empty$
+   'skip$
+   {"doi: " doi * output}
+   if$
+%% DK DK dec 2017, added this for DOI support
   note output
   fin.entry
 }
@@ -1344,6 +1437,7 @@ FUNCTION {unpublished}
   format.authors "author" output.check
   author format.key output
   format.date "year" output.check 
+  new.block
   format.title "title" output.check
   note "note" output.check
   fin.entry

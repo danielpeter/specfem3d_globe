@@ -11,7 +11,7 @@
 !
 ! This program is free software; you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by
-! the Free Software Foundation; either version 2 of the License, or
+! the Free Software Foundation; either version 3 of the License, or
 ! (at your option) any later version.
 !
 ! This program is distributed in the hope that it will be useful,
@@ -92,7 +92,7 @@
 !--------------------------------------------------------------------------------------------------
 !
 
-  subroutine model_ppm_broadcast(myrank)
+  subroutine model_ppm_broadcast()
 
 ! standard routine to setup model
 
@@ -100,8 +100,6 @@
   use model_ppm_par
 
   implicit none
-
-  integer :: myrank
 
   ! upper mantle structure
   if (myrank == 0) call read_model_ppm()
@@ -315,7 +313,7 @@
 
   subroutine model_ppm(radius,theta,phi,dvs,dvp,drho)
 
-! returns dvs,dvp and drho for given radius,theta,phi  location
+! returns dvs,dvp and drho for given radius,theta,phi location
 
   use constants
   use model_ppm_par
@@ -341,13 +339,13 @@
 
   ! depth of given radius (in km)
   r_depth = R_EARTH_KM*(1.0 - radius)  ! radius is normalized between [0,1]
-  if (r_depth>PPM_maxdepth .or. r_depth < PPM_mindepth) return
+  if (r_depth > PPM_maxdepth .or. r_depth < PPM_mindepth) return
 
   lat=(PI_OVER_TWO-theta)*RADIANS_TO_DEGREES
   if (lat < PPM_minlat .or. lat > PPM_maxlat ) return
 
   lon=phi*RADIANS_TO_DEGREES
-  if (lon>180.0d0) lon=lon-360.0d0
+  if (lon > 180.0d0) lon=lon-360.0d0
   if (lon < PPM_minlon .or. lon > PPM_maxlon ) return
 
   ! search location value
@@ -379,7 +377,7 @@
         g_dvs = g_dvs*g_weight
         weight_prod = weight_prod * g_weight
 
-        !vertical weighting
+        ! vertical weighting
         x = g_depth-r_depth
         call get_Gaussianweight(x,sigma_v,g_weight)
         g_dvs = g_dvs*g_weight
@@ -498,25 +496,25 @@
 !--------------------------------------------------------------------------------------------------
 !
 
-  subroutine smooth_model(myrank, nproc_xi,nproc_eta,&
+  subroutine smooth_model(nproc_xi,nproc_eta, &
                           rho_vp,rho_vs,nspec_stacey, &
                           iregion_code,xixstore,xiystore,xizstore, &
                           etaxstore,etaystore,etazstore, &
                           gammaxstore,gammaystore,gammazstore, &
                           xstore,ystore,zstore,rhostore,dvpstore, &
-                          kappavstore,kappahstore,muvstore,muhstore,eta_anisostore,&
+                          kappavstore,kappahstore,muvstore,muhstore,eta_anisostore, &
                           nspec,HETEROGEN_3D_MANTLE, &
                           NEX_XI,NCHUNKS,ABSORBING_CONDITIONS)
 
 ! smooth model parameters
 
   use constants
-  use model_ppm_par,only: &
+  use model_ppm_par, only: &
     PPM_maxlat,PPM_maxlon,PPM_minlat,PPM_minlon,PPM_maxdepth,PPM_mindepth
 
   implicit none
 
-  integer :: myrank, nproc_xi, nproc_eta
+  integer :: nproc_xi, nproc_eta
 
   integer NEX_XI
 
@@ -535,7 +533,7 @@
   double precision zstore(NGLLX,NGLLY,NGLLZ,nspec)
 
 ! for anisotropy
-  real(kind=CUSTOM_REAL), dimension(NGLLX,NGLLY,NGLLZ,nspec) :: rhostore,dvpstore,kappavstore,kappahstore,&
+  real(kind=CUSTOM_REAL), dimension(NGLLX,NGLLY,NGLLZ,nspec) :: rhostore,dvpstore,kappavstore,kappahstore, &
         muvstore,muhstore,eta_anisostore
 
 ! Stacey
@@ -585,7 +583,7 @@
   double precision, dimension(NGLLZ) :: zigll, wzgll
 
   ! array with all the weights in the cube
-  double precision, dimension(NGLLX,NGLLY,NGLLZ) :: wgll_cube
+  real(kind=CUSTOM_REAL), dimension(NGLLX,NGLLY,NGLLZ) :: wgll_cube
 
   real(kind=CUSTOM_REAL), parameter :: ZERO_ = 0.0_CUSTOM_REAL
 
@@ -671,8 +669,8 @@
   ixi = myrank - mychunk * nproc_xi * nproc_eta - ieta * nproc_xi
 
   ! get the neighboring slices:
-  call get_all_eight_slices(mychunk,ixi,ieta,&
-        islice0(1),islice0(2),islice0(3),islice0(4),islice0(5),islice0(6),islice0(7),islice0(8),&
+  call get_all_eight_slices(mychunk,ixi,ieta, &
+        islice0(1),islice0(2),islice0(3),islice0(4),islice0(5),islice0(6),islice0(7),islice0(8), &
         nproc_xi,nproc_eta)
 
   ! remove the repeated slices (only 8 for corner slices in global case)
@@ -900,7 +898,7 @@
         ! calculates horizontal and vertical distance between two element centers
 
         ! vector approximation
-        call get_distance_vec(dist_h,dist_v,cx0(ispec),cy0(ispec),cz0(ispec),&
+        call get_distance_vec(dist_h,dist_v,cx0(ispec),cy0(ispec),cz0(ispec), &
                               cx(ispec2),cy(ispec2),cz(ispec2))
 
         ! note: distances and sigmah, sigmav are normalized by R_EARTH
@@ -922,7 +920,7 @@
               z0 = zl(i,j,k,ispec)
 
               ! calculate weights based on Gaussian smoothing
-              call smoothing_weights_vec(x0,y0,z0,sigma_h2,sigma_v2,exp_val,&
+              call smoothing_weights_vec(x0,y0,z0,sigma_h2,sigma_v2,exp_val, &
                                          xx(:,:,:,ispec2),yy(:,:,:,ispec2),zz(:,:,:,ispec2))
 
               ! adds GLL integration weights
@@ -970,13 +968,13 @@
     ! depth of given radius (in km)
     call xyz_2_rthetaphi(cx0(ispec),cy0(ispec),cz0(ispec),radius,theta,phi)
     r_depth = R_EARTH_KM - radius*R_EARTH_KM  ! radius is normalized between [0,1]
-    if (r_depth>=maxdepth+margin_v .or. r_depth+margin_v < mindepth) cycle
+    if (r_depth >= maxdepth+margin_v .or. r_depth+margin_v < mindepth) cycle
 
     lat=(PI/2.0d0-theta)*180.0d0/PI
     if (lat < minlat-margin_h .or. lat > maxlat+margin_h ) cycle
 
     lon=phi*180.0d0/PI
-    if (lon>180.0d0) lon=lon-360.0d0
+    if (lon > 180.0d0) lon=lon-360.0d0
     if (lon < minlon-margin_h .or. lon > maxlon+margin_h ) cycle
 
     do k = 1, NGLLZ
@@ -1015,13 +1013,13 @@
         ! depth of given radius (in km)
         call xyz_2_rthetaphi(cx0(ispec),cy0(ispec),cz0(ispec),radius,theta,phi)
         r_depth = R_EARTH_KM - radius*R_EARTH_KM  ! radius is normalized between [0,1]
-        if (r_depth>=maxdepth+margin_v .or. r_depth+margin_v < mindepth) cycle
+        if (r_depth >= maxdepth+margin_v .or. r_depth+margin_v < mindepth) cycle
 
         lat=(PI/2.0d0-theta)*180.0d0/PI
         if (lat < minlat-margin_h .or. lat > maxlat+margin_h ) cycle
 
         lon=phi*180.0d0/PI
-        if (lon>180.0d0) lon=lon-360.0d0
+        if (lon > 180.0d0) lon=lon-360.0d0
         if (lon < minlon-margin_h .or. lon > maxlon+margin_h ) cycle
 
         do k = 1, NGLLZ

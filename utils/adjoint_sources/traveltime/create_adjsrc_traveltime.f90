@@ -32,7 +32,7 @@ program create_adjsrc_traveltime
 
   ! reads in file arguments
   do while (1 == 1)
-    call getarg(i,arg(i))
+    call get_command_argument(i,arg(i))
     if (i < 6 .and. trim(arg(i)) == '') then
       print *,'Usage: '
       print *,'  xcreate_adjsrc_traveltime t1 t2 ifile[0-5] E/N/Z-ascii-files [baz]'
@@ -123,24 +123,24 @@ program create_adjsrc_traveltime
   ! loops over seismogram components
   do i = i1, i2
     ! start and end index
-    is = (ts - t0) / dt + 1
-    ie = (te - t0) / dt + 1
+    is = int((ts - t0) / dt) + 1
+    ie = int((te - t0) / dt) + 1
     if (is < 1 .or. ie <= is .or. ie > nstep) then
       print *, 'Error in ts, te'; stop
     endif
 
     ! time window (parabola shaped)
-    tw(1:nstep) = 0.
-    if( i == i1 ) open(44,file='plot_time_window.txt',status='unknown')
+    tw(1:nstep) = 0.d0
+    if ( i == i1 ) open(44,file='plot_time_window.txt',status='unknown')
     do j = is, ie
-      tw(j) = 1 - (2 * (dble(j) - is)/(ie - is) - 1) ** 2
-      if( i == i1 ) write(44,*) j,tw(j)
+      tw(j) = 1.d0 - (2.d0 * (dble(j) - is)/(ie - is) - 1) ** 2
+      if ( i == i1 ) write(44,*) j,tw(j)
     enddo
-    if( i == i1 ) close(44)
+    if ( i == i1 ) close(44)
 
     ! calculates velocity (by finite-differences)
     do itime = 2, nstep-1
-       out(itime) =  (data(i,itime+1) - data(i,itime-1)) / (2 * dt)
+       out(itime) =  (data(i,itime+1) - data(i,itime-1)) / (2.d0 * dt)
     enddo
     out(1) = (data(i,2) - data(i,1)) / dt
     out(nstep) = (data(i,nstep) - data(i,nstep-1)) /dt
@@ -148,21 +148,21 @@ program create_adjsrc_traveltime
     ! normalization factor
     norm = dt * sum( tw(1:nstep) * out(1:nstep) * out(1:nstep))
     print *, 'i = ', i, 'norm = ', norm
-    if (ifile /= 0 .and. ifile /= i) norm = 0.0
+    if (ifile /= 0 .and. ifile /= i) norm = 0.d0
 
     ! adjoint source
     if (abs(norm) > EPS) then
       adj(1:nstep) = - out(1:nstep) * tw(1:nstep) / norm
     else
       print *, 'norm < EPS for file '//trim(file(i))
-      adj(:) = 0.
+      adj(:) = 0.d0
     endif
     data(i,:) = adj(:)
 
   enddo
   print *, ' '
 
-  ! component rotation back to cartesian x-y-z
+  ! component rotation back to Cartesian x-y-z
   if (lrot) then
     call dwrite_ascfile_c(trim('t-cut.txt')//char(0),t0,dt,nstep,data(4,:))
     call dwrite_ascfile_c(trim('r-cut.txt')//char(0),t0,dt,nstep,data(5,:))

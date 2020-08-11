@@ -11,7 +11,7 @@
 !
 ! This program is free software; you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by
-! the Free Software Foundation; either version 2 of the License, or
+! the Free Software Foundation; either version 3 of the License, or
 ! (at your option) any later version.
 !
 ! This program is distributed in the hope that it will be useful,
@@ -108,6 +108,8 @@
   do while (index_higher - index_lower > 1)
 ! compute the middle of the interval
     index_loop = (index_higher + index_lower) / 2
+    if (index_loop < 1) index_loop = 1
+
     if (xpoint(index_loop) > x_evaluate_spline) then
       index_higher = index_loop
     else

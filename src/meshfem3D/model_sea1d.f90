@@ -11,7 +11,7 @@
 !
 ! This program is free software; you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by
-! the Free Software Foundation; either version 2 of the License, or
+! the Free Software Foundation; either version 3 of the License, or
 ! (at your option) any later version.
 !
 ! This program is distributed in the hope that it will be useful,
@@ -48,14 +48,14 @@
 !--------------------------------------------------------------------------------------------------
 !
 
-  subroutine model_sea1d_broadcast(myrank,CRUSTAL)
+  subroutine model_sea1d_broadcast(CRUSTAL)
 
 ! standard routine to setup model
+  use constants, only: myrank
   use model_sea1d_par
 
   implicit none
 
-  integer :: myrank
   logical :: CRUSTAL
 
   ! local parameters
@@ -63,12 +63,12 @@
 
   ! allocates arrays
   allocate(SEA1DM_V_radius_sea1d(NR_SEA1D), &
-          SEA1DM_V_density_sea1d(NR_SEA1D), &
-          SEA1DM_V_vp_sea1d(NR_SEA1D), &
-          SEA1DM_V_vs_sea1d(NR_SEA1D), &
-          SEA1DM_V_Qkappa_sea1d(NR_SEA1D), &
-          SEA1DM_V_Qmu_sea1d(NR_SEA1D), &
-          stat=ier)
+           SEA1DM_V_density_sea1d(NR_SEA1D), &
+           SEA1DM_V_vp_sea1d(NR_SEA1D), &
+           SEA1DM_V_vs_sea1d(NR_SEA1D), &
+           SEA1DM_V_Qkappa_sea1d(NR_SEA1D), &
+           SEA1DM_V_Qmu_sea1d(NR_SEA1D), &
+           stat=ier)
   if (ier /= 0 ) call exit_MPI(myrank,'Error allocating SEA1DM_V arrays')
 
   ! all processes will define same parameters

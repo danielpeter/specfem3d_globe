@@ -11,7 +11,7 @@
 !
 ! This program is free software; you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by
-! the Free Software Foundation; either version 2 of the License, or
+! the Free Software Foundation; either version 3 of the License, or
 ! (at your option) any later version.
 !
 ! This program is distributed in the hope that it will be useful,
@@ -47,12 +47,12 @@
                          static_memory_size)
 
   use constants
-  use shared_parameters,only: &
+  use shared_parameters, only: &
     ATT1,ATT2,ATT3, &
     APPROXIMATE_HESS_KL,ANISOTROPIC_KL,NOISE_TOMOGRAPHY, &
     EXACT_MASS_MATRIX_FOR_ROTATION, &
     OCEANS,ABSORBING_CONDITIONS,ATTENUATION,ANISOTROPIC_3D_MANTLE, &
-    TRANSVERSE_ISOTROPY,ANISOTROPIC_INNER_CORE,ROTATION,TOPOGRAPHY, &
+    TRANSVERSE_ISOTROPY,ANISOTROPIC_INNER_CORE,ROTATION,TOPOGRAPHY,GRAVITY, &
     ONE_CRUST,NCHUNKS, &
     SIMULATION_TYPE,SAVE_FORWARD, &
     MOVIE_VOLUME,MOVIE_VOLUME_TYPE
@@ -129,7 +129,6 @@
     NSPECMAX_TISO_MANTLE = 1
     NSPECMAX_ANISO_MANTLE = NSPEC(IREGION_CRUST_MANTLE)
   else
-
     NSPECMAX_ISO_MANTLE = NSPEC(IREGION_CRUST_MANTLE)
     if (TRANSVERSE_ISOTROPY) then
       ! note: the number of transverse isotropic elements is ispec_aniso
@@ -261,6 +260,11 @@
   static_memory_size = static_memory_size + &
     3.d0*dble(NGLLX)*dble(NGLLY)*dble(NGLLZ)*NSPECMAX_TISO_MANTLE*dble(CUSTOM_REAL)
 
+  ! c11,.. store for tiso elements
+  static_memory_size = static_memory_size + &
+    21.d0*dble(NGLLX)*dble(NGLLY)*dble(NGLLZ)*NSPECMAX_TISO_MANTLE*dble(CUSTOM_REAL)
+
+  ! for aniso elements
   ! c11store_crust_mantle,c12store_crust_mantle,c13store_crust_mantle,
   ! c14store_crust_mantle,c15store_crust_mantle,c16store_crust_mantle,
   ! c22store_crust_mantle,c23store_crust_mantle,c24store_crust_mantle,
@@ -393,11 +397,27 @@
   static_memory_size = static_memory_size + &
     2.d0*dble(NGLLX)*dble(NGLLY)*dble(NGLLZ)*NSPEC_OUTER_CORE_ROTATION*dble(CUSTOM_REAL)
 
-  ! minus_gravity_table, &
-  ! minus_deriv_gravity_table,density_table,d_ln_density_dr_table,minus_rho_g_over_kappa_fluid
-  static_memory_size = static_memory_size + &
-    5.d0*NRAD_GRAVITY*dble(SIZE_DOUBLE)
+  ! GRAVITY
+  if (GRAVITY) then
+    ! minus_gravity_table, &
+    ! minus_deriv_gravity_table,density_table,d_ln_density_dr_table,minus_rho_g_over_kappa_fluid
+    static_memory_size = static_memory_size + &
+      5.d0*NRAD_GRAVITY*dble(SIZE_DOUBLE)
 
+    ! gravity_pre_store_crust_mantle,gravity_H_crust_mantle
+    static_memory_size = static_memory_size + &
+      (3.d0 + 6.d0)*NGLOB(IREGION_CRUST_MANTLE)*dble(CUSTOM_REAL)
+
+    ! gravity_pre_store_inner_core,gravity_H_inner_core
+    static_memory_size = static_memory_size + &
+      (3.d0 + 6.d0)*NGLOB(IREGION_INNER_CORE)*dble(CUSTOM_REAL)
+  endif
+
+  ! gravity_pre_store_outer_core
+  static_memory_size = static_memory_size + &
+    3.d0*NGLOB(IREGION_OUTER_CORE)*dble(CUSTOM_REAL)
+
+  ! ELLIPTICITY
   ! rspl,espl,espl2
   static_memory_size = static_memory_size + &
     3.d0*NR*dble(SIZE_DOUBLE)
@@ -407,9 +427,7 @@
   static_memory_size = static_memory_size + &
     NGLOB_CRUST_MANTLE_OCEANS*dble(CUSTOM_REAL)
 
-  ! updated_dof_ocean_load
-  static_memory_size = static_memory_size + &
-    NGLOB_CRUST_MANTLE_OCEANS*dble(SIZE_LOGICAL)
+  ! not accounted for yet (npoin_oceans unknown yet): rmass_ocean_load_selected,normal_ocean_load,ibool_ocean_load
 
   ! ichunk_slice,iproc_xi_slice,iproc_eta_slice,addressing
   static_memory_size = static_memory_size + &
@@ -508,6 +526,14 @@
   endif
   static_memory_size = static_memory_size + &
       dble(NGLLX)*dble(NGLLY)*dble(NGLLZ)*NSPEC_CRUST_MANTLE_ADJOINT_NOISE*dble(CUSTOM_REAL)
+
+  ! noise_surface_movie_buffer
+  if (NOISE_TOMOGRAPHY > 0) then
+    ! noise_surface_movie_buffer
+    static_memory_size = static_memory_size + &
+        dble(NDIM)*dble(NGLLX)*dble(NGLLY)*dble(NSPEC2D_TOP(IREGION_CRUST_MANTLE))*dble(CUSTOM_REAL)
+    ! noise buffer size not known yet
+  endif
 
   ! in the case of Stacey boundary conditions, add C*delta/2 contribution to the mass matrix
   ! on the Stacey edges for the crust_mantle and outer_core regions but not for the inner_core region

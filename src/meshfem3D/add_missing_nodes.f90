@@ -11,7 +11,7 @@
 !
 ! This program is free software; you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by
-! the Free Software Foundation; either version 2 of the License, or
+! the Free Software Foundation; either version 3 of the License, or
 ! (at your option) any later version.
 !
 ! This program is distributed in the hope that it will be useful,
@@ -125,11 +125,11 @@
 ! node numbers for edge centers start at 9
     ignod = (iedge - 1) + 9
 
-    offset_x(ignod) = (offset_x(list_corners_edge(iedge,1)) + offset_x(list_corners_edge(iedge,2))) / 2.d0
+    offset_x(ignod) = (offset_x(list_corners_edge(iedge,1)) + offset_x(list_corners_edge(iedge,2))) * 0.5d0
 
-    offset_y(ignod) = (offset_y(list_corners_edge(iedge,1)) + offset_y(list_corners_edge(iedge,2))) / 2.d0
+    offset_y(ignod) = (offset_y(list_corners_edge(iedge,1)) + offset_y(list_corners_edge(iedge,2))) * 0.5d0
 
-    offset_z(ignod) = (offset_z(list_corners_edge(iedge,1)) + offset_z(list_corners_edge(iedge,2))) / 2.d0
+    offset_z(ignod) = (offset_z(list_corners_edge(iedge,1)) + offset_z(list_corners_edge(iedge,2))) * 0.5d0
 
   enddo
 
@@ -142,17 +142,17 @@
     offset_x(ignod) = (offset_x(list_corners_face(iface,1)) + &
                        offset_x(list_corners_face(iface,2)) + &
                        offset_x(list_corners_face(iface,3)) + &
-                       offset_x(list_corners_face(iface,4))) / 4.d0
+                       offset_x(list_corners_face(iface,4))) * 0.25d0
 
     offset_y(ignod) = (offset_y(list_corners_face(iface,1)) + &
                        offset_y(list_corners_face(iface,2)) + &
                        offset_y(list_corners_face(iface,3)) + &
-                       offset_y(list_corners_face(iface,4))) / 4.d0
+                       offset_y(list_corners_face(iface,4))) * 0.25d0
 
     offset_z(ignod) = (offset_z(list_corners_face(iface,1)) + &
                        offset_z(list_corners_face(iface,2)) + &
                        offset_z(list_corners_face(iface,3)) + &
-                       offset_z(list_corners_face(iface,4))) / 4.d0
+                       offset_z(list_corners_face(iface,4))) * 0.25d0
 
   enddo
 

@@ -11,7 +11,7 @@
 !
 ! This program is free software; you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by
-! the Free Software Foundation; either version 2 of the License, or
+! the Free Software Foundation; either version 3 of the License, or
 ! (at your option) any later version.
 !
 ! This program is distributed in the hope that it will be useful,
@@ -25,17 +25,15 @@
 !
 !=====================================================================
 
-  subroutine add_topography(myrank,xelm,yelm,zelm,ibathy_topo)
+  subroutine add_topography(xelm,yelm,zelm,ibathy_topo)
 
-  use constants,only: &
+  use constants, only: myrank, &
     NGNOD,NX_BATHY,NY_BATHY,R_EARTH,R_UNIT_SPHERE, &
     PI_OVER_TWO,RADIANS_TO_DEGREES,TINYVAL,ONE
 
-  use meshfem3D_par,only: R220
+  use meshfem3D_par, only: R220
 
   implicit none
-
-  integer :: myrank
 
   double precision,dimension(NGNOD) :: xelm,yelm,zelm
 
@@ -89,16 +87,15 @@
   ! than using control nodes
   ! Hejun Zhu, OCT16, 2009
 
-  subroutine add_topography_gll(myrank,xstore,ystore,zstore,ispec,nspec, &
+  subroutine add_topography_gll(xstore,ystore,zstore,ispec,nspec, &
                                 ibathy_topo)
 
   use constants
-  use meshfem3D_par,only: R220
+  use meshfem3D_par, only: R220
 
   implicit none
 
   ! input parameters
-  integer:: myrank
   integer:: ispec,nspec
 
   double precision,dimension(NGLLX,NGLLY,NGLLZ,nspec):: xstore,ystore,zstore

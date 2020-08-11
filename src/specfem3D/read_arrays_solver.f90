@@ -11,7 +11,7 @@
 !
 ! This program is free software; you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by
-! the Free Software Foundation; either version 2 of the License, or
+! the Free Software Foundation; either version 3 of the License, or
 ! (at your option) any later version.
 !
 ! This program is distributed in the hope that it will be useful,
@@ -27,7 +27,7 @@
 
 ! read arrays created by the mesher
 
-  subroutine read_arrays_solver(iregion_code,myrank, &
+  subroutine read_arrays_solver(iregion_code, &
                                 nspec,nglob,nglob_xy, &
                                 nspec_iso,nspec_tiso,nspec_ani, &
                                 rho_vp,rho_vs,xstore,ystore,zstore, &
@@ -43,14 +43,13 @@
                                 b_rmassx,b_rmassy)
 
   use constants_solver
-  use specfem_par,only: &
+  use specfem_par, only: &
     ABSORBING_CONDITIONS, &
-    LOCAL_PATH,ABSORBING_CONDITIONS,&
-    EXACT_MASS_MATRIX_FOR_ROTATION
+    LOCAL_PATH,ABSORBING_CONDITIONS
 
   implicit none
 
-  integer :: iregion_code,myrank
+  integer :: iregion_code
   integer :: nspec,nglob,nglob_xy
   integer :: nspec_iso,nspec_tiso,nspec_ani
 
@@ -209,16 +208,16 @@
   ! if absorbing_conditions are not set or if NCHUNKS=6, only one mass matrix is needed
   ! for the sake of performance, only "rmassz" array will be filled and "rmassx" & "rmassy" will be obsolete
   if (((NCHUNKS_VAL /= 6 .and. ABSORBING_CONDITIONS) .and. iregion_code == IREGION_CRUST_MANTLE) .or. &
-      ((ROTATION_VAL .and. EXACT_MASS_MATRIX_FOR_ROTATION) .and. iregion_code == IREGION_CRUST_MANTLE) .or. &
-      ((ROTATION_VAL .and. EXACT_MASS_MATRIX_FOR_ROTATION) .and. iregion_code == IREGION_INNER_CORE)) then
+      ((ROTATION_VAL .and. EXACT_MASS_MATRIX_FOR_ROTATION_VAL) .and. iregion_code == IREGION_CRUST_MANTLE) .or. &
+      ((ROTATION_VAL .and. EXACT_MASS_MATRIX_FOR_ROTATION_VAL) .and. iregion_code == IREGION_INNER_CORE)) then
     read(IIN) rmassx
     read(IIN) rmassy
   endif
 
   read(IIN) rmassz
 
-  if (((ROTATION_VAL .and. EXACT_MASS_MATRIX_FOR_ROTATION) .and. iregion_code == IREGION_CRUST_MANTLE) .or. &
-      ((ROTATION_VAL .and. EXACT_MASS_MATRIX_FOR_ROTATION) .and. iregion_code == IREGION_INNER_CORE)) then
+  if (((ROTATION_VAL .and. EXACT_MASS_MATRIX_FOR_ROTATION_VAL) .and. iregion_code == IREGION_CRUST_MANTLE) .or. &
+      ((ROTATION_VAL .and. EXACT_MASS_MATRIX_FOR_ROTATION_VAL) .and. iregion_code == IREGION_INNER_CORE)) then
     read(IIN) b_rmassx
     read(IIN) b_rmassy
   endif

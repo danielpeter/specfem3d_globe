@@ -11,7 +11,7 @@
 !
 ! This program is free software; you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by
-! the Free Software Foundation; either version 2 of the License, or
+! the Free Software Foundation; either version 3 of the License, or
 ! (at your option) any later version.
 !
 ! This program is distributed in the hope that it will be useful,
@@ -30,12 +30,8 @@
 ! acoustic domains for forward or adjoint simulations (SIMULATION_TYPE == 1 or 2 )
 
   use specfem_par
-  use specfem_par_crustmantle,only: displ_crust_mantle, &
-                                    ibool_crust_mantle,ibelm_bottom_crust_mantle
-  use specfem_par_innercore,only: displ_inner_core, &
-                                  ibool_inner_core,ibelm_top_inner_core
   use specfem_par_outercore
-  use specfem_par_movie,only: div_displ_outer_core
+  use specfem_par_movie, only: div_displ_outer_core
   implicit none
 
   ! local parameters
@@ -44,7 +40,6 @@
   ! iphase: iphase = 1 is for computing outer elements in the outer_core,
   !              iphase = 2 is for computing inner elements in the outer core (former icall parameter)
   integer :: iphase
-  logical :: phase_is_inner
 
   ! compute internal forces in the fluid region
 
@@ -60,58 +55,43 @@
   ! ****************************************************
 
   ! distinguishes two runs: for elements on MPI interfaces, and elements within the partitions
-  do iphase=1,2
+  do iphase = 1,2
 
     ! first, iphase == 1 for points on MPI interfaces (thus outer elements)
     ! second, iphase == 2 for points purely inside partition (thus inner elements)
     !
     ! compute all the outer elements first, then sends out non blocking MPI communication
     ! and continues computing inner elements (overlapping)
-    if (iphase == 1) then
-      phase_is_inner = .false.
-    else
-      phase_is_inner = .true.
-    endif
 
     if (.not. GPU_MODE) then
       ! on CPU
-      if (USE_DEVILLE_PRODUCTS_VAL) then
-        ! uses Deville et al. (2002) routine
-        call compute_forces_outer_core_Dev(timeval,deltat,two_omega_earth, &
-                                           NSPEC_OUTER_CORE_ROTATION,NGLOB_OUTER_CORE, &
-                                           A_array_rotation,B_array_rotation, &
-                                           A_array_rotation_lddrk,B_array_rotation_lddrk, &
-                                           displ_outer_core,accel_outer_core, &
-                                           div_displ_outer_core,phase_is_inner)
-      else
-        ! div_displ_outer_core is initialized to zero in the following subroutine.
-        call compute_forces_outer_core(timeval,deltat,two_omega_earth, &
-                                       NSPEC_OUTER_CORE_ROTATION,NGLOB_OUTER_CORE, &
-                                       A_array_rotation,B_array_rotation, &
-                                       A_array_rotation_lddrk,B_array_rotation_lddrk, &
-                                       displ_outer_core,accel_outer_core, &
-                                       div_displ_outer_core,phase_is_inner)
-      endif
+      call compute_forces_outer_core(timeval,deltat,two_omega_earth, &
+                                         NSPEC_OUTER_CORE_ROTATION,NGLOB_OUTER_CORE, &
+                                         A_array_rotation,B_array_rotation, &
+                                         A_array_rotation_lddrk,B_array_rotation_lddrk, &
+                                         displ_outer_core,accel_outer_core, &
+                                         div_displ_outer_core,iphase)
     else
       ! on GPU
       ! includes FORWARD_OR_ADJOINT == 1
       call compute_forces_outer_core_gpu(Mesh_pointer,iphase,timeval,1)
 
       ! initiates asynchronous MPI transfer
-      if (GPU_ASYNC_COPY .and. iphase == 2) then
-        ! crust/mantle region
-        ! wait for asynchronous copy to finish
-        call sync_copy_from_device(Mesh_pointer,iphase,buffer_send_scalar_outer_core,IREGION_OUTER_CORE,1)
-        ! sends MPI buffers
-        call assemble_MPI_scalar_send_gpu(NPROCTOT_VAL, &
-                                           buffer_send_scalar_outer_core,buffer_recv_scalar_outer_core, &
-                                           num_interfaces_outer_core,max_nibool_interfaces_oc, &
-                                           nibool_interfaces_outer_core,&
-                                           my_neighbours_outer_core, &
-                                           request_send_scalar_oc,request_recv_scalar_oc)
+      if (NPROCTOT_VAL > 1) then
+        if (GPU_ASYNC_COPY .and. iphase == 2) then
+          ! crust/mantle region
+          ! wait for asynchronous copy to finish
+          call sync_copy_from_device(Mesh_pointer,iphase,buffer_send_scalar_outer_core,IREGION_OUTER_CORE,1)
+          ! sends MPI buffers
+          call assemble_MPI_scalar_send_gpu(NPROCTOT_VAL, &
+                                             buffer_send_scalar_outer_core,buffer_recv_scalar_outer_core, &
+                                             num_interfaces_outer_core,max_nibool_interfaces_oc, &
+                                             nibool_interfaces_outer_core, &
+                                             my_neighbors_outer_core, &
+                                             request_send_scalar_oc,request_recv_scalar_oc)
+        endif
       endif
     endif
-
 
     ! computes additional contributions to acceleration field
     if (iphase == 1) then
@@ -122,114 +102,79 @@
        ! ****************************************************
        ! **********  add matching with solid part  **********
        ! ****************************************************
-       ! only for elements in first matching layer in the fluid
-       if (.not. GPU_MODE) then
-          ! on CPU
-          !---
-          !--- couple with mantle at the top of the outer core
-          !---
-          if (ACTUALLY_COUPLE_FLUID_CMB) &
-               call compute_coupling_fluid_CMB(NGLOB_CRUST_MANTLE,displ_crust_mantle, &
-                                               ibool_crust_mantle,ibelm_bottom_crust_mantle, &
-                                               NGLOB_OUTER_CORE,accel_outer_core, &
-                                               normal_top_outer_core,jacobian2D_top_outer_core, &
-                                               wgllwgll_xy,ibool_outer_core,ibelm_top_outer_core, &
-                                               NSPEC2D_TOP(IREGION_OUTER_CORE))
+       call compute_coupling_fluid()
 
-          !---
-          !--- couple with inner core at the bottom of the outer core
-          !---
-          if (ACTUALLY_COUPLE_FLUID_ICB) &
-               call compute_coupling_fluid_ICB(NGLOB_INNER_CORE,displ_inner_core, &
-                                               ibool_inner_core,ibelm_top_inner_core, &
-                                               NGLOB_OUTER_CORE,accel_outer_core, &
-                                               normal_bottom_outer_core,jacobian2D_bottom_outer_core, &
-                                               wgllwgll_xy,ibool_outer_core,ibelm_bottom_outer_core, &
-                                               NSPEC2D_BOTTOM(IREGION_OUTER_CORE))
-
-       else
-          ! on GPU
-          !---
-          !--- couple with mantle at the top of the outer core
-          !---
-          if (ACTUALLY_COUPLE_FLUID_CMB ) &
-               call compute_coupling_fluid_cmb_gpu(Mesh_pointer,1)
-          !---
-          !--- couple with inner core at the bottom of the outer core
-          !---
-          if (ACTUALLY_COUPLE_FLUID_ICB ) &
-               call compute_coupling_fluid_icb_gpu(Mesh_pointer,1)
-
-       endif
     endif ! iphase == 1
 
     ! assemble all the contributions between slices using MPI
-    ! in outer core
-    if (iphase == 1) then
-      ! sends out MPI interface data (non-blocking)
-      if (.not. GPU_MODE) then
-        ! on CPU
-        call assemble_MPI_scalar_s(NPROCTOT_VAL,NGLOB_OUTER_CORE, &
-                                accel_outer_core, &
-                                buffer_send_scalar_outer_core,buffer_recv_scalar_outer_core, &
-                                num_interfaces_outer_core,max_nibool_interfaces_oc, &
-                                nibool_interfaces_outer_core,ibool_interfaces_outer_core,&
-                                my_neighbours_outer_core, &
-                                request_send_scalar_oc,request_recv_scalar_oc)
-      else
-        ! on GPU
-        ! sends accel values to corresponding MPI interface neighbors
+    if (NPROCTOT_VAL > 1) then
+      ! in outer core
+      if (iphase == 1) then
+        ! sends out MPI interface data (non-blocking)
+        if (.not. GPU_MODE) then
+          ! on CPU
+          call assemble_MPI_scalar_s(NPROCTOT_VAL,NGLOB_OUTER_CORE, &
+                                     accel_outer_core, &
+                                     buffer_send_scalar_outer_core,buffer_recv_scalar_outer_core, &
+                                     num_interfaces_outer_core,max_nibool_interfaces_oc, &
+                                     nibool_interfaces_outer_core,ibool_interfaces_outer_core, &
+                                     my_neighbors_outer_core, &
+                                     request_send_scalar_oc,request_recv_scalar_oc)
+        else
+          ! on GPU
+          ! sends accel values to corresponding MPI interface neighbors
 
-        ! preparation of the contribution between partitions using MPI
-        ! transfers MPI buffers to CPU
-        ! note: for asynchronous transfers, this transfers boundary region to host asynchronously. The
-        !       MPI-send is done after compute_forces_outer_core_gpu,
-        !       once the inner element kernels are launched, and the memcpy has finished.
-        call transfer_boun_pot_from_device(Mesh_pointer,buffer_send_scalar_outer_core,1)
+          ! preparation of the contribution between partitions using MPI
+          ! transfers MPI buffers to CPU
+          ! note: for asynchronous transfers, this transfers boundary region to host asynchronously. The
+          !       MPI-send is done after compute_forces_outer_core_gpu,
+          !       once the inner element kernels are launched, and the memcpy has finished.
+          call transfer_boun_pot_from_device(Mesh_pointer,buffer_send_scalar_outer_core,1)
 
-        if (.not. GPU_ASYNC_COPY) then
-          ! for synchronous transfers, sending over MPI can directly proceed
-          ! outer core
-          call assemble_MPI_scalar_send_gpu(NPROCTOT_VAL, &
-                                             buffer_send_scalar_outer_core,buffer_recv_scalar_outer_core, &
-                                             num_interfaces_outer_core,max_nibool_interfaces_oc, &
-                                             nibool_interfaces_outer_core,&
-                                             my_neighbours_outer_core, &
-                                             request_send_scalar_oc,request_recv_scalar_oc)
+          if (.not. GPU_ASYNC_COPY) then
+            ! for synchronous transfers, sending over MPI can directly proceed
+            ! outer core
+            call assemble_MPI_scalar_send_gpu(NPROCTOT_VAL, &
+                                               buffer_send_scalar_outer_core,buffer_recv_scalar_outer_core, &
+                                               num_interfaces_outer_core,max_nibool_interfaces_oc, &
+                                               nibool_interfaces_outer_core, &
+                                               my_neighbors_outer_core, &
+                                               request_send_scalar_oc,request_recv_scalar_oc)
+          endif
         endif
-      endif
-    else
-      ! make sure the last communications are finished and processed
-      ! waits for send/receive requests to be completed and assembles values
-      if (.not. GPU_MODE) then
-        ! on CPU
-        call assemble_MPI_scalar_w(NPROCTOT_VAL,NGLOB_OUTER_CORE, &
-                                   accel_outer_core, &
-                                   buffer_recv_scalar_outer_core,num_interfaces_outer_core,&
-                                   max_nibool_interfaces_oc, &
-                                   nibool_interfaces_outer_core,ibool_interfaces_outer_core, &
-                                   request_send_scalar_oc,request_recv_scalar_oc)
       else
-        ! on GPU
-        if (GPU_ASYNC_COPY) then
-          ! while inner elements compute "Kernel_2", we wait for MPI to
-          ! finish and transfer the boundary terms to the device asynchronously
-          !
-          ! transfers MPI buffers onto GPU
-          call transfer_boundarypot_to_device(Mesh_pointer,NPROCTOT_VAL,buffer_recv_scalar_outer_core, &
+        ! make sure the last communications are finished and processed
+        ! waits for send/receive requests to be completed and assembles values
+        if (.not. GPU_MODE) then
+          ! on CPU
+          call assemble_MPI_scalar_w(NPROCTOT_VAL,NGLOB_OUTER_CORE, &
+                                     accel_outer_core, &
+                                     buffer_recv_scalar_outer_core,num_interfaces_outer_core, &
+                                     max_nibool_interfaces_oc, &
+                                     nibool_interfaces_outer_core,ibool_interfaces_outer_core, &
+                                     request_send_scalar_oc,request_recv_scalar_oc)
+        else
+          ! on GPU
+          if (GPU_ASYNC_COPY) then
+            ! while inner elements compute "Kernel_2", we wait for MPI to
+            ! finish and transfer the boundary terms to the device asynchronously
+            !
+            ! transfers MPI buffers onto GPU
+            call transfer_boundarypot_to_device(Mesh_pointer,NPROCTOT_VAL,buffer_recv_scalar_outer_core, &
+                                                num_interfaces_outer_core,max_nibool_interfaces_oc, &
+                                                request_recv_scalar_oc, &
+                                                IREGION_OUTER_CORE,1)
+          endif
+
+          ! waits for MPI send/receive requests to be completed and assembles values
+          call assemble_MPI_scalar_write_gpu(Mesh_pointer,NPROCTOT_VAL, &
+                                              buffer_recv_scalar_outer_core, &
                                               num_interfaces_outer_core,max_nibool_interfaces_oc, &
-                                              request_recv_scalar_oc, &
-                                              IREGION_OUTER_CORE,1)
+                                              request_send_scalar_oc,request_recv_scalar_oc, &
+                                              1) ! -- 1 == fwd accel
         endif
-
-        ! waits for MPI send/receive requests to be completed and assembles values
-        call assemble_MPI_scalar_write_gpu(Mesh_pointer,NPROCTOT_VAL, &
-                                            buffer_recv_scalar_outer_core, &
-                                            num_interfaces_outer_core,max_nibool_interfaces_oc, &
-                                            request_send_scalar_oc,request_recv_scalar_oc, &
-                                            1) ! <-- 1 == fwd accel
-      endif
-    endif ! iphase == 1
+      endif ! iphase == 1
+    endif
 
   enddo ! iphase
 
@@ -266,12 +211,8 @@
 ! backward/reconstructed wavefields only
 
   use specfem_par
-  use specfem_par_crustmantle,only: b_displ_crust_mantle, &
-                                    ibool_crust_mantle,ibelm_bottom_crust_mantle
-  use specfem_par_innercore,only: b_displ_inner_core, &
-                                  ibool_inner_core,ibelm_top_inner_core
   use specfem_par_outercore
-  use specfem_par_movie,only: div_displ_outer_core
+  use specfem_par_movie, only: div_displ_outer_core
   implicit none
 
   ! local parameters
@@ -281,7 +222,6 @@
   !              iphase = 2 is for computing inner elements in the outer core (former icall parameter)
   integer :: iphase
   integer :: it_tmp
-  logical :: phase_is_inner
 
   ! checks
   if (SIMULATION_TYPE /= 3 ) return
@@ -290,7 +230,7 @@
 
   ! note on backward/reconstructed wavefields:
   !       b_timeval for b_displ( it=1 ) corresponds to (NSTEP - 1)*DT - t0  (after Newmark scheme...)
-  !       as we start with saved wavefields b_displ( 1 ) <-> displ( NSTEP ) which correspond
+  !       as we start with saved wavefields b_displ( 1 ), displ( NSTEP ) which correspond
   !       to a time (NSTEP - (it-1) - 1)*DT - t0
   !       for reconstructing the rotational contributions
   if (UNDO_ATTENUATION) then
@@ -331,31 +271,16 @@
     !
     ! compute all the outer elements first, then sends out non blocking MPI communication
     ! and continues computing inner elements (overlapping)
-    if (iphase == 1) then
-      phase_is_inner = .false.
-    else
-      phase_is_inner = .true.
-    endif
 
     if (.not. GPU_MODE) then
       ! on CPU
       ! adjoint / kernel runs
-      if (USE_DEVILLE_PRODUCTS_VAL) then
-        ! uses Deville et al. (2002) routine
-        call compute_forces_outer_core_Dev(b_timeval,b_deltat,b_two_omega_earth, &
-                                           NSPEC_OUTER_CORE_ROT_ADJOINT,NGLOB_OUTER_CORE_ADJOINT, &
-                                           b_A_array_rotation,b_B_array_rotation, &
-                                           b_A_array_rotation_lddrk,b_B_array_rotation_lddrk, &
-                                           b_displ_outer_core,b_accel_outer_core, &
-                                           div_displ_outer_core,phase_is_inner)
-      else
-        call compute_forces_outer_core(b_timeval,b_deltat,b_two_omega_earth, &
-                                       NSPEC_OUTER_CORE_ROT_ADJOINT,NGLOB_OUTER_CORE_ADJOINT, &
-                                       b_A_array_rotation,b_B_array_rotation, &
-                                       b_A_array_rotation_lddrk,b_B_array_rotation_lddrk, &
-                                       b_displ_outer_core,b_accel_outer_core, &
-                                       div_displ_outer_core,phase_is_inner)
-      endif
+      call compute_forces_outer_core(b_timeval,b_deltat,b_two_omega_earth, &
+                                     NSPEC_OUTER_CORE_ROT_ADJOINT,NGLOB_OUTER_CORE_ADJOINT, &
+                                     b_A_array_rotation,b_B_array_rotation, &
+                                     b_A_array_rotation_lddrk,b_B_array_rotation_lddrk, &
+                                     b_displ_outer_core,b_accel_outer_core, &
+                                     div_displ_outer_core,iphase)
     else
       ! on GPU
       ! includes FORWARD_OR_ADJOINT == 3
@@ -370,8 +295,8 @@
         call assemble_MPI_scalar_send_gpu(NPROCTOT_VAL, &
                               b_buffer_send_scalar_outer_core,b_buffer_recv_scalar_outer_core, &
                               num_interfaces_outer_core,max_nibool_interfaces_oc, &
-                              nibool_interfaces_outer_core,&
-                              my_neighbours_outer_core, &
+                              nibool_interfaces_outer_core, &
+                              my_neighbors_outer_core, &
                               b_request_send_scalar_oc,b_request_recv_scalar_oc)
       endif
 
@@ -393,44 +318,8 @@
       ! ****************************************************
       ! **********  add matching with solid part  **********
       ! ****************************************************
-      ! only for elements in first matching layer in the fluid
-      if (.not. GPU_MODE) then
-        ! on CPU
-        !---
-        !--- couple with mantle at the top of the outer core
-        !---
-        if (ACTUALLY_COUPLE_FLUID_CMB) &
-          call compute_coupling_fluid_CMB(NGLOB_CRUST_MANTLE_ADJOINT,b_displ_crust_mantle, &
-                                          ibool_crust_mantle,ibelm_bottom_crust_mantle, &
-                                          NGLOB_OUTER_CORE_ADJOINT,b_accel_outer_core, &
-                                          normal_top_outer_core,jacobian2D_top_outer_core, &
-                                          wgllwgll_xy,ibool_outer_core,ibelm_top_outer_core, &
-                                          NSPEC2D_TOP(IREGION_OUTER_CORE))
+      call compute_coupling_fluid_backward()
 
-        !---
-        !--- couple with inner core at the bottom of the outer core
-        !---
-        if (ACTUALLY_COUPLE_FLUID_ICB) &
-          call compute_coupling_fluid_ICB(NGLOB_INNER_CORE_ADJOINT,b_displ_inner_core, &
-                                          ibool_inner_core,ibelm_top_inner_core, &
-                                          NGLOB_OUTER_CORE_ADJOINT,b_accel_outer_core, &
-                                          normal_bottom_outer_core,jacobian2D_bottom_outer_core, &
-                                          wgllwgll_xy,ibool_outer_core,ibelm_bottom_outer_core, &
-                                          NSPEC2D_BOTTOM(IREGION_OUTER_CORE))
-      else
-        ! on GPU
-        !---
-        !--- couple with mantle at the top of the outer core
-        !---
-        if (ACTUALLY_COUPLE_FLUID_CMB ) &
-          call compute_coupling_fluid_cmb_gpu(Mesh_pointer,3)
-        !---
-        !--- couple with inner core at the bottom of the outer core
-        !---
-        if (ACTUALLY_COUPLE_FLUID_ICB ) &
-          call compute_coupling_fluid_icb_gpu(Mesh_pointer,3)
-
-      endif
     endif ! iphase == 1
 
     ! assemble all the contributions between slices using MPI
@@ -444,8 +333,8 @@
                               b_accel_outer_core, &
                               b_buffer_send_scalar_outer_core,b_buffer_recv_scalar_outer_core, &
                               num_interfaces_outer_core,max_nibool_interfaces_oc, &
-                              nibool_interfaces_outer_core,ibool_interfaces_outer_core,&
-                              my_neighbours_outer_core, &
+                              nibool_interfaces_outer_core,ibool_interfaces_outer_core, &
+                              my_neighbors_outer_core, &
                               b_request_send_scalar_oc,b_request_recv_scalar_oc)
       else
         ! on GPU
@@ -464,8 +353,8 @@
           call assemble_MPI_scalar_send_gpu(NPROCTOT_VAL, &
                                 b_buffer_send_scalar_outer_core,b_buffer_recv_scalar_outer_core, &
                                 num_interfaces_outer_core,max_nibool_interfaces_oc, &
-                                nibool_interfaces_outer_core,&
-                                my_neighbours_outer_core, &
+                                nibool_interfaces_outer_core, &
+                                my_neighbors_outer_core, &
                                 b_request_send_scalar_oc,b_request_recv_scalar_oc)
         endif
       endif ! GPU
@@ -477,7 +366,7 @@
         ! on CPU
         call assemble_MPI_scalar_w(NPROCTOT_VAL,NGLOB_OUTER_CORE, &
                                    b_accel_outer_core, &
-                                   b_buffer_recv_scalar_outer_core,num_interfaces_outer_core,&
+                                   b_buffer_recv_scalar_outer_core,num_interfaces_outer_core, &
                                    max_nibool_interfaces_oc, &
                                    nibool_interfaces_outer_core,ibool_interfaces_outer_core, &
                                    b_request_send_scalar_oc,b_request_recv_scalar_oc)
@@ -499,7 +388,7 @@
                                             b_buffer_recv_scalar_outer_core, &
                                             num_interfaces_outer_core,max_nibool_interfaces_oc, &
                                             b_request_send_scalar_oc,b_request_recv_scalar_oc, &
-                                            3) ! <-- 3 == adjoint b_accel
+                                            3) ! -- 3 == adjoint b_accel
       endif
     endif ! iphase == 1
 
@@ -526,4 +415,65 @@
 
   end subroutine compute_forces_acoustic_backward
 
+!
+!-------------------------------------------------------------------------------------------------
+!
+
+  subroutine compute_forces_outer_core(timeval,deltat,two_omega_earth, &
+                                       NSPEC,NGLOB, &
+                                       A_array_rotation,B_array_rotation, &
+                                       A_array_rotation_lddrk,B_array_rotation_lddrk, &
+                                       displfluid,accelfluid, &
+                                       div_displfluid,iphase)
+
+! wrapper function, decides about Deville optimization
+!
+! (left in this file to let compiler decide about inlining)
+
+  use constants_solver, only: CUSTOM_REAL,NGLLX,NGLLY,NGLLZ,NSPEC_OUTER_CORE_3DMOVIE,USE_DEVILLE_PRODUCTS_VAL
+
+  use specfem_par_outercore, only: sum_terms_outer_core
+
+  implicit none
+
+  integer,intent(in) :: NSPEC,NGLOB
+
+  ! for the Euler scheme for rotation
+  real(kind=CUSTOM_REAL),intent(in) :: timeval,deltat,two_omega_earth
+
+  real(kind=CUSTOM_REAL), dimension(NGLLX,NGLLY,NGLLZ,NSPEC),intent(inout) :: &
+    A_array_rotation,B_array_rotation
+  real(kind=CUSTOM_REAL), dimension(NGLLX,NGLLY,NGLLZ,NSPEC),intent(inout) :: &
+    A_array_rotation_lddrk,B_array_rotation_lddrk
+
+  ! displacement and acceleration
+  real(kind=CUSTOM_REAL), dimension(NGLOB),intent(in) :: displfluid
+  real(kind=CUSTOM_REAL), dimension(NGLOB),intent(inout) :: accelfluid
+
+  ! divergence of displacement
+  real(kind=CUSTOM_REAL), dimension(NGLLX,NGLLY,NGLLZ,NSPEC_OUTER_CORE_3DMOVIE),intent(out) :: div_displfluid
+
+  ! inner/outer element run flag
+  integer,intent(in) :: iphase
+
+
+  if (USE_DEVILLE_PRODUCTS_VAL) then
+    ! uses Deville et al. (2002) routine
+    call compute_forces_outer_core_Dev(timeval,deltat,two_omega_earth, &
+                                       NSPEC,NGLOB, &
+                                       A_array_rotation,B_array_rotation, &
+                                       A_array_rotation_lddrk,B_array_rotation_lddrk, &
+                                       displfluid,accelfluid, &
+                                       div_displfluid,iphase,sum_terms_outer_core)
+  else
+    ! div_displ_outer_core is initialized to zero in the following subroutine.
+    call compute_forces_outer_core_noDev(timeval,deltat,two_omega_earth, &
+                                         NSPEC,NGLOB, &
+                                         A_array_rotation,B_array_rotation, &
+                                         A_array_rotation_lddrk,B_array_rotation_lddrk, &
+                                         displfluid,accelfluid, &
+                                         div_displfluid,iphase)
+  endif
+
+  end subroutine compute_forces_outer_core
 

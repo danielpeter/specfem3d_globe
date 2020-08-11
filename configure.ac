@@ -9,7 +9,7 @@ dnl You must have recent versions of Autoconf and Automake installed.
 ############################################################
 
 AC_PREREQ(2.61)
-AC_INIT([Specfem3D_Globe], [7.0.0], [see the wiki], [Specfem3DGlobe])
+AC_INIT([Specfem3D_Globe], [7.0.2], [see the wiki], [Specfem3DGlobe])
 AC_CONFIG_SRCDIR([src/specfem3D/specfem3D.F90])
 
 AC_CONFIG_HEADER([setup/config.h])
@@ -64,7 +64,7 @@ AC_ARG_ENABLE([vectorization],
     [AC_HELP_STRING([--enable-vectorization],
         [build FORCE_VECTORIZATION enabled version @<:@default=auto@:>@])],
     [want_vec="$enableval"],
-    [want_vec=auto])
+    [want_vec=no])
 if test x"$want_vec" == xauto; then
     if test x"$want_debug" != xno; then
         want_vec=no
@@ -79,22 +79,62 @@ fi
 AM_CONDITIONAL([COND_VECTORIZATION], [test x"$want_vec" != xno])
 
 ###
-### GPU
+### CUDA
 ###
 
 AC_ARG_WITH([cuda],
     [AC_HELP_STRING([--with-cuda],
-        [build cuda GPU enabled version @<:@default=no@:>@])],
+        [build CUDA GPU enabled version @<:@default=no@:>@])],
     [want_cuda="$withval"],
     [want_cuda=no])
 AM_CONDITIONAL([COND_CUDA], [test x"$want_cuda" != xno])
 AM_CONDITIONAL([COND_CUDA5], [test x"$want_cuda" = xcuda5])
+AM_CONDITIONAL([COND_CUDA6], [test x"$want_cuda" = xcuda6])
+AM_CONDITIONAL([COND_CUDA7], [test x"$want_cuda" = xcuda7])
+AM_CONDITIONAL([COND_CUDA8], [test x"$want_cuda" = xcuda8])
+AM_CONDITIONAL([COND_CUDA9], [test x"$want_cuda" = xcuda9])
+# cuda linking for cuda 5x and 6x
+AM_CONDITIONAL([COND_CUDA_PLUS], [test "$want_cuda" = cuda5 -o "$want_cuda" = cuda6 -o "$want_cuda" = cuda7 -o "$want_cuda" = cuda8 -o "$want_cuda" = cuda9])
 
 AC_ARG_WITH([opencl],
  [AC_HELP_STRING([--with-opencl], [build OpenCL GPU enabled version @<:@default=no@:>@])],
     [want_opencl="$withval"],
     [want_opencl=no])
 AM_CONDITIONAL([COND_OCL], [test "$want_opencl" != no])
+
+###
+### MIC (Xeon PHI)
+###
+
+AC_ARG_WITH([mic],
+    [AC_HELP_STRING([--with-mic],
+        [build native Xeon PHI enabled version @<:@default=no@:>@])],
+    [want_mic="$withval"],
+    [want_mic=no])
+AM_CONDITIONAL([COND_MIC], [test "$want_mic" != no])
+
+###
+### LIBXSMM (Library for small matrix-matrix multiplications targeting Intel Architecture (x86)
+###          see:https://github.com/hfp/libxsmm )
+###
+AC_ARG_WITH([xsmm],
+    [AC_HELP_STRING([--with-xsmm],
+        [build LIBXSMM (see:https://github.com/hfp/libxsmm) enabled version @<:@default=no@:>@])],
+    [want_xsmm="$withval"],
+    [want_xsmm=no])
+AM_CONDITIONAL([COND_XSMM], [test "$want_xsmm" != no])
+
+###
+### OpenMP
+###
+
+AC_ARG_ENABLE([openmp],
+    [AC_HELP_STRING([--enable-openmp],
+        [build OpenMP enabled version @<:@default=no@:>@])],
+    [want_omp="$enableval"],
+    [want_omp=no])
+AM_CONDITIONAL([COND_OMP], [test "$want_omp" != no])
+
 
 ###
 ### VTK
@@ -117,6 +157,17 @@ AC_ARG_WITH([adios],
     [want_adios="$withval"],
     [want_adios=no])
 AM_CONDITIONAL([COND_ADIOS], [test x"$want_adios" != xno])
+
+###
+### ASDF
+###
+
+AC_ARG_WITH([asdf],
+    [AC_HELP_STRING([--with-asdf],
+        [build ASDF enabled version @<:@default=no@:>@])],
+    [want_asdf="$withval"],
+    [want_asdf=no])
+AM_CONDITIONAL([COND_ASDF], [test x$"$want_asdf" != xno])
 
 ###
 ### CEM
@@ -230,6 +281,17 @@ AS_IF([test x"$want_adios" != xno], [
     CIT_ADIOS_CONFIG
 ])
 
+###
+### ASDF
+###
+
+AS_IF([test x"$want_asdf" != xno], [
+    AS_BOX([ASDF])
+
+    AC_ARG_VAR(ASDF_LIBS, [ASDF libraries for linking programs])
+
+])
+
 #mpbl: adding flags to config.h.in through autoheader in order to save them into the adios file.
 #configure_flags_str="FC=$FC FCFLAGS=$FCFLAGS $FLAGS_CHECK"
 #AC_DEFINE_UNQUOTED([CONFIGURE_FLAGS],["${configure_flags_str}"],
@@ -251,6 +313,48 @@ AS_IF([test x"$want_opencl" != xno], [
     AC_ARG_VAR(OCL_CPU_FLAGS, [OpenCL CPU compiler flags])
     AC_ARG_VAR(OCL_GPU_FLAGS, [OpenCL GPU compiler flags])
     CIT_OPENCL_CONFIG
+])
+
+###
+### MIC
+###
+
+AS_IF([test x"$want_mic" != xno], [
+  AS_BOX([MIC])
+  AC_MSG_NOTICE([MIC native compilation])
+  FLAGS_CHECK=$(echo $FLAGS_CHECK | sed -e 's/\-xHost -fpe0\>//g')
+])
+if test x"$want_vec" == xno && test x"$want_mic" == xyes; then
+    AC_MSG_NOTICE([--enable-vectorization and --with-mic should be both specified for better performance.])
+fi
+
+###
+### LIBXSMM
+###
+
+AS_IF([test x"$want_xsmm" != xno], [
+  AS_BOX([LIBXSMM])
+  AC_MSG_NOTICE([LIBXSMM compilation is enabled])
+
+  AC_ARG_VAR(LIBXSMM_INC, [LIBXSMM include directory])
+  AC_ARG_VAR(LIBXSMM_LIBS, [LIBXSMM library directory])
+  AC_ARG_VAR(BLAS_LIBS, [LAPACK/BLAS library directory])
+])
+
+
+###
+### OpenMP
+###
+
+AS_IF([test x"$want_omp" != xno], [
+  AS_BOX([OpenMP])
+  AC_MSG_NOTICE([OpenMP compilation is enabled])
+
+  AC_ARG_VAR(OMP_FCFLAGS, [OpenMP Fortran compiler flags])
+
+  # openmp checking
+  AC_MSG_NOTICE([OpenMP flag $OMP_FCFLAGS])
+  CIT_FC_OPENMP_MODULE([$FC], [$OMP_FCFLAGS])
 ])
 
 ###
@@ -281,12 +385,11 @@ AS_IF([test x"$want_vtk" != xno], [
 ### MPI
 ###
 
-AS_IF([test x"$want_cuda" != xno -o x"$want_vtk" != xno], [
+AS_IF([test x"$want_cuda" != xno -o x"$want_opencl" != xno -o x"$want_vtk" != xno], [
     AS_BOX([MPI])
     # checks MPI include directory
     CIT_MPI_INCDIR([$MPIFC])
 ])
-
 
 ###
 ### CEM
@@ -332,6 +435,15 @@ AC_CONFIG_FILES([
     setup/constants_tomography.h
     setup/precision.h
     setup/config.fh
+])
+AS_IF([test -d $srcdir/.git], [
+    GIT_VERSION_DEPS="$srcdir/.git/logs/HEAD"
+    AC_MSG_NOTICE([building from git repository])
+    AC_SUBST(GIT_VERSION_DEPS)
+], [
+    dnl Only substitute if not in a git repository.
+    AC_MSG_NOTICE([not a git repository])
+    AC_CONFIG_FILES([setup/version.fh])
 ])
 AC_CONFIG_FILES([
     DATA/Par_file:DATA/Par_file

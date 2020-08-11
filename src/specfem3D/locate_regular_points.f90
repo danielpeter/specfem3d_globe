@@ -11,7 +11,7 @@
 !
 ! This program is free software; you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by
-! the Free Software Foundation; either version 2 of the License, or
+! the Free Software Foundation; either version 3 of the License, or
 ! (at your option) any later version.
 !
 ! This program is distributed in the hope that it will be useful,
@@ -25,43 +25,54 @@
 !
 !=====================================================================
 
+
   subroutine read_kl_regular_grid(GRID)
 
-  use constants,only: IIN, &
-    NM_KL_REG_LAYER,PATHNAME_KL_REG, &
+  use constants, only: IIN,IMAIN,NM_KL_REG_LAYER,PATHNAME_KL_REG, &
     KL_REG_MIN_LAT,KL_REG_MAX_LAT,KL_REG_MIN_LON,KL_REG_MAX_LON
 
   use specfem_par, only: myrank
-
+  use specfem_par_crustmantle, only: kl_reg_grid_variables
   implicit none
-
-  type kl_reg_grid_variables
-    sequence
-    real dlat
-    real dlon
-    integer nlayer
-    real rlayer(NM_KL_REG_LAYER)
-    integer ndoubling(NM_KL_REG_LAYER)
-    integer nlat(NM_KL_REG_LAYER)
-    integer nlon(NM_KL_REG_LAYER)
-    integer npts_total
-    integer npts_before_layer(NM_KL_REG_LAYER+1)
-  end type kl_reg_grid_variables
 
   type (kl_reg_grid_variables), intent(inout) :: GRID
 
+  ! local parameters
   integer :: ios,nlayer,i,nlat,nlon,npts_this_layer
+  character(len=256) :: line
   real :: r
+
+  ! user output
+  if (myrank == 0) then
+    write(IMAIN,*) '  regular grid input file  : ',trim(PATHNAME_KL_REG)
+    call flush_IMAIN()
+  endif
 
   ! improvements to make: read-in by master and broadcast to all slaves
   open(IIN,file=trim(PATHNAME_KL_REG),status='old',action='read',iostat=ios)
-  if (ios /= 0 ) call exit_MPI(myrank,'Error opening file '//trim(PATHNAME_KL_REG)//'in read_kl_regular_grid() routine')
+  if (ios /= 0 ) call exit_MPI(myrank,'Error opening file '//trim(PATHNAME_KL_REG)//' in read_kl_regular_grid() routine')
 
-  read(IIN,*) GRID%dlat, GRID%dlon
+  ! grid increments
+  read(IIN,'(a256)') line
+  ! skip comment lines
+  do while (line(1:1) == '#')
+    read(IIN,'(a256)') line
+  enddo
+
+  read(line,*) GRID%dlat, GRID%dlon
 
   nlayer = 0
   do
-    read(IIN,*,iostat=ios) r, i
+    read(IIN,'(a256)',iostat=ios) line
+    if (ios /= 0) exit
+
+    ! skip comment lines
+    do while (line(1:1) == '#')
+      read(IIN,'(a256)',iostat=ios) line
+      if (ios /= 0) exit
+    enddo
+
+    read(line,*,iostat=ios) r, i
     if (ios /= 0) exit
 
     if (nlayer >= NM_KL_REG_LAYER) then
@@ -69,6 +80,7 @@
     endif
 
     nlayer = nlayer + 1
+
     GRID%rlayer(nlayer) = r
     GRID%ndoubling(nlayer) = i
   enddo
@@ -91,34 +103,33 @@
     call exit_MPI(myrank, 'No Model points read in')
   endif
 
+  ! user output
+  if (myrank == 0) then
+    write(IMAIN,*) '  grid increments (lat/lon): ',GRID%dlat,GRID%dlon
+    write(IMAIN,*) '  number of layers         : ',GRID%nlayer
+    write(IMAIN,*) '  total number of points   : ',GRID%npts_total
+    write(IMAIN,*)
+    call flush_IMAIN()
+  endif
+
   end subroutine read_kl_regular_grid
 
 !==============================================================
 
   subroutine find_regular_grid_slice_number(slice_number, GRID)
 
-  use constants,only: CUSTOM_REAL,PI,DEGREES_TO_RADIANS, &
+  use constants, only: CUSTOM_REAL,PI,DEGREES_TO_RADIANS, &
     NM_KL_REG_LAYER,KL_REG_MIN_LAT,KL_REG_MIN_LON
 
   use specfem_par, only: myrank, addressing, &
     NCHUNKS_VAL, NPROC_XI_VAL, NPROC_ETA_VAL
 
+  use specfem_par_crustmantle, only: kl_reg_grid_variables
+
   implicit none
 
   integer, intent(out) :: slice_number(*)
 
-  type kl_reg_grid_variables
-    sequence
-    real dlat
-    real dlon
-    integer nlayer
-    real rlayer(NM_KL_REG_LAYER)
-    integer ndoubling(NM_KL_REG_LAYER)
-    integer nlat(NM_KL_REG_LAYER)
-    integer nlon(NM_KL_REG_LAYER)
-    integer npts_total
-    integer npts_before_layer(NM_KL_REG_LAYER+1)
-  end type kl_reg_grid_variables
   type (kl_reg_grid_variables), intent(in) :: GRID
 
   real(kind=CUSTOM_REAL) :: xi_width, eta_width
@@ -131,7 +142,8 @@
     call exit_MPI(myrank, 'Only deal with 6 chunks at this moment')
   endif
 
-  xi_width=PI/2; eta_width=PI/2; nproc=NPROC_XI_VAL
+  xi_width = PI/2; eta_width = PI/2
+  nproc = NPROC_XI_VAL
   ilayer = 0
 
   do isp = 1,GRID%npts_total
@@ -165,35 +177,24 @@
 !==============================================================
 
 ! how about using single precision for the iterations?
-  subroutine locate_regular_points(npoints_slice,points_slice,GRID, &
+  subroutine locate_regular_points(npoints_slice_reg,points_slice_reg,GRID, &
                                    nspec,xstore,ystore,zstore,ibool, &
                                    xigll,yigll,zigll,ispec_reg, &
                                    hxir_reg,hetar_reg,hgammar_reg)
 
-  use constants_solver,only: CUSTOM_REAL,NGLLX,NGLLY,NGLLZ,NGNOD,NUM_ITER, &
+  use constants_solver, only: CUSTOM_REAL,NGLLX,NGLLY,NGLLZ,NGNOD,NUM_ITER, &
     DEGREES_TO_RADIANS,HUGEVAL,TWO_PI,R_UNIT_SPHERE,R_EARTH, &
-    NM_KL_REG_PTS_VAL,NM_KL_REG_LAYER,KL_REG_MIN_LAT,KL_REG_MIN_LON
+    NM_KL_REG_PTS,NM_KL_REG_LAYER,KL_REG_MIN_LAT,KL_REG_MIN_LON
 
   use specfem_par, only: myrank, NEX_XI
+
+  use specfem_par_crustmantle, only: kl_reg_grid_variables
 
   implicit none
 
   ! declarations of regular grid model
-  integer, intent(in) :: npoints_slice
-  integer, dimension(NM_KL_REG_PTS_VAL), intent(in) :: points_slice
-
-  type kl_reg_grid_variables
-    sequence
-    real dlat
-    real dlon
-    integer nlayer
-    real rlayer(NM_KL_REG_LAYER)
-    integer ndoubling(NM_KL_REG_LAYER)
-    integer nlat(NM_KL_REG_LAYER)
-    integer nlon(NM_KL_REG_LAYER)
-    integer npts_total
-    integer npts_before_layer(NM_KL_REG_LAYER+1)
-  end type kl_reg_grid_variables
+  integer, intent(in) :: npoints_slice_reg
+  integer, dimension(NM_KL_REG_PTS), intent(in) :: points_slice_reg
   type (kl_reg_grid_variables), intent(in) :: GRID
 
   ! simulation geometry
@@ -207,10 +208,10 @@
   double precision, dimension(NGLLZ), intent(in) :: zigll
 
   ! output
-  integer, dimension(NM_KL_REG_PTS_VAL), intent(out) :: ispec_reg
-  real(kind=CUSTOM_REAL), dimension(NGLLX,NM_KL_REG_PTS_VAL), intent(out) :: hxir_reg
-  real(kind=CUSTOM_REAL), dimension(NGLLY,NM_KL_REG_PTS_VAL), intent(out) :: hetar_reg
-  real(kind=CUSTOM_REAL), dimension(NGLLZ,NM_KL_REG_PTS_VAL), intent(out) :: hgammar_reg
+  integer, dimension(NM_KL_REG_PTS), intent(out) :: ispec_reg
+  real(kind=CUSTOM_REAL), dimension(NGLLX,NM_KL_REG_PTS), intent(out) :: hxir_reg
+  real(kind=CUSTOM_REAL), dimension(NGLLY,NM_KL_REG_PTS), intent(out) :: hetar_reg
+  real(kind=CUSTOM_REAL), dimension(NGLLZ,NM_KL_REG_PTS), intent(out) :: hgammar_reg
 
   ! GLL number of anchors
   integer, dimension(NGNOD) :: iaddx, iaddy, iaddr
@@ -219,7 +220,7 @@
   integer :: ispec_in, ispec, iter_loop, ia, ipoint
   double precision :: lat, lon, radius, th, ph, x,y,z
   double precision :: x_target, y_target, z_target
-  double precision :: distmin,dist,typical_size
+  double precision :: distmin_squared,dist_squared,typical_size_squared
   double precision :: xi,eta,gamma,dx,dy,dz,dxi,deta,dgamma
   double precision :: xix,xiy,xiz
   double precision :: etax,etay,etaz
@@ -232,24 +233,18 @@
   double precision, dimension(NGLLY) :: hetar
   double precision, dimension(NGLLZ) :: hgammar
 
-  ! DEBUG
-  !real(kind=CUSTOM_REAL), dimension(npoints_slice) :: dist_final
-
   !---------------------------
 
   call hex_nodes2(iaddx,iaddy,iaddr)
 
   ! compute typical size of elements at the surface
-  typical_size = TWO_PI * R_UNIT_SPHERE / (4.*NEX_XI)
+  typical_size_squared = TWO_PI * R_UNIT_SPHERE / (4.0 * NEX_XI)
 
   ! use 10 times the distance as a criterion for source detection
-  typical_size = 10. * typical_size
+  typical_size_squared = (10.0 * typical_size_squared)**2
 
-  ! DEBUG
-  !dist_final=HUGEVAL
-
-  do ipoint = 1, npoints_slice
-    isp = points_slice(ipoint)
+  do ipoint = 1, npoints_slice_reg
+    isp = points_slice_reg(ipoint)
     do ilayer = 1, GRID%nlayer
       if (isp <= GRID%npts_before_layer(ilayer+1)) exit
     enddo
@@ -263,19 +258,22 @@
     ! convert radius to meters and then scale
     radius = GRID%rlayer(ilayer) * 1000.0 / R_EARTH
     ! (x,y,z) for isp point
-    th = (90 - lat) * DEGREES_TO_RADIANS; ph = lon * DEGREES_TO_RADIANS
+    th = (90.0 - lat) * DEGREES_TO_RADIANS; ph = lon * DEGREES_TO_RADIANS
     x_target = radius * sin(th) * cos(ph)
     y_target = radius * sin(th) * sin(ph)
     z_target = radius * cos(th)
 
     ! first exclude elements too far away
-    locate_target = .false.;  distmin = HUGEVAL
+    locate_target = .false.
+    distmin_squared = HUGEVAL
+
     do ispec = 1,nspec
       iglob = ibool(1,1,1,ispec)
-      dist = dsqrt((x_target - xstore(iglob))**2 &
-                 + (y_target - ystore(iglob))**2 &
-                 + (z_target - zstore(iglob))**2)
-      if (dist > typical_size) cycle
+      dist_squared = (x_target - xstore(iglob))**2 &
+                   + (y_target - ystore(iglob))**2 &
+                   + (z_target - zstore(iglob))**2
+      !  we compare squared distances instead of distances themselves to significantly speed up calculations
+      if (dist_squared > typical_size_squared) cycle
 
       locate_target = .true.
       ! loop only on points inside the element
@@ -288,11 +286,15 @@
         do j = 2, NGLLY-1
           do i = 2, NGLLX-1
             iglob = ibool(i,j,k,ispec)
-            dist = dsqrt((x_target - xstore(iglob))**2 &
-                        +(y_target - ystore(iglob))**2 &
-                        +(z_target - zstore(iglob))**2)
-            if (dist < distmin) then
-              ix_in=i; iy_in=j; iz_in=k; ispec_in=ispec; distmin=dist
+            dist_squared = (x_target - xstore(iglob))**2 &
+                         + (y_target - ystore(iglob))**2 &
+                         + (z_target - zstore(iglob))**2
+            if (dist_squared < distmin_squared) then
+              ix_in = i
+              iy_in = j
+              iz_in = k
+              ispec_in = ispec
+              distmin_squared = dist_squared
             endif
           enddo
         enddo
@@ -300,8 +302,8 @@
     enddo
 
     if (.not. locate_target) then
-      print *, 'Looking for point', isp, ilayer, ilat, ilon, lat, lon, &
-               x_target, y_target, z_target, myrank
+      print *, 'Looking for point:', isp, 'layer',ilayer,'ilat/ilon',ilat, ilon
+      print *, '  lat/lon = ',lat, lon,'x/y/z = ',x_target, y_target, z_target,'rank', myrank
       call exit_MPI(myrank, 'Error in point_source() array')
     endif
 
@@ -340,13 +342,6 @@
       eta = eta + deta
       gamma = gamma + dgamma
 
-      ! Debugging
-      !if (abs(xi) > 1.d0+TINYVAL .or. abs(eta) > 1.d0+TINYVAL &
-      !     .or. abs(gamma) > 1.0d0+TINYVAL) then
-      !   print *, 'Outside the element ', myrank, ipoint,' : ', &
-      !        iter_loop,xi,eta,gamma
-      !endif
-
       ! impose that we stay in that element
       ! (useful if user gives a source outside the mesh for instance)
       if (xi > 1.d0) xi = 1.d0
@@ -358,10 +353,6 @@
 
     enddo
 
-    ! DEBUG: recompute Jacobian for the new point (can be commented after debug)
-    !call recompute_jacobian(xelm,yelm,zelm,xi,eta,gamma,x,y,z,xix,xiy,xiz,etax,etay,etaz,gammax,gammay,gammaz)
-    !dist_final(ipoint)=dsqrt((x_target-x)**2+(y_target-y)**2+(z_target-z)**2)
-
     ! store l(xi),l(eta),l(gamma)
     call lagrange_any2(xi, NGLLX, xigll, hxir)
     call lagrange_any2(eta, NGLLY, yigll, hetar)
@@ -371,9 +362,6 @@
     hgammar_reg(:,ipoint) = hgammar
 
   enddo ! ipoint
-
-! DEBUG
-!  print *, 'Maximum distance discrepancy ', maxval(dist_final(1:npoints_slice))
 
   end subroutine locate_regular_points
 

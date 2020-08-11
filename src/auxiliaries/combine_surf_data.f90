@@ -11,7 +11,7 @@
 !
 ! This program is free software; you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by
-! the Free Software Foundation; either version 2 of the License, or
+! the Free Software Foundation; either version 3 of the License, or
 ! (at your option) any later version.
 !
 ! This program is distributed in the hope that it will be useful,
@@ -331,14 +331,14 @@ program combine_surf_data
 
   enddo  ! all slices for points
 
-  if (np /=  npoint_total) stop 'Error: Number of total points not consistent'
+  if (np /= npoint_total) stop 'Error: Number of total points not consistent'
   if (ne /= nelement_total) stop 'Error: Number of total elements not consistent'
 
   call close_file_fd(pfd)
   call close_file_fd(efd)
 
   ! cat files
-  command_name='cat '//trim(pt_mesh_file)//' '//trim(em_mesh_file)//' > '//trim(mesh_file)
+  command_name='cat '//trim(pt_mesh_file)//' '//trim(em_mesh_file)//'>'//trim(mesh_file)
   print *, ' '
   print *, 'cat mesh files ...'
   print *, trim(command_name)

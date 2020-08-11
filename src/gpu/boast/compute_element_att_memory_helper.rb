@@ -41,7 +41,7 @@ module BOAST
     ngll3_padded = Int("NGLL3_PADDED", :const => n_gll3_padded)
     nsls  = Int("N_SLS", :const => n_sls)
 
-    p = Procedure(function_name, v, [], :local => true) {
+    p = Procedure(function_name, v, :local => true) {
       decl offset = Int("offset")
       decl i_sls  = Int("i_sls")
       decl mul = Real("mul")
@@ -52,9 +52,9 @@ module BOAST
       decl sn = Real("sn")
       decl snp1 = Real("snp1")
       if type == :crust_mantle then
-        print If(anisotropy, lambda {
+        print If(anisotropy => lambda {
           print mul === d_c44store[tx + ngll3_padded*working_element]
-        }, lambda {
+        }, :else => lambda {
           print mul === d_muv[tx + ngll3_padded*working_element]
         })
       else
@@ -67,9 +67,9 @@ module BOAST
         # index:
         # (i,j,k,i_sls,ispec) -> offset_sls = tx + NGLL3*(i_sls + N_SLS*working_element)
         print offset === tx + ngll3*(i_sls + nsls*working_element)
-        print If(use_3d_attenuation_arrays, lambda {
+        print If(use_3d_attenuation_arrays => lambda {
             print factor_loc  === mul * factor_common[offset]
-        }, lambda {
+        }, :else => lambda {
             print factor_loc  === mul * factor_common[i_sls + nsls*working_element ]
         })
         print alphaval_loc === alphaval[i_sls]

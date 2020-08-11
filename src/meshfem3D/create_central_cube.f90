@@ -11,7 +11,7 @@
 !
 ! This program is free software; you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by
-! the Free Software Foundation; either version 2 of the License, or
+! the Free Software Foundation; either version 3 of the License, or
 ! (at your option) any later version.
 !
 ! This program is distributed in the hope that it will be useful,
@@ -25,14 +25,14 @@
 !
 !=====================================================================
 
-  subroutine create_central_cube(myrank,ichunk,ispec,iaddx,iaddy,iaddz,ipass, &
+  subroutine create_central_cube(ichunk,ispec,iaddx,iaddy,iaddz,ipass, &
                         nspec,NEX_XI,NEX_PER_PROC_XI,NEX_PER_PROC_ETA,R_CENTRAL_CUBE, &
                         iproc_xi,iproc_eta,NPROC_XI,NPROC_ETA,ratio_divide_central_cube, &
                         iMPIcut_xi,iMPIcut_eta,iboun, &
                         idoubling,iregion_code,xstore,ystore,zstore, &
-                        shape3D,rmin,rmax,rhostore,dvpstore,&
+                        shape3D,rmin,rmax,rhostore,dvpstore, &
                         kappavstore,kappahstore,muvstore,muhstore,eta_anisostore, &
-                        xixstore,xiystore,xizstore,etaxstore,etaystore,etazstore,&
+                        xixstore,xiystore,xizstore,etaxstore,etaystore,etazstore, &
                         gammaxstore,gammaystore,gammazstore,nspec_actually, &
                         c11store,c12store,c13store,c14store,c15store,c16store,c22store, &
                         c23store,c24store,c25store,c26store,c33store,c34store,c35store, &
@@ -43,7 +43,8 @@
 
 ! creates the inner core cube of the mesh
 
-  use meshfem3D_models_par
+  use constants
+  use meshfem3D_models_par, only: myrank
 
   implicit none
 
@@ -96,9 +97,6 @@
   real(kind=CUSTOM_REAL), dimension(NGLLX,NGLLY,NGLLZ,nspec_actually) :: &
     xixstore,xiystore,xizstore,etaxstore,etaystore,etazstore,gammaxstore,gammaystore,gammazstore
 
-! proc numbers for MPI
-  integer myrank
-
 ! MPI cut-planes parameters along xi and along eta
   logical, dimension(2,nspec) :: iMPIcut_xi,iMPIcut_eta
 
@@ -121,8 +119,6 @@
   integer nx_central_cube,ny_central_cube,nz_central_cube
   ! the height at which the central cube is cut
   integer :: nz_inf_limit
-
-
 
   ! create the shape of a regular mesh element in the inner core
   call hex_nodes(iaddx,iaddy,iaddz)
@@ -151,7 +147,7 @@
           ! flat cubed sphere with correct mapping
           call compute_coord_central_cube(ix+iaddx(ia),iy+iaddy(ia),iz+iaddz(ia), &
                         xgrid_central_cube,ygrid_central_cube,zgrid_central_cube, &
-                        iproc_xi,iproc_eta,NPROC_XI,NPROC_ETA,nx_central_cube,&
+                        iproc_xi,iproc_eta,NPROC_XI,NPROC_ETA,nx_central_cube, &
                         ny_central_cube,nz_central_cube,radius_cube)
 
           if (ichunk == CHUNK_AB) then
@@ -244,7 +240,7 @@
 
         ! compute several rheological and geometrical properties for this spectral element
         call compute_element_properties(ispec,iregion_code,idoubling,ipass, &
-                         xstore,ystore,zstore,nspec,myrank, &
+                         xstore,ystore,zstore,nspec, &
                          xelm,yelm,zelm,shape3D,rmin,rmax,rhostore,dvpstore, &
                          kappavstore,kappahstore,muvstore,muhstore,eta_anisostore, &
                          xixstore,xiystore,xizstore,etaxstore,etaystore,etazstore, &

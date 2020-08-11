@@ -11,7 +11,7 @@
 !
 ! This program is free software; you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by
-! the Free Software Foundation; either version 2 of the License, or
+! the Free Software Foundation; either version 3 of the License, or
 ! (at your option) any later version.
 !
 ! This program is distributed in the hope that it will be useful,
@@ -62,8 +62,8 @@
 
   if (s >= 1.0d0-tol) s=1.0d0-tol
   lsave=l
-  if (l<0) l=-1-l
-  if (l>0) goto 1
+  if (l < 0) l=-1-l
+  if (l > 0) goto 1
   x(1)=rfpi
   dx(1)=0.0d0
   l=lsave
@@ -78,7 +78,7 @@
   l=lsave
   return
     2 sos=s
-  if (s<tol) s=tol
+  if (s < tol) s=tol
   cot=c/s
   ct=2.0d0*c
   ss=s*s

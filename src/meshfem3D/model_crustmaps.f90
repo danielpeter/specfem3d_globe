@@ -11,7 +11,7 @@
 !
 ! This program is free software; you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by
-! the Free Software Foundation; either version 2 of the License, or
+! the Free Software Foundation; either version 3 of the License, or
 ! (at your option) any later version.
 !
 ! This program is distributed in the hope that it will be useful,
@@ -58,7 +58,7 @@
 !
 
 
-  subroutine model_crustmaps_broadcast(myrank)
+  subroutine model_crustmaps_broadcast()
 
 ! standard routine to setup model
 
@@ -67,28 +67,26 @@
 
   implicit none
 
-  integer :: myrank
-
   ! local parameters
   integer :: ier
 
   ! allocates model arrays
   allocate(thickness(180*CRUSTMAP_RESOLUTION,360*CRUSTMAP_RESOLUTION,NLAYERS_CRUSTMAP), &
-          density(180*CRUSTMAP_RESOLUTION,360*CRUSTMAP_RESOLUTION,NLAYERS_CRUSTMAP), &
-          velocp(180*CRUSTMAP_RESOLUTION,360*CRUSTMAP_RESOLUTION,NLAYERS_CRUSTMAP), &
-          velocs(180*CRUSTMAP_RESOLUTION,360*CRUSTMAP_RESOLUTION,NLAYERS_CRUSTMAP), &
-          stat=ier)
+           density(180*CRUSTMAP_RESOLUTION,360*CRUSTMAP_RESOLUTION,NLAYERS_CRUSTMAP), &
+           velocp(180*CRUSTMAP_RESOLUTION,360*CRUSTMAP_RESOLUTION,NLAYERS_CRUSTMAP), &
+           velocs(180*CRUSTMAP_RESOLUTION,360*CRUSTMAP_RESOLUTION,NLAYERS_CRUSTMAP), &
+           stat=ier)
   if (ier /= 0 ) call exit_MPI(myrank,'Error allocating crustmaps arrays')
 
   allocate(thicknessnp(NLAYERS_CRUSTMAP), &
-          densitynp(NLAYERS_CRUSTMAP), &
-          velocpnp(NLAYERS_CRUSTMAP), &
-          velocsnp(NLAYERS_CRUSTMAP), &
-          thicknesssp(NLAYERS_CRUSTMAP), &
-          densitysp(NLAYERS_CRUSTMAP), &
-          velocpsp(NLAYERS_CRUSTMAP), &
-          velocssp(NLAYERS_CRUSTMAP), &
-          stat=ier)
+           densitynp(NLAYERS_CRUSTMAP), &
+           velocpnp(NLAYERS_CRUSTMAP), &
+           velocsnp(NLAYERS_CRUSTMAP), &
+           thicknesssp(NLAYERS_CRUSTMAP), &
+           densitysp(NLAYERS_CRUSTMAP), &
+           velocpsp(NLAYERS_CRUSTMAP), &
+           velocssp(NLAYERS_CRUSTMAP), &
+           stat=ier)
   if (ier /= 0 ) call exit_MPI(myrank,'Error allocating crustmaps np/sp arrays')
 
   ! master reads in crust maps
@@ -129,12 +127,15 @@
 
   implicit none
 
-  integer :: i,l
+  ! local parameters
+  integer :: i,k,l
+  double precision :: moho,moho_min,moho_max
 
   ! user output
   write(IMAIN,*)
   write(IMAIN,*) 'incorporating crustal model: crustMap'
   write(IMAIN,*)
+  call flush_IMAIN()
 
   do l = 1,NLAYERS_CRUSTMAP
     ! file index: from 3 to 7
@@ -180,6 +181,23 @@
 !   print *,'thicknessnp(',l,')',thicknessnp(l)
   enddo
 
+  ! moho thickness = sediment (index 1+2) + upper crust (index 3) + middle crust (index 4) + lower crust (index 5)
+  moho_min = HUGEVAL
+  moho_max = -HUGEVAL
+  do k = 1,180*CRUSTMAP_RESOLUTION
+    do i = 1,360*CRUSTMAP_RESOLUTION
+      moho = sum(thickness(k,i,:)) !thickness(:,:,1) + thickness(:,:,2)+ thickness(:,:,3) + thickness(:,:,4) + thickness(:,:,5)
+      ! limit moho thickness
+      if (moho > moho_max) moho_max = moho
+      if (moho < moho_min) moho_min = moho
+    enddo
+  enddo
+
+  ! user output
+  write(IMAIN,*) '  Moho crustal thickness (without ice) min/max = ',sngl(moho_min),sngl(moho_max),' km'
+  write(IMAIN,*)
+  call flush_IMAIN()
+
   end subroutine read_general_crustmap
 
 !
@@ -189,7 +207,7 @@
   subroutine read_general_crustmap_layer(var,var_letter,ind)
 
   use constants
-  use model_crustmaps_par,only: CRUSTMAP_RESOLUTION
+  use model_crustmaps_par, only: CRUSTMAP_RESOLUTION
 
   implicit none
 
@@ -201,7 +219,7 @@
   character(len=MAX_STRING_LEN) :: eucrust
   integer :: ier, ila, iln
 
-  write(eucrust,'(a,a1,i1)') 'DATA/crustmap/eucrust', var_letter, ind
+  write(eucrust,'(a,a1,i1,a5)') 'DATA/crustmap/eucrust', var_letter, ind,'.cmap'
 
   open(unit = IIN,file=trim(eucrust),status='old',action='read',iostat=ier)
   if (ier /= 0) then
@@ -280,15 +298,15 @@
    found_crust = .false.
   endif
 
-  if (found_crust) then
   !   non-dimensionalize
-    scaleval = dsqrt(PI*GRAV*RHOAV)
+  scaleval = dsqrt(PI*GRAV*RHOAV)
+
+  if (found_crust) then
     vp = vp*1000.0d0/(R_EARTH*scaleval)
     vs = vs*1000.0d0/(R_EARTH*scaleval)
     rho = rho*1000.0d0/RHOAV
-   ! moho = (h_uc+thicks(4)+thicks(5))*1000.0d0/R_EARTH
   else
-    scaleval = dsqrt(PI*GRAV*RHOAV)
+    ! takes ficticious values
     vp = 20.0*1000.0d0/(R_EARTH*scaleval)
     vs = 20.0*1000.0d0/(R_EARTH*scaleval)
     rho = 20.0*1000.0d0/RHOAV
@@ -312,8 +330,8 @@
   implicit none
 
   ! argument variables
-  double precision lat,lon
-  double precision rhos(5),thicks(5),velp(5),vels(5)
+  double precision,intent(in) :: lat,lon
+  double precision,intent(out) :: rhos(5),thicks(5),velp(5),vels(5)
 
   !-------------------------------
   ! work-around to avoid Jacobian problems when stretching mesh elements;
@@ -336,24 +354,29 @@
   integer, parameter :: NPHI = 20
   !-------------------------------
 
-! local variables
-  double precision weightup,weightleft,weightul,weightur,weightll,weightlr
-  double precision xlon(NTHETA*NPHI),xlat(NTHETA*NPHI),weight(NTHETA*NPHI)
-  double precision rhol(NLAYERS_CRUSTMAP),thickl(NLAYERS_CRUSTMAP), &
-    velpl(NLAYERS_CRUSTMAP),velsl(NLAYERS_CRUSTMAP)
-  double precision weightl,cap_degree,dist
-  double precision h_sed
-  integer num_points
-  integer i,ipoin,iupcolat,ileftlng,irightlng
+  ! local variables
+  double precision,dimension(NTHETA*NPHI) :: xlon,xlat,weight
+  double precision,dimension(NLAYERS_CRUSTMAP) :: rhol,thickl,velpl,velsl
+
+  double precision :: lat_used,lon_used
+  double precision :: weightup,weightleft,weightul,weightur,weightll,weightlr
+  double precision :: weightl,cap_degree,dist
+  double precision :: h_sed
+  integer :: num_points
+  integer :: i,ipoin,iupcolat,ileftlng,irightlng
 
 ! get integer colatitude and longitude of crustal cap
-! -90<lat<90 -180<lon<180
+! -90 < lat < 90 -180 < lon < 180
   if (lat > 90.0d0 .or. lat < -90.0d0 .or. lon > 180.0d0 .or. lon < -180.0d0) &
     write(*,*) lat,' ',lon, ' error in latitude/longitude range in crust'
-  if (lat==90.0d0) lat=89.9999d0
-  if (lat==-90.0d0) lat=-89.9999d0
-  if (lon==180.0d0) lon=179.9999d0
-  if (lon==-180.0d0) lon=-179.9999d0
+
+  ! avoid rounding at poles
+  lat_used = lat
+  lon_used = lon
+  if (lat == 90.0d0) lat_used = 89.9999d0
+  if (lat == -90.0d0) lat_used = -89.9999d0
+  if (lon == 180.0d0) lon_used = 179.9999d0
+  if (lon == -180.0d0) lon_used = -179.9999d0
 
   ! by defaults uses only 1 point location
   num_points = 1
@@ -366,7 +389,7 @@
   ! checks if inside/outside of critical region for mesh stretching
   if (SMOOTH_CRUST_EVEN_MORE) then
 
-    dist = dsqrt( (lon-LON_CRITICAL_EUROPE)**2 + (lat-LAT_CRITICAL_EUROPE )**2 )
+    dist = dsqrt( (lon_used - LON_CRITICAL_EUROPE)**2 + (lat_used - LAT_CRITICAL_EUROPE )**2 )
     if (dist < CRITICAL_RANGE_EUROPE) then
       ! sets up smoothing points
       ! by default uses CAP smoothing with crustmap resolution, e.g. 1/4 degree
@@ -381,11 +404,11 @@
       cap_degree = cap_degree + dist
 
       ! gets smoothing points and weights
-      call CAP_vardegree(lon,lat,xlon,xlat,weight,cap_degree,NTHETA,NPHI)
+      call smooth_weights_CAP_vardegree(lon_used,lat_used,xlon,xlat,weight,cap_degree,NTHETA,NPHI)
       num_points = NTHETA*NPHI
     endif
 
-    dist = dsqrt( (lon-LON_CRITICAL_ANDES)**2 + (lat-LAT_CRITICAL_ANDES )**2 )
+    dist = dsqrt( (lon_used - LON_CRITICAL_ANDES)**2 + (lat_used - LAT_CRITICAL_ANDES )**2 )
     if (dist < CRITICAL_RANGE_ANDES) then
       ! sets up smoothing points
       ! by default uses CAP smoothing with crustmap resolution, e.g. 1/4 degree
@@ -400,7 +423,7 @@
       cap_degree = cap_degree + dist
 
       ! gets smoothing points and weights
-      call CAP_vardegree(lon,lat,xlon,xlat,weight,cap_degree,NTHETA,NPHI)
+      call smooth_weights_CAP_vardegree(lon_used,lat_used,xlon,xlat,weight,cap_degree,NTHETA,NPHI)
       num_points = NTHETA*NPHI
     endif
 
@@ -416,8 +439,8 @@
   do ipoin = 1,num_points
     ! checks if more than one weighting points are taken
     if (num_points > 1) then
-      lat = xlat(ipoin)
-      lon = xlon(ipoin)
+      lat_used = xlat(ipoin)
+      lon_used = xlon(ipoin)
       ! weighting value
       weightl = weight(ipoin)
     else
@@ -425,16 +448,16 @@
     endif
 
     ! gets crust value indices
-    call ibilinearmap(lat,lon,iupcolat,ileftlng,weightup,weightleft)
+    call ibilinearmap(lat_used,lon_used,iupcolat,ileftlng,weightup,weightleft)
 
     ! interpolates location and crust values
     if (iupcolat == 0) then
        weightup=weightup*2
-    else if (iupcolat==180*CRUSTMAP_RESOLUTION) then
+    else if (iupcolat == 180*CRUSTMAP_RESOLUTION) then
        weightup=2*weightup-1
     endif
 
-    if (ileftlng==360*CRUSTMAP_RESOLUTION) then
+    if (ileftlng == 360*CRUSTMAP_RESOLUTION) then
       irightlng = 1
     else
       irightlng = ileftlng+1
@@ -514,7 +537,7 @@
   subroutine ibilinearmap(lat,lng,iupcolat,ileftlng,weightup,weightleft)
 
   use constants
-  use model_crustmaps_par,only: CRUSTMAP_RESOLUTION
+  use model_crustmaps_par, only: CRUSTMAP_RESOLUTION
 
   implicit none
 
@@ -526,10 +549,10 @@
   integer ileftlng
 
   if (lat > 90.0d0 .or. lat < -90.0d0 .or. lng > 180.0d0 .or. lng < -180.0d0) &
-    stop 'Error in latitude/longitude range in icolat_ilon'
+    stop 'Error in latitude/longitude range in ibilinearmap'
 
 ! map longitudes to [0,360]
-  if (lng<0) then
+  if (lng < 0) then
     xlng=lng+360.0
   else
     xlng=lng
@@ -539,189 +562,16 @@
   iupcolat=int(buffer)
   weightup=1.0-(buffer-dble(iupcolat))
 
-  if (iupcolat<0) iupcolat = 0
-  if (iupcolat>180*CRUSTMAP_RESOLUTION)  iupcolat=180*CRUSTMAP_RESOLUTION
+  if (iupcolat < 0) iupcolat = 0
+  if (iupcolat > 180*CRUSTMAP_RESOLUTION)  iupcolat=180*CRUSTMAP_RESOLUTION
 
 
   buffer=0.5+(xlng*CRUSTMAP_RESOLUTION)
   ileftlng=int(buffer)
   weightleft=1.0-(buffer-dble(ileftlng))
 
-  if (ileftlng<1) ileftlng=360*CRUSTMAP_RESOLUTION
-  if (ileftlng>360*CRUSTMAP_RESOLUTION) ileftlng=1
+  if (ileftlng < 1) ileftlng=360*CRUSTMAP_RESOLUTION
+  if (ileftlng > 360*CRUSTMAP_RESOLUTION) ileftlng=1
 
   end subroutine ibilinearmap
-
-!
-!-------------------------------------------------------------------------------------------------
-!
-
-! hash table to define the crustal type using an integer instead of characters
-! because working with integers in the rest of the routines results in much faster code
-  subroutine hash_crustal_type(crustaltype, ihash)
-
-    implicit none
-
-    character(len=2), intent(in) :: crustaltype
-    integer, intent(out) :: ihash
-
-    ihash = iachar(crustaltype(1:1)) + 128*iachar(crustaltype(2:2)) + 1
-
-  end subroutine hash_crustal_type
-
-!
-!-------------------------------------------------------------------------------------------------
-!
-
-  subroutine icolat_ilon(xlat,xlon,icolat,ilon)
-
-  implicit none
-
-! argument variables
-  double precision :: xlat,xlon
-  integer :: icolat,ilon
-
-  if (xlat > 90.0d0 .or. xlat < -90.0d0 .or. xlon > 180.0d0 .or. xlon < -180.0d0) &
-    stop 'Error in latitude/longitude range in icolat_ilon'
-
-  icolat = int(1+( (90.d0-xlat)*0.5d0 ))
-  if (icolat == 91) icolat = 90
-
-  ilon = int(1+( (180.d0+xlon)*0.5d0 ))
-  if (ilon == 181) ilon = 1
-
-  if (icolat>90 .or. icolat<1) stop 'Error in routine icolat_ilon'
-  if (ilon<1 .or. ilon>180) stop 'Error in routine icolat_ilon'
-
-  end subroutine icolat_ilon
-
-!
-!-------------------------------------------------------------------------------------------------
-!
-
-  subroutine CAP_vardegree(lon,lat,xlon,xlat,weight,CAP_DEGREE,NTHETA,NPHI)
-
-! calculates weighting points to smooth around lon/lat location with
-! a smoothing range of CAP_DEGREE
-!
-! The cap is rotated to the North Pole.
-!
-! returns: xlon,xlat,weight
-
-  use constants
-
-  implicit none
-
-  ! sampling rate
-  integer :: NTHETA
-  integer :: NPHI
-
-  ! smoothing size (in degrees)
-  double precision :: CAP_DEGREE
-
-  ! argument variables
-  double precision :: lat,lon
-  double precision,dimension(NTHETA*NPHI) :: xlon,xlat,weight
-
-  ! local variables
-  double precision :: CAP
-  double precision :: theta,phi,sint,cost,sinp,cosp,wght,total
-  double precision :: r_rot,theta_rot,phi_rot
-  double precision :: rotation_matrix(3,3),x(3),xc(3)
-  double precision :: dtheta,dphi,cap_area,dweight,pi_over_nphi
-  integer :: i,j,k,itheta,iphi
-
-  ! initializes
-  xlon(:) = ZERO
-  xlat(:) = ZERO
-  weight(:) = ZERO
-
-  ! checks cap degree size
-  if (CAP_DEGREE < TINYVAL) then
-    ! no cap smoothing
-    print *,'Error cap:',CAP_DEGREE
-    print *,'  lat/lon:',lat,lon
-    stop 'Error cap_degree too small'
-  endif
-
-  ! pre-compute parameters
-  CAP = CAP_DEGREE * DEGREES_TO_RADIANS
-  dtheta = 0.5d0 * CAP / dble(NTHETA)
-  dphi = TWO_PI / dble(NPHI)
-
-  cap_area = TWO_PI * ( ONE - dcos(CAP) )
-  dweight = CAP / dble(NTHETA) * dphi / cap_area
-  pi_over_nphi = PI/dble(NPHI)
-
-  ! colatitude/longitude in radian
-  theta = (90.0d0 - lat ) * DEGREES_TO_RADIANS
-  phi = lon * DEGREES_TO_RADIANS
-
-  sint = dsin(theta)
-  cost = dcos(theta)
-  sinp = dsin(phi)
-  cosp = dcos(phi)
-
-  ! set up rotation matrix to go from cap at North pole to cap around point of interest
-  rotation_matrix(1,1) = cosp*cost
-  rotation_matrix(1,2) = -sinp
-  rotation_matrix(1,3) = cosp*sint
-  rotation_matrix(2,1) = sinp*cost
-  rotation_matrix(2,2) = cosp
-  rotation_matrix(2,3) = sinp*sint
-  rotation_matrix(3,1) = -sint
-  rotation_matrix(3,2) = ZERO
-  rotation_matrix(3,3) = cost
-
-  ! calculates points over a cap at the North pole and rotates them to specified lat/lon point
-  i = 0
-  total = ZERO
-  do itheta = 1,NTHETA
-
-    theta = dble(2*itheta-1)*dtheta
-    cost = dcos(theta)
-    sint = dsin(theta)
-    wght = sint*dweight
-
-    do iphi = 1,NPHI
-
-      i = i+1
-
-      ! get the weight associated with this integration point (same for all phi)
-      weight(i) = wght
-
-      total = total + weight(i)
-      phi = dble(2*iphi-1)*pi_over_nphi
-      cosp = dcos(phi)
-      sinp = dsin(phi)
-
-      ! x,y,z coordinates of integration point in cap at North pole
-      xc(1) = sint*cosp
-      xc(2) = sint*sinp
-      xc(3) = cost
-
-      ! get x,y,z coordinates in cap around point of interest
-      do j=1,3
-        x(j) = ZERO
-        do k=1,3
-          x(j) = x(j)+rotation_matrix(j,k)*xc(k)
-        enddo
-      enddo
-
-      ! get latitude and longitude (degrees) of integration point
-      call xyz_2_rthetaphi_dble(x(1),x(2),x(3),r_rot,theta_rot,phi_rot)
-      call reduce(theta_rot,phi_rot)
-      xlat(i) = (PI_OVER_TWO - theta_rot) * RADIANS_TO_DEGREES
-      xlon(i) = phi_rot * RADIANS_TO_DEGREES
-      if (xlon(i) > 180.0d0) xlon(i) = xlon(i) - 360.0d0
-
-    enddo
-
-  enddo
-  if (abs(total - ONE) > 0.001d0) then
-    print *,'Error cap:',total,CAP_DEGREE
-    stop 'Error in cap integration for variable degree'
-  endif
-
-  end subroutine CAP_vardegree
 

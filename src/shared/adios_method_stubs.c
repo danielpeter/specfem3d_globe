@@ -12,7 +12,7 @@
 !
 ! This program is free software; you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by
-! the Free Software Foundation; either version 2 of the License, or
+! the Free Software Foundation; either version 3 of the License, or
 ! (at your option) any later version.
 !
 ! This program is distributed in the hope that it will be useful,
@@ -34,34 +34,16 @@
 
 typedef float realw;
 
-// placeholders for non-adios compilation
-
-void
-warn_no_adios(void)
-{
-  fprintf(stderr, "Error: ADIOS enabled without ADIOS Support. "
-                  "To enable ADIOS support, reconfigure with --with-adios flag.\n");
-  exit(1);
-}
-
-void FC_FUNC_(adios_setup,ADIOS_SETUP)(void) { warn_no_adios(); }
-
-void FC_FUNC_(adios_cleanup,ADIOS_CLEANUP)(void) {}
-
-
 
 // for xmeshfem3D compilation
 
-void FC_FUNC_(crm_save_mesh_files_adios,CRM_SAVE_MESH_FILES_ADIOS)(int* nspec, int* npointot, int* iregion_code,
-                                                                   int* num_ibool_AVS_DX, int* mask_ibool) {}
-
-void FC_FUNC_(get_absorb_adios,GET_ABSORB_ADIOS)(int* myrank, int* iregion,
+void FC_FUNC_(get_absorb_adios,GET_ABSORB_ADIOS)(int* iregion,
                                                  int* nimin, int* nimax, int* njmin, int* njmax, int* nkmin_xi, int* nkmin_eta,
                                                  int* NSPEC2DMAX_XMIN_XMAX, int* NSPEC2DMAX_YMIN_YMAX) {}
 
-void FC_FUNC_(save_arrays_solver_adios,SAVE_ARRAYS_SOLVER_ADIOS)(int* myrank, int* nspec, int* nglob,
-                                                                 int* idoubling, int* ibool,
-                                                                 int* iregion_code,
+void FC_FUNC_(read_gll_model_adios,READ_GLL_MODEL_ADIOS)(void) {}
+
+void FC_FUNC_(save_arrays_solver_adios,SAVE_ARRAYS_SOLVER_ADIOS)(int* idoubling, int* ibool,
                                                                  realw* xstore, realw* ystore, realw* zstore,
                                                                  int* NSPEC2DMAX_XMIN_XMAX, int* NSPEC2DMAX_YMIN_YMAX,
                                                                  int* NSPEC2D_TOP, int* NSPEC2D_BOTTOM) {}
@@ -72,7 +54,8 @@ void FC_FUNC_(save_arrays_boundary_adios,SAVE_ARRAYS_BOUNDARY_ADIOS)(void) {}
 
 void FC_FUNC_(save_mpi_arrays_adios,SAVE_MPI_ARRAYS_ADIOS)(void) {}
 
-void FC_FUNC_(read_gll_model_adios,READ_GLL_MODEL_ADIOS)(void) {}
+void FC_FUNC_(write_avs_dx_output_adios,WRITE_AVS_DX_OUTPUT_ADIOS)(int* npointot, int* iregion_code,
+                                                                   int* num_ibool_AVS_DX, int* mask_ibool) {}
 
 // for xspecfem3D compilation
 
@@ -102,11 +85,11 @@ void FC_FUNC_(save_forward_arrays_undoatt_adios,SAVE_FORWARD_ARRAYS_UNDOATT_ADIO
 
 void FC_FUNC_(save_intermediate_forward_arrays_adios,SAVE_INTERMEDIATE_FORWARD_ARRAYS_ADIOS)(void) {}
 
-void FC_FUNC_(perform_write_adios_kernels,PERFORM_WRITE_ADIOS_KERNELS)(void) {}
-
 void FC_FUNC_(define_kernel_adios_variables,DEFINE_KERNEL_ADIOS_VARIABLES)(void) {}
 
-void FC_FUNC_(write_kernels_cm_adios,WRITE_KERNELS_CM_ADIOS)(void) {}
+void FC_FUNC_(write_kernels_cm_ani_adios,WRITE_KERNELS_CM_ADIOS)(void) {}
+
+void FC_FUNC_(write_kernels_cm_iso_adios,WRITE_KERNELS_CM_ADIOS)(void) {}
 
 void FC_FUNC_(write_kernels_oc_adios,WRITE_KERNELS_OC_ADIOS)(void) {}
 
@@ -119,20 +102,3 @@ void FC_FUNC_(write_kernels_source_derivatives_adios,WRITE_KERNELS_SOURCE_DERIVA
 void FC_FUNC_(write_kernels_hessian_adios,WRITE_KERNELS_HESSIAN_ADIOS)(void) {}
 
 void FC_FUNC_(write_kernels_strength_noise_adios,WRITE_KERNELS_STRENGTH_NOISE_ADIOS)(void) {}
-
-
-// For xspecfem3d -- "ASDF" -- seismograms in ADIOS
-
-void FC_FUNC_(init_asdf_data,INIT_ASDF_DATA)(void* asdf_event,
-                                             int* total_seismos_local) {}
-
-void FC_FUNC_(store_asdf_data,STORE_ASDF_DATA)
-    (void* my_asdf, realw* seismogram_tmp, int* irec_local, int *irec,
-     char* chn, int* iorientation) {}
-
-void FC_FUNC_(close_asdf_data,CLOSE_ASDF_DATA)(void *my_asdf,
-                                               int *total_seismos_local) {}
-
-void FC_FUNC_(write_asdf,WRITE_ASDF)(void* my_asdf) {}
-
-

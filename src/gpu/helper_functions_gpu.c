@@ -12,7 +12,7 @@
 !
 ! This program is free software; you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by
-! the Free Software Foundation; either version 2 of the License, or
+! the Free Software Foundation; either version 3 of the License, or
 ! (at your option) any later version.
 !
 ! This program is distributed in the hope that it will be useful,
@@ -29,6 +29,9 @@
 
 #include "mesh_constants_gpu.h"
 
+#ifdef WITH_MPI
+#include <mpi.h>
+#endif
 
 /* ----------------------------------------------------------------------------------------------- */
 // OpenCL setup for memset function
@@ -124,7 +127,7 @@ void moclEnqueueFillBuffer (cl_mem *buffer, int val, size_t size_byte) {
 /*----------------------------------------------------------------------------------------------- */
 
 // copies integer array from CPU host to GPU device
-void gpuCreateCopy_todevice_int (gpu_int_mem *d_array_addr_ptr, int *h_array, int size) {
+void gpuCreateCopy_todevice_int (gpu_int_mem *d_array_addr_ptr, int *h_array, size_t size) {
 
   TRACE ("gpuCreateCopy_todevice_int");
 
@@ -162,7 +165,7 @@ void gpuCreateCopy_todevice_int (gpu_int_mem *d_array_addr_ptr, int *h_array, in
 /*----------------------------------------------------------------------------------------------- */
 
 // copies real array from CPU host to GPU device
-void gpuCreateCopy_todevice_realw (gpu_realw_mem *d_array_addr_ptr, realw *h_array, int size) {
+void gpuCreateCopy_todevice_realw (gpu_realw_mem *d_array_addr_ptr, realw *h_array, size_t size) {
 
   TRACE ("gpuCreateCopy_todevice_realw");
 
@@ -192,7 +195,7 @@ void gpuCreateCopy_todevice_realw (gpu_realw_mem *d_array_addr_ptr, realw *h_arr
 /*----------------------------------------------------------------------------------------------- */
 
 // copies real array from CPU host to GPU device
-void gpuCopy_todevice_realw (gpu_realw_mem *d_array_addr_ptr, realw *h_array, int size) {
+void gpuCopy_todevice_realw (gpu_realw_mem *d_array_addr_ptr, realw *h_array, size_t size) {
 
   TRACE ("gpuCopy_todevice_realw");
 
@@ -212,10 +215,61 @@ void gpuCopy_todevice_realw (gpu_realw_mem *d_array_addr_ptr, realw *h_array, in
 #endif
 }
 
+void gpuCopy_todevice_realw_offset (gpu_realw_mem *d_array_addr_ptr, realw *h_array, size_t size, size_t offset) {
+
+  TRACE ("gpuCopy_todevice_realw");
+
+  // copies memory on from CPU to GPU
+  // uses blocking copies
+#ifdef USE_OPENCL
+  if (run_opencl) {
+    // copies values onto GPU
+    clCheck (clEnqueueWriteBuffer (mocl.command_queue, d_array_addr_ptr->ocl, CL_TRUE, 0, size * sizeof (realw), &h_array[size*(offset-1)], 0, NULL, NULL));
+  }
+#endif
+#ifdef USE_CUDA
+  if (run_cuda) {
+    // copies values onto GPU
+    print_CUDA_error_if_any(cudaMemcpy((realw*) d_array_addr_ptr->cuda,&h_array[size*(offset-1)],size*sizeof(realw),cudaMemcpyHostToDevice),22004);
+  }
+#endif
+}
+
+/*----------------------------------------------------------------------------------------------- */
+
+// (un)register CPU host real array
+
+void gpuRegisterHost_realw ( realw *h_array, const size_t size) {
+
+  TRACE ("gpuRegisterHost_realw");
+
+  // register host memory
+#ifdef USE_OPENCL
+//TODO
+#endif
+#ifdef USE_CUDA
+  print_CUDA_error_if_any(cudaHostRegister(h_array, size*sizeof(realw), 0),55001);
+#endif
+}
+
+void gpuUnregisterHost_realw ( realw *h_array) {
+
+  TRACE ("gpuUnregisterHost_realw");
+
+  // unregister host memory
+#ifdef USE_OPENCL
+//TODO
+#endif
+#ifdef USE_CUDA
+  print_CUDA_error_if_any(cudaHostUnregister(h_array),55002);
+#endif
+}
+
+
 /*----------------------------------------------------------------------------------------------- */
 
 // copies double array from CPU host to GPU device
-void gpuCopy_todevice_double (gpu_double_mem *d_array_addr_ptr, double *h_array, int size) {
+void gpuCopy_todevice_double (gpu_double_mem *d_array_addr_ptr, double *h_array, size_t size) {
 
   TRACE ("gpuCopy_todevice_double");
 
@@ -230,7 +284,7 @@ void gpuCopy_todevice_double (gpu_double_mem *d_array_addr_ptr, double *h_array,
 #ifdef USE_CUDA
   if (run_cuda) {
     // copies values onto GPU
-    print_CUDA_error_if_any(cudaMemcpy((double*) d_array_addr_ptr->cuda,h_array,size*sizeof(double),cudaMemcpyHostToDevice),22003);
+    print_CUDA_error_if_any(cudaMemcpy((double*) d_array_addr_ptr->cuda,h_array,size*sizeof(double),cudaMemcpyHostToDevice),22005);
   }
 #endif
 }
@@ -238,7 +292,7 @@ void gpuCopy_todevice_double (gpu_double_mem *d_array_addr_ptr, double *h_array,
 /*----------------------------------------------------------------------------------------------- */
 
 // copies integer array from CPU host to GPU device
-void gpuCopy_todevice_int (gpu_int_mem *d_array_addr_ptr, int *h_array, int size) {
+void gpuCopy_todevice_int (gpu_int_mem *d_array_addr_ptr, int *h_array, size_t size) {
 
   TRACE ("gpuCopy_todevice_int");
 
@@ -253,7 +307,7 @@ void gpuCopy_todevice_int (gpu_int_mem *d_array_addr_ptr, int *h_array, int size
 #ifdef USE_CUDA
   if (run_cuda) {
     // copies values onto GPU
-    print_CUDA_error_if_any(cudaMemcpy((int*) d_array_addr_ptr->cuda,h_array,size*sizeof(int),cudaMemcpyHostToDevice),22003);
+    print_CUDA_error_if_any(cudaMemcpy((int*) d_array_addr_ptr->cuda,h_array,size*sizeof(int),cudaMemcpyHostToDevice),22006);
   }
 #endif
 }
@@ -261,7 +315,7 @@ void gpuCopy_todevice_int (gpu_int_mem *d_array_addr_ptr, int *h_array, int size
 /* ----------------------------------------------------------------------------------------------- */
 
 // copies array from GPU to CPU
-void gpuCopy_from_device_realw (gpu_realw_mem *d_array_addr_ptr, realw *h_array, int size) {
+void gpuCopy_from_device_realw (gpu_realw_mem *d_array_addr_ptr, realw *h_array, size_t size) {
 
   TRACE ("gpuCopy_from_device_realw");
 
@@ -280,11 +334,29 @@ void gpuCopy_from_device_realw (gpu_realw_mem *d_array_addr_ptr, realw *h_array,
 #endif
 }
 
+void gpuCopy_from_device_realw_offset (gpu_realw_mem *d_array_addr_ptr, realw *h_array, size_t size, size_t offset) {
+
+  TRACE ("gpuCopy_from_device_realw");
+
+  // copies memory from GPU back to CPU
+#ifdef USE_OPENCL
+  if (run_opencl) {
+    // blocking copy
+    clCheck (clEnqueueReadBuffer (mocl.command_queue, d_array_addr_ptr->ocl, CL_TRUE, 0, sizeof (realw) * size, &h_array[size*(offset-1)], 0, NULL, NULL));
+  }
+#endif
+#ifdef USE_CUDA
+  if (run_cuda) {
+    // note: cudaMemcpy implicitly synchronizes all other cuda operations
+    print_CUDA_error_if_any(cudaMemcpy(&h_array[size*(offset-1)],d_array_addr_ptr->cuda, sizeof(realw)*size, cudaMemcpyDeviceToHost),33002);
+  }
+#endif
+}
 
 /* ----------------------------------------------------------------------------------------------- */
 
 // creates real array on GPU
-void gpuMalloc_realw (gpu_realw_mem *buffer, int size) {
+void gpuMalloc_realw (gpu_realw_mem *buffer, size_t size) {
 
   TRACE ("gpuMalloc_realw");
 
@@ -305,7 +377,7 @@ void gpuMalloc_realw (gpu_realw_mem *buffer, int size) {
 /* ----------------------------------------------------------------------------------------------- */
 
 // creates double array on GPU
-void gpuMalloc_double (gpu_double_mem *buffer, int size) {
+void gpuMalloc_double (gpu_double_mem *buffer, size_t size) {
 
   TRACE ("gpuMalloc_double");
 
@@ -326,7 +398,7 @@ void gpuMalloc_double (gpu_double_mem *buffer, int size) {
 /* ----------------------------------------------------------------------------------------------- */
 
 // creates double array on GPU
-void gpuMalloc_int (gpu_int_mem *buffer, int size) {
+void gpuMalloc_int (gpu_int_mem *buffer, size_t size) {
 
   TRACE ("gpuMalloc_int");
 
@@ -347,7 +419,7 @@ void gpuMalloc_int (gpu_int_mem *buffer, int size) {
 /* ----------------------------------------------------------------------------------------------- */
 
 // creates double array on GPU
-void gpuMemset_realw (gpu_realw_mem *buffer, int size, int value) {
+void gpuMemset_realw (gpu_realw_mem *buffer, size_t size, int value) {
 
   TRACE ("gpuMemset_realw");
 
@@ -433,6 +505,7 @@ void gpuInitialize_buffers(Mesh *mp) {
   #define GPU_REALW_BUFFER INIT_DUMMY_BUFFER
   #define GPU_INT_BUFFER INIT_DUMMY_BUFFER
   #define GPU_DOUBLE_BUFFER INIT_DUMMY_BUFFER
+
   #include "gpu_buffer_list.c"
   #undef INIT_DUMMY_BUFFER
 #endif
@@ -443,6 +516,7 @@ void gpuInitialize_buffers(Mesh *mp) {
   #define GPU_REALW_BUFFER INIT_DUMMY_BUFFER
   #define GPU_INT_BUFFER INIT_DUMMY_BUFFER
   #define GPU_DOUBLE_BUFFER INIT_DUMMY_BUFFER
+
   #include "gpu_buffer_list.c"
   #undef INIT_DUMMY_BUFFER
 #endif
@@ -697,7 +771,7 @@ void exit_on_gpu_error (const char *kernel_name) {
 #endif
 
   if (error) {
-    fprintf(stderr,"Error after %s: %s\n", kernel_name, strerr);
+    fprintf(stderr,"GPU Error: after %s: %s\n", kernel_name, strerr);
 
     // outputs error file
     FILE *fp;
@@ -711,7 +785,7 @@ void exit_on_gpu_error (const char *kernel_name) {
     sprintf(filename,"OUTPUT_FILES/error_message_%06d.txt",myrank);
     fp = fopen (filename, "a+");
     if (fp != NULL) {
-      fprintf (fp, "Error after %s: %s\n", kernel_name, strerr);
+      fprintf (fp, "GPU Error: after %s: %s\n", kernel_name, strerr);
       fclose (fp);
     }
 
@@ -756,11 +830,9 @@ void exit_on_error (const char *info) {
 /*----------------------------------------------------------------------------------------------- */
 // additional helper functions
 /*----------------------------------------------------------------------------------------------- */
-
 double get_time_val () {
   struct timeval t;
-  struct timezone tzp;
-  gettimeofday (&t, &tzp);
+  gettimeofday (&t, NULL);
   return t.tv_sec + t.tv_usec*1e-6;
 }
 
@@ -812,21 +884,4 @@ void synchronize_mpi () {
 #endif
 }
 
-/* ----------------------------------------------------------------------------------------------- */
-// kernel setup functions
-/* ----------------------------------------------------------------------------------------------- */
 
-void get_blocks_xy (int num_blocks, int *num_blocks_x, int *num_blocks_y) {
-  // Initially sets the blocks_x to be the num_blocks, and adds rows as needed (block size limit of 65535).
-  // If an additional row is added, the row length is cut in
-  // half. If the block count is odd, there will be 1 too many blocks,
-  // which must be managed at runtime with an if statement.
-
-  *num_blocks_x = num_blocks;
-  *num_blocks_y = 1;
-
-  while (*num_blocks_x > MAXIMUM_GRID_DIM) {
-    *num_blocks_x = (int) ceil (*num_blocks_x * 0.5f);
-    *num_blocks_y = *num_blocks_y * 2;
-  }
-}

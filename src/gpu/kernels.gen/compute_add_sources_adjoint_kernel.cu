@@ -1,5 +1,5 @@
 //note: please do not modify this file manually!
-//      this file has been generated automatically by BOAST version 1.0.3
+//      this file has been generated automatically by BOAST version 2.1.0
 //      by: make boast_kernels
 
 /*
@@ -16,7 +16,7 @@
 !
 ! This program is free software; you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by
-! the Free Software Foundation; either version 2 of the License, or
+! the Free Software Foundation; either version 3 of the License, or
 ! (at your option) any later version.
 !
 ! This program is distributed in the hope that it will be useful,
@@ -84,7 +84,7 @@
 #define BLOCKSIZE_TRANSFER 256
 #endif
 
-__global__ void compute_add_sources_adjoint_kernel(float * accel, const int nrec, const float * adj_sourcearrays, const int * ibool, const int * ispec_selected_rec, const int * pre_computed_irec, const int nadj_rec_local){
+__global__ void compute_add_sources_adjoint_kernel(float * accel, const int nrec, const float * source_adjoint, const float * xir, const float * etar, const float * gammar, const int * ibool, const int * ispec_selected_rec, const int * pre_computed_irec, const int nadj_rec_local){
   int ispec;
   int iglob;
   int irec_local;
@@ -100,8 +100,8 @@ __global__ void compute_add_sources_adjoint_kernel(float * accel, const int nrec
     j = threadIdx.y;
     k = threadIdx.z;
     iglob = ibool[INDEX4(NGLLX, NGLLX, NGLLX, i, j, k, ispec)] - (1);
-    atomicAdd(accel + (iglob) * (3) + 0, adj_sourcearrays[INDEX5(NDIM, NGLLX, NGLLX, NGLLX, 0, i, j, k, irec_local)]);
-    atomicAdd(accel + (iglob) * (3) + 1, adj_sourcearrays[INDEX5(NDIM, NGLLX, NGLLX, NGLLX, 1, i, j, k, irec_local)]);
-    atomicAdd(accel + (iglob) * (3) + 2, adj_sourcearrays[INDEX5(NDIM, NGLLX, NGLLX, NGLLX, 2, i, j, k, irec_local)]);
+    atomicAdd(accel + (iglob) * (3) + 0, (((source_adjoint[INDEX2(NDIM, 0, irec_local)]) * (xir[INDEX2(nadj_rec_local, irec_local, i)])) * (etar[INDEX2(nadj_rec_local, irec_local, j)])) * (gammar[INDEX2(nadj_rec_local, irec_local, k)]));
+    atomicAdd(accel + (iglob) * (3) + 1, (((source_adjoint[INDEX2(NDIM, 1, irec_local)]) * (xir[INDEX2(nadj_rec_local, irec_local, i)])) * (etar[INDEX2(nadj_rec_local, irec_local, j)])) * (gammar[INDEX2(nadj_rec_local, irec_local, k)]));
+    atomicAdd(accel + (iglob) * (3) + 2, (((source_adjoint[INDEX2(NDIM, 2, irec_local)]) * (xir[INDEX2(nadj_rec_local, irec_local, i)])) * (etar[INDEX2(nadj_rec_local, irec_local, j)])) * (gammar[INDEX2(nadj_rec_local, irec_local, k)]));
   }
 }

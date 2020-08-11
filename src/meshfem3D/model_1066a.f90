@@ -11,7 +11,7 @@
 !
 ! This program is free software; you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by
-! the Free Software Foundation; either version 2 of the License, or
+! the Free Software Foundation; either version 3 of the License, or
 ! (at your option) any later version.
 !
 ! This program is distributed in the hope that it will be useful,
@@ -50,15 +50,15 @@
 !--------------------------------------------------------------------------------------------------
 !
 
-  subroutine model_1066a_broadcast(myrank,CRUSTAL)
+  subroutine model_1066a_broadcast(CRUSTAL)
 
 ! standard routine to setup model
 
+  use constants, only: myrank
   use model_1066a_par
 
   implicit none
 
-  integer :: myrank
   logical :: CRUSTAL
 
   ! local parameters
@@ -153,10 +153,10 @@
 
 ! non-dimensionalize
 ! time scaling (s^{-1}) is done with scaleval
-  scaleval=dsqrt(PI*GRAV*RHOAV)
-  rho=rho*1000.0d0/RHOAV
-  vp=vp*1000.0d0/(R_EARTH*scaleval)
-  vs=vs*1000.0d0/(R_EARTH*scaleval)
+  scaleval = dsqrt(PI*GRAV*RHOAV)
+  rho = rho*1000.0d0/RHOAV
+  vp = vp*1000.0d0/(R_EARTH*scaleval)
+  vs = vs*1000.0d0/(R_EARTH*scaleval)
 
   end subroutine model_1066a
 
@@ -1150,7 +1150,7 @@
 
 ! strip the crust and replace it by mantle if we use an external crustal model
   if (SUPPRESS_CRUSTAL_MESH .or. USE_EXTERNAL_CRUSTAL_MODEL) then
-    do i=NR_1066A-3,NR_1066A
+    do i = NR_1066A-3,NR_1066A
       M1066a_V_density_1066a(i) = M1066a_V_density_1066a(NR_1066A-4)
       M1066a_V_vp_1066a(i) = M1066a_V_vp_1066a(NR_1066A-4)
       M1066a_V_vs_1066a(i) = M1066a_V_vs_1066a(NR_1066A-4)

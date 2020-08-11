@@ -11,7 +11,7 @@
 !
 ! This program is free software; you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by
-! the Free Software Foundation; either version 2 of the License, or
+! the Free Software Foundation; either version 3 of the License, or
 ! (at your option) any later version.
 !
 ! This program is distributed in the hope that it will be useful,
@@ -25,13 +25,15 @@
 !
 !=====================================================================
 
-! subroutines to sort MPI buffers to assemble between chunks
+! subroutines to sort indexing arrays based on geometrical coordinates instead of based on topology (because that is much faster)
 
   subroutine sort_array_coordinates(npointot,x,y,z,ibool,iglob, &
                                     locval,ifseg,nglob,ninseg)
 
 ! this routine MUST be in double precision to avoid sensitivity
 ! to roundoff errors in the coordinates of the points
+!
+! returns: sorted indexing array (ibool),  reordering array (iglob) & number of global points (nglob)
 
   use constants
 
@@ -40,8 +42,10 @@
   integer, intent(in) :: npointot
   double precision, dimension(npointot), intent(inout) :: x, y, z
   integer, dimension(npointot), intent(inout) :: ibool
-  integer, dimension(npointot), intent(out) :: iglob, locval, ninseg
-  logical, dimension(npointot), intent(out) :: ifseg
+
+  integer, dimension(npointot), intent(inout) :: iglob
+  integer, dimension(npointot), intent(inout) :: locval, ninseg
+  logical, dimension(npointot), intent(inout) :: ifseg
   integer, intent(out) :: nglob
 
   ! local parameters
@@ -60,32 +64,35 @@
   ninseg(1) = npointot
 
   do j = 1,NDIM
+
     ! sort within each segment
     ioff = 1
     do iseg = 1,nseg
       if (j == 1) then
+        ! sort on X
         call heap_sort_multi(ninseg(iseg), x(ioff), y(ioff), z(ioff), ibool(ioff), locval(ioff))
       else if (j == 2) then
+        ! then sort on Y for a sublist of given constant X
         call heap_sort_multi(ninseg(iseg), y(ioff), x(ioff), z(ioff), ibool(ioff), locval(ioff))
       else
+        ! then sort on Z for a sublist of given constant X and Y
         call heap_sort_multi(ninseg(iseg), z(ioff), x(ioff), y(ioff), ibool(ioff), locval(ioff))
       endif
-
       ioff = ioff + ninseg(iseg)
     enddo
 
     ! check for jumps in current coordinate
     ! define a tolerance, normalized radius is 1., so let's use a small value
     if (j == 1) then
-      do i=2,npointot
+      do i = 2,npointot
         if (dabs(x(i) - x(i-1)) > SMALLVALTOL) ifseg(i) = .true.
       enddo
     else if (j == 2) then
-      do i=2,npointot
+      do i = 2,npointot
         if (dabs(y(i) - y(i-1)) > SMALLVALTOL) ifseg(i) = .true.
       enddo
     else
-      do i=2,npointot
+      do i = 2,npointot
         if (dabs(z(i) - z(i-1)) > SMALLVALTOL) ifseg(i) = .true.
       enddo
     endif
@@ -106,6 +113,7 @@
   ! assign global node numbers (now sorted lexicographically)
   ig = 0
   do i = 1,npointot
+    ! eliminate the multiples by using a single (new) point number for all the points that have the same X Y Z after sorting
     if (ifseg(i)) ig = ig + 1
     iglob(locval(i)) = ig
   enddo
@@ -123,6 +131,11 @@
 
 ! -------------------- library for sorting routine ------------------
 
+! sorting routines put here in same file to allow for inlining
+
+! this directive avoids triggering a random bug in Intel ifort v13 (in the compiler, not in SPECFEM),
+! fixed in later versions of Intel ifort, which also ignore this directive because it was discontinued
+!$DIR NOOPTIMIZE
   subroutine heap_sort_multi(N, dx, dy, dz, ia, ib)
 
   implicit none
@@ -156,6 +169,9 @@
 
   contains
 
+! this directive avoids triggering a random bug in Intel ifort v13 (in the compiler, not in SPECFEM),
+! fixed in later versions of Intel ifort, which also ignore this directive because it was discontinued
+!$DIR NOOPTIMIZE
     subroutine dswap(A, i, j)
 
     double precision, dimension(:), intent(inout) :: A
@@ -184,6 +200,9 @@
 
     end subroutine
 
+! this directive avoids triggering a random bug in Intel ifort v13 (in the compiler, not in SPECFEM),
+! fixed in later versions of Intel ifort, which also ignore this directive because it was discontinued
+!$DIR NOOPTIMIZE
     subroutine heap_sort_siftdown(start, bottom)
 
     integer, intent(in) :: start

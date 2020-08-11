@@ -11,7 +11,7 @@
 !
 ! This program is free software; you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by
-! the Free Software Foundation; either version 2 of the License, or
+! the Free Software Foundation; either version 3 of the License, or
 ! (at your option) any later version.
 !
 ! This program is distributed in the hope that it will be useful,
@@ -142,7 +142,7 @@
   rspl(1)=r(1)
   gspl(1)=g(1)
   do i=2,NR
-    if (r(i)/=r(i-1)) then
+    if (r(i) /= r(i-1)) then
       nspl=nspl+1
       rspl(nspl)=r(i)
       gspl(nspl)=g(i)

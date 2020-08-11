@@ -11,7 +11,7 @@
 !
 ! This program is free software; you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by
-! the Free Software Foundation; either version 2 of the License, or
+! the Free Software Foundation; either version 3 of the License, or
 ! (at your option) any later version.
 !
 ! This program is distributed in the hope that it will be useful,
@@ -31,27 +31,40 @@
 ! in all the slices using an MPI reduction
 ! and output timestamp file to check that simulation is running fine
 
-  use constants,only: CUSTOM_REAL,IMAIN,R_EARTH, &
+  use constants, only: CUSTOM_REAL,IMAIN,R_EARTH, &
     ADD_TIME_ESTIMATE_ELSEWHERE,HOURS_TIME_DIFFERENCE,MINUTES_TIME_DIFFERENCE, &
-    STABILITY_THRESHOLD
+    STABILITY_THRESHOLD,mygroup
 
-  use specfem_par,only: &
+  use specfem_par, only: &
     GPU_MODE,Mesh_pointer, &
     COMPUTE_AND_STORE_STRAIN, &
-    SIMULATION_TYPE,time_start,DT,t0, &
+    SIMULATION_TYPE,scale_displ,time_start,DT,t0, &
     NSTEP,it,it_begin,it_end,NUMBER_OF_RUNS,NUMBER_OF_THIS_RUN, &
-    myrank,UNDO_ATTENUATION
+    myrank,UNDO_ATTENUATION,NUMBER_OF_SIMULTANEOUS_RUNS,I_am_running_on_a_slow_node
 
-  use specfem_par_crustmantle,only: displ_crust_mantle,b_displ_crust_mantle, &
+  use specfem_par_crustmantle, only: displ_crust_mantle,b_displ_crust_mantle, &
     eps_trace_over_3_crust_mantle, &
     epsilondev_xx_crust_mantle,epsilondev_yy_crust_mantle,epsilondev_xy_crust_mantle, &
     epsilondev_xz_crust_mantle,epsilondev_yz_crust_mantle
 
-  use specfem_par_innercore,only: displ_inner_core,b_displ_inner_core
+  use specfem_par_innercore, only: displ_inner_core,b_displ_inner_core
 
-  use specfem_par_outercore,only: displ_outer_core,b_displ_outer_core
+  use specfem_par_outercore, only: displ_outer_core,b_displ_outer_core
 
   implicit none
+
+! if one wants to detect slow nodes compared to a reference time on normal nodes on a given cluster
+! and exclude them from the runs in order not to slow down all the others when NUMBER_OF_SIMULTANEOUS_RUNS > 1.
+! That option purposely does nothing when NUMBER_OF_SIMULTANEOUS_RUNS == 1.
+  logical, parameter :: CHECK_FOR_SLOW_NODES = .false.  ! option off by default
+! we accept nodes that are up to that factor slower than a normal (expected) run time, but not more than that
+  double precision, parameter :: TOLERANCE_FACTOR_FOR_SLOW_NODES = 2.d0
+! this is the reference time per time step expected for a normal run for the same mesh and same problem on the same machine,
+! please adjust it carefully for your own problem (cut and paste it from the output of a run that went well for the same problem)
+  double precision, parameter :: REFERENCE_TIME_PER_TIME_STEP_ON_NORMAL_NODES = 2.67d-3
+! do not check before MIN_TIME_STEPS_FOR_SLOW_NODES time steps
+! because the time step estimate (which is an average) may then be unreliable
+  integer, parameter :: MIN_TIME_STEPS_FOR_SLOW_NODES = 200
 
   ! local parameters
   ! maximum of the norm of the displacement and of the potential in the fluid
@@ -82,7 +95,7 @@
              timestamp_remote,year_remote,mon_remote,day_remote,hr_remote,minutes_remote,day_of_week_remote
   integer, external :: idaywk
 
-  double precision,parameter :: scale_displ = R_EARTH
+  I_am_running_on_a_slow_node = .false.
 
   ! compute maximum of norm of displacement in each slice
   if (.not. GPU_MODE) then
@@ -105,9 +118,10 @@
   ! check stability of the code, exit if unstable
   ! negative values can occur with some compilers when the unstable value is greater
   ! than the greatest possible floating-point number of the machine
-  if (Usolidnorm > STABILITY_THRESHOLD .or. Usolidnorm < 0) &
+! this trick checks for NaN (Not a Number), which is not even equal to itself
+  if (Usolidnorm > STABILITY_THRESHOLD .or. Usolidnorm < 0 .or. Usolidnorm /= Usolidnorm) &
     call exit_MPI(myrank,'forward simulation became unstable in solid and blew up')
-  if (Ufluidnorm > STABILITY_THRESHOLD .or. Ufluidnorm < 0) &
+  if (Ufluidnorm > STABILITY_THRESHOLD .or. Ufluidnorm < 0 .or. Ufluidnorm /= Ufluidnorm) &
     call exit_MPI(myrank,'forward simulation became unstable in fluid and blew up')
 
   ! compute the maximum of the maxima for all the slices using an MPI reduction
@@ -131,9 +145,10 @@
       call check_norm_acoustic_from_device(b_Ufluidnorm,Mesh_pointer,3)
     endif
 
-    if (b_Usolidnorm > STABILITY_THRESHOLD .or. b_Usolidnorm < 0) &
+! this trick checks for NaN (Not a Number), which is not even equal to itself
+    if (b_Usolidnorm > STABILITY_THRESHOLD .or. b_Usolidnorm < 0 .or. b_Usolidnorm /= b_Usolidnorm) &
       call exit_MPI(myrank,'backward simulation became unstable and blew up  in the solid')
-    if (b_Ufluidnorm > STABILITY_THRESHOLD .or. b_Ufluidnorm < 0) &
+    if (b_Ufluidnorm > STABILITY_THRESHOLD .or. b_Ufluidnorm < 0 .or. b_Ufluidnorm /= b_Ufluidnorm) &
       call exit_MPI(myrank,'backward simulation became unstable and blew up  in the fluid')
 
     ! compute the maximum of the maxima for all the slices using an MPI reduction
@@ -226,6 +241,12 @@
     write(IMAIN,"(' Elapsed time in hh:mm:ss = ',i6,' h ',i2.2,' m ',i2.2,' s')") ihours,iminutes,iseconds
     write(IMAIN,*) 'Mean elapsed time per time step in seconds = ',tCPU/dble(it)
 
+! do not check before MIN_TIME_STEPS_FOR_SLOW_NODES time steps
+! because the time step estimate (which is an average) may then be unreliable
+    if (CHECK_FOR_SLOW_NODES .and. NUMBER_OF_SIMULTANEOUS_RUNS > 1 .and. it >= MIN_TIME_STEPS_FOR_SLOW_NODES .and. &
+          tCPU/dble(it) > TOLERANCE_FACTOR_FOR_SLOW_NODES * REFERENCE_TIME_PER_TIME_STEP_ON_NORMAL_NODES) &
+        I_am_running_on_a_slow_node = .true.
+
     if (SHOW_SEPARATE_RUN_INFORMATION) then
       write(IMAIN,*) 'Time steps done for this run = ',it_run,' out of ',nstep_run
       write(IMAIN,*) 'Time steps done in total = ',it,' out of ',NSTEP
@@ -309,7 +330,7 @@
 
       if (it_run < 100) then
         write(IMAIN,*) '************************************************************'
-        write(IMAIN,*) '**** BEWARE: the above time estimates are not reliable'
+        write(IMAIN,*) '**** BEWARE: the above time estimates are not very reliable'
         write(IMAIN,*) '**** because fewer than 100 iterations have been performed'
         write(IMAIN,*) '************************************************************'
       endif
@@ -327,44 +348,29 @@
                               t_remain,ihours_remain,iminutes_remain,iseconds_remain, &
                               t_total,ihours_total,iminutes_total,iseconds_total, &
                               day_of_week,mon,day,year,hr,minutes, &
-                              day_of_week_remote,mon_remote,day_remote,year_remote,hr_remote,minutes_remote)
+                              day_of_week_remote,mon_remote,day_remote,year_remote,hr_remote,minutes_remote, &
+                              CHECK_FOR_SLOW_NODES,NUMBER_OF_SIMULTANEOUS_RUNS,TOLERANCE_FACTOR_FOR_SLOW_NODES, &
+                              REFERENCE_TIME_PER_TIME_STEP_ON_NORMAL_NODES,I_am_running_on_a_slow_node,myrank,mygroup, &
+                              MIN_TIME_STEPS_FOR_SLOW_NODES)
 
     ! check stability of the code, exit if unstable
     ! negative values can occur with some compilers when the unstable value is greater
     ! than the greatest possible floating-point number of the machine
-    if (Usolidnorm_all > STABILITY_THRESHOLD .or. Usolidnorm_all < 0) &
+! this trick checks for NaN (Not a Number), which is not even equal to itself
+    if (Usolidnorm_all > STABILITY_THRESHOLD .or. Usolidnorm_all < 0 .or. Usolidnorm_all /= Usolidnorm_all) &
       call exit_MPI(myrank,'forward simulation became unstable and blew up in the solid')
-    if (Ufluidnorm_all > STABILITY_THRESHOLD .or. Ufluidnorm_all < 0) &
+    if (Ufluidnorm_all > STABILITY_THRESHOLD .or. Ufluidnorm_all < 0 .or. Ufluidnorm_all /= Ufluidnorm_all) &
       call exit_MPI(myrank,'forward simulation became unstable and blew up in the fluid')
 
     if (SIMULATION_TYPE == 3 .and. .not. UNDO_ATTENUATION) then
-      if (b_Usolidnorm_all > STABILITY_THRESHOLD .or. b_Usolidnorm_all < 0) &
+! this trick checks for NaN (Not a Number), which is not even equal to itself
+      if (b_Usolidnorm_all > STABILITY_THRESHOLD .or. b_Usolidnorm_all < 0 .or. b_Usolidnorm_all /= b_Usolidnorm_all) &
         call exit_MPI(myrank,'backward simulation became unstable and blew up in the solid')
-      if (b_Ufluidnorm_all > STABILITY_THRESHOLD .or. b_Ufluidnorm_all < 0) &
+      if (b_Ufluidnorm_all > STABILITY_THRESHOLD .or. b_Ufluidnorm_all < 0 .or. b_Ufluidnorm_all /= b_Ufluidnorm_all) &
         call exit_MPI(myrank,'backward simulation became unstable and blew up in the fluid')
     endif
 
   endif
-
-  ! debug output
-  !if (maxval(displ_crust_mantle(1,:)**2 + &
-  !                displ_crust_mantle(2,:)**2 + displ_crust_mantle(3,:)**2) > 1.e4) then
-  !  print *,'slice',myrank
-  !  print *,'  crust_mantle displ:', maxval(displ_crust_mantle(1,:)), &
-  !           maxval(displ_crust_mantle(2,:)),maxval(displ_crust_mantle(3,:))
-  !  print *,'  indxs: ',maxloc( displ_crust_mantle(1,:)),maxloc( displ_crust_mantle(2,:)),maxloc( displ_crust_mantle(3,:))
-  !  indx = maxloc( displ_crust_mantle(3,:) )
-  !  rval = xstore_crust_mantle(indx(1))
-  !  thetaval = ystore_crust_mantle(indx(1))
-  !  phival = zstore_crust_mantle(indx(1))
-  !
-  !  !call geocentric_2_geographic_cr(thetaval,thetaval)
-  !  print *,'r/lat/lon:',rval*R_EARTH_KM,90.0-thetaval*180./PI,phival*180./PI
-  !  call rthetaphi_2_xyz(rval,thetaval,phival,xstore_crust_mantle(indx(1)),&
-  !                     ystore_crust_mantle(indx(1)),zstore_crust_mantle(indx(1)))
-  !  print *,'x/y/z:',rval,thetaval,phival
-  !  call exit_MPI(myrank,'Error stability')
-  !endif
 
   end subroutine check_stability
 
@@ -376,19 +382,20 @@
 
 ! only for backward/reconstructed wavefield
 
-  use constants,only: CUSTOM_REAL,IMAIN,R_EARTH, &
-    ADD_TIME_ESTIMATE_ELSEWHERE,HOURS_TIME_DIFFERENCE,MINUTES_TIME_DIFFERENCE, &
-    STABILITY_THRESHOLD
+  use constants, only: CUSTOM_REAL,IMAIN,R_EARTH, &
+    ADD_TIME_ESTIMATE_ELSEWHERE,HOURS_TIME_DIFFERENCE,MINUTES_TIME_DIFFERENCE,STABILITY_THRESHOLD
 
-  use specfem_par,only: &
+  use specfem_par, only: &
     GPU_MODE,Mesh_pointer, &
-    SIMULATION_TYPE,time_start,DT,t0, &
+    SIMULATION_TYPE,scale_displ, &
     NSTEP,it,it_begin,it_end,NUMBER_OF_RUNS,NUMBER_OF_THIS_RUN, &
     myrank
 
-  use specfem_par_crustmantle,only: b_displ_crust_mantle
-  use specfem_par_innercore,only: b_displ_inner_core
-  use specfem_par_outercore,only: b_displ_outer_core
+  !use specfem_par, only: time_start,DT,t0
+
+  use specfem_par_crustmantle, only: b_displ_crust_mantle
+  use specfem_par_innercore, only: b_displ_inner_core
+  use specfem_par_outercore, only: b_displ_outer_core
 
   implicit none
 
@@ -396,15 +403,13 @@
   ! maximum of the norm of the displacement and of the potential in the fluid
   real(kind=CUSTOM_REAL) b_Usolidnorm,b_Usolidnorm_all,b_Ufluidnorm,b_Ufluidnorm_all
   ! timer MPI
-  double precision :: tCPU
-  double precision, external :: wtime
-  double precision :: timeval
-  integer :: ihours,iminutes,iseconds,int_tCPU
+  !double precision :: tCPU
+  !double precision, external :: wtime
+  !double precision :: timeval
+  !integer :: ihours,iminutes,iseconds,int_tCPU
 
   integer :: it_run,nstep_run
   logical :: SHOW_SEPARATE_RUN_INFORMATION
-
-  double precision,parameter :: scale_displ = R_EARTH
 
   ! checks if anything to do
   if (SIMULATION_TYPE /= 3 ) return
@@ -426,9 +431,10 @@
     call check_norm_acoustic_from_device(b_Ufluidnorm,Mesh_pointer,3)
   endif
 
-  if (b_Usolidnorm > STABILITY_THRESHOLD .or. b_Usolidnorm < 0) &
+! this trick checks for NaN (Not a Number), which is not even equal to itself
+  if (b_Usolidnorm > STABILITY_THRESHOLD .or. b_Usolidnorm < 0 .or. b_Usolidnorm /= b_Usolidnorm) &
     call exit_MPI(myrank,'backward simulation became unstable and blew up  in the solid')
-  if (b_Ufluidnorm > STABILITY_THRESHOLD .or. b_Ufluidnorm < 0) &
+  if (b_Ufluidnorm > STABILITY_THRESHOLD .or. b_Ufluidnorm < 0 .or. b_Ufluidnorm /= b_Ufluidnorm) &
     call exit_MPI(myrank,'backward simulation became unstable and blew up  in the fluid')
 
   ! compute the maximum of the maxima for all the slices using an MPI reduction
@@ -443,31 +449,30 @@
     it_run = it - it_begin + 1
     nstep_run = it_end - it_begin + 1
 
-    ! elapsed time since beginning of the simulation
-    tCPU = wtime() - time_start
-
-    int_tCPU = int(tCPU)
-    ihours = int_tCPU / 3600
-    iminutes = (int_tCPU - 3600*ihours) / 60
-    iseconds = int_tCPU - 3600*ihours - 60*iminutes
-
     ! no further time estimation since only partially computed solution yet...
+    ! elapsed time since beginning of the simulation
+    !tCPU = wtime() - time_start
+    !int_tCPU = int(tCPU)
+    !ihours = int_tCPU / 3600
+    !iminutes = (int_tCPU - 3600*ihours) / 60
+    !iseconds = int_tCPU - 3600*ihours - 60*iminutes
 
     ! current time (in seconds)
-    timeval = dble(it-1)*DT - t0
+    !timeval = dble(it-1)*DT - t0
 
     ! user output
     write(IMAIN,*) 'Time step for back propagation # ',it
-    write(IMAIN,*) 'Time: ',sngl((timeval)/60.d0),' minutes'
+    !write(IMAIN,*) 'Time: ',sngl((timeval)/60.d0),' minutes'
 
     ! rescale maximum displacement to correct dimensions
     b_Usolidnorm_all = b_Usolidnorm_all * sngl(scale_displ)
     write(IMAIN,*) 'Max norm displacement vector U in solid in all slices for back prop.(m) = ',b_Usolidnorm_all
     write(IMAIN,*) 'Max non-dimensional potential Ufluid in fluid in all slices for back prop.= ',b_Ufluidnorm_all
 
-    write(IMAIN,*) 'Elapsed time in seconds = ',tCPU
-    write(IMAIN,"(' Elapsed time in hh:mm:ss = ',i6,' h ',i2.2,' m ',i2.2,' s')") ihours,iminutes,iseconds
-    write(IMAIN,*) 'Mean elapsed time per time step in seconds = ',tCPU/dble(it)
+    ! no timing info, things get confusing with forward check timing
+    !write(IMAIN,*) 'Elapsed time in seconds = ',tCPU
+    !write(IMAIN,"(' Elapsed time in hh:mm:ss = ',i6,' h ',i2.2,' m ',i2.2,' s')") ihours,iminutes,iseconds
+    !write(IMAIN,*) 'Mean elapsed time per time step in seconds = ',tCPU/dble(it)
 
     if (SHOW_SEPARATE_RUN_INFORMATION) then
       write(IMAIN,*) 'Time steps done for this run = ',it_run,' out of ',nstep_run
@@ -486,9 +491,10 @@
     ! check stability of the code, exit if unstable
     ! negative values can occur with some compilers when the unstable value is greater
     ! than the greatest possible floating-point number of the machine
-    if (b_Usolidnorm_all > STABILITY_THRESHOLD .or. b_Usolidnorm_all < 0) &
+! this trick checks for NaN (Not a Number), which is not even equal to itself
+    if (b_Usolidnorm_all > STABILITY_THRESHOLD .or. b_Usolidnorm_all < 0 .or. b_Usolidnorm_all /= b_Usolidnorm_all) &
       call exit_MPI(myrank,'backward simulation became unstable and blew up in the solid')
-    if (b_Ufluidnorm_all > STABILITY_THRESHOLD .or. b_Ufluidnorm_all < 0) &
+    if (b_Ufluidnorm_all > STABILITY_THRESHOLD .or. b_Ufluidnorm_all < 0 .or. b_Ufluidnorm_all /= b_Ufluidnorm_all) &
       call exit_MPI(myrank,'backward simulation became unstable and blew up in the fluid')
 
   endif
@@ -504,12 +510,15 @@
                                   t_remain,ihours_remain,iminutes_remain,iseconds_remain, &
                                   t_total,ihours_total,iminutes_total,iseconds_total, &
                                   day_of_week,mon,day,year,hr,minutes, &
-                                  day_of_week_remote,mon_remote,day_remote,year_remote,hr_remote,minutes_remote)
+                                  day_of_week_remote,mon_remote,day_remote,year_remote,hr_remote,minutes_remote, &
+                                  CHECK_FOR_SLOW_NODES,NUMBER_OF_SIMULTANEOUS_RUNS,TOLERANCE_FACTOR_FOR_SLOW_NODES, &
+                                  REFERENCE_TIME_PER_TIME_STEP_ON_NORMAL_NODES,I_am_running_on_a_slow_node,myrank,mygroup, &
+                                  MIN_TIME_STEPS_FOR_SLOW_NODES)
 
-  use constants,only: CUSTOM_REAL,IOUT, &
+  use constants, only: CUSTOM_REAL,IOUT, &
     ADD_TIME_ESTIMATE_ELSEWHERE,HOURS_TIME_DIFFERENCE,MINUTES_TIME_DIFFERENCE,MAX_STRING_LEN
 
-  use specfem_par,only: &
+  use specfem_par, only: &
     SIMULATION_TYPE,OUTPUT_FILES,DT,t0, &
     NSTEP,it,it_begin,it_end,NUMBER_OF_RUNS,NUMBER_OF_THIS_RUN
 
@@ -528,6 +537,9 @@
   integer :: year,mon,day,hr,minutes,day_of_week, &
              year_remote,mon_remote,day_remote,hr_remote,minutes_remote,day_of_week_remote
 
+  logical :: CHECK_FOR_SLOW_NODES,I_am_running_on_a_slow_node
+  integer :: NUMBER_OF_SIMULTANEOUS_RUNS,myrank,mygroup,MIN_TIME_STEPS_FOR_SLOW_NODES
+  double precision :: TOLERANCE_FACTOR_FOR_SLOW_NODES,REFERENCE_TIME_PER_TIME_STEP_ON_NORMAL_NODES
 
   ! local parameters
   integer :: it_run,nstep_run
@@ -622,7 +634,7 @@
     if (it_run < 100) then
       write(IOUT,*)
       write(IOUT,*) '************************************************************'
-      write(IOUT,*) '**** BEWARE: the above time estimates are not reliable'
+      write(IOUT,*) '**** BEWARE: the above time estimates are not very reliable'
       write(IOUT,*) '**** because fewer than 100 iterations have been performed'
       write(IOUT,*) '************************************************************'
     endif
@@ -631,8 +643,22 @@
 
   close(IOUT)
 
-  end subroutine write_timestamp_file
+! if the run is slow and gives up, create a disk file to indicate it, so that users or batch scripts can know it.
+! do not check before MIN_TIME_STEPS_FOR_SLOW_NODES time steps
+! because the time step estimate (which is an average) may then be unreliable
+  if (CHECK_FOR_SLOW_NODES .and. NUMBER_OF_SIMULTANEOUS_RUNS > 1 .and. it >= MIN_TIME_STEPS_FOR_SLOW_NODES .and. &
+        tCPU/dble(it) > TOLERANCE_FACTOR_FOR_SLOW_NODES * REFERENCE_TIME_PER_TIME_STEP_ON_NORMAL_NODES) then
+    I_am_running_on_a_slow_node = .true.
+! rank is between 0 and the max rank - 1, for the earthquake here we start at 1, i.e. we use mygroup + 1 rather than mygroup
+    write(outputname,"('/slow_run_on_rank_',i6.6,'_giving_up_for_earthquake_run_',i6.6,'_at_time_step_',i6.6)") &
+             myrank,mygroup + 1,it
+    open(unit=IOUT,file=trim(OUTPUT_FILES)//outputname,status='unknown',action='write')
+! write outputname as the information message, since it contains all the information needed
+      write(IOUT,*) outputname
+    close(IOUT)
+  endif
 
+  end subroutine write_timestamp_file
 
 !
 !-------------------------------------------------------------------------------------------------
@@ -642,7 +668,7 @@
 
 ! outputs runtime at the completion of time loop
 
-  use specfem_par,only: time_start,IMAIN,myrank
+  use specfem_par, only: time_start,IMAIN,myrank
   implicit none
 
   ! local parameters

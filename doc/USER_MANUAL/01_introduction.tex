@@ -1,5 +1,9 @@
 \chapter{Introduction}
 
+\red{\Large ANNOUNCEMENT: SPECFEM3D\_GLOBE can now perform gravity field calculations in addition (or instead of) seismic wave propagation only.
+See flag \texttt{GRAVITY\_INTEGRALS} in file \texttt{setup/constants.h.in}. Please also refer to \url{http://komatitsch.free.fr/preprints/GJI_Martin_gravimetry_2017.pdf}.
+And yes, that is the reason why I added a gravity observation satellite on the cover of the manual :-)}\\
+
 The software package SPECFEM3D\_GLOBE simulates three-dimensional global and regional seismic wave propagation
 and performs full waveform imaging (FWI) or adjoint tomography based upon the spectral-element method (SEM).
 The SEM is a continuous Galerkin technique \citep{TrKoLi08,PeKoLuMaLeCaLeMaLiBlNiBaTr11},
@@ -36,7 +40,17 @@ Early seismic wave propagation applications of the SEM, utilizing Legendre basis
 perfectly diagonal mass matrix, include \cite{CoJoTo93}, \cite{Kom97},
 \cite{FaMaPaQu97}, \cite{CaGa97}, \cite{KoVi98} and \cite{KoTr99},
 whereas applications involving Chebyshev basis functions and a nondiagonal mass matrix
-include \cite{SePr94}, \cite{PrCaSe94} and \cite{SePrPr95}.\\
+include \cite{SePr94}, \cite{PrCaSe94} and \cite{SePrPr95}.
+In the Legendre version that we use in SPECFEM the mass matrix is purposely slightly inexact but diagonal (but can be made exact if needed, see \cite{Teu15}),
+while in the Chebyshev version it is exact but non diagonal.\\
+
+\red{Beware that, in a spectral-element method, some spurious modes (that have some similarities with classical so-called "Hourglass modes" in finite-element techniques,
+although in the SEM they are not zero-energy modes) can appear in some (but not all) cases in the spectral element in which the source is located.
+Fortunately, they do not propagate away from the source element.
+However, this means that if you put a receiver in the same spectral element as a source, the recorded signals may in some cases be wrong, typically exhibiting some spurious
+oscillations, which are often even non causal.
+If that is the case, an easy option is to slightly change the mesh in the source region in order to get rid of these Hourglass-like spurious modes,
+as explained in \cite{DuLiScGa14}, in which this phenomenon is described in details, and in which practical solutions to avoid it are suggested.}\\
 
 All SPECFEM3D\_GLOBE software is written in Fortran2003 with full portability
 in mind, and conforms strictly to the Fortran2003 standard. It uses
@@ -60,8 +74,43 @@ Convolutional or Auxiliary Differential Equation Perfectly Matched absorbing Lay
 
 \section{Citation}
 
+You can find all the references below in \BibTeX format in file \texttt{doc/USER\_MANUAL/bibliography.bib}.\\
+
 If you use SPECFEM3D\_GLOBE for your own research, please cite at least one
-of the following articles: \cite{TrKoLi08,PeKoLuMaLeCaLeMaLiBlNiBaTr11,VaCaSaKoVi99,LeChLiKoHuTr08,LeChKoHuTr09,LeKoHuTr09,KoMiEr09,KoErGoMi10,WiKoScTr04,KoLiTrSuStSh04,ChKoViCaVaFe07,MaKoDi09,KoViCh10,CaKoLaTiMiLeSnTr08,TrKoHjLiZhPeBoMcFrTrHu10,KoRiTr02,KoTr02a,KoTr02b,KoTr99} or \cite{KoVi98}.\\
+of the following articles: \cite{KoXiBoPeSaLiTr16,TrKoLi08,PeKoLuMaLeCaLeMaLiBlNiBaTr11,VaCaSaKoVi99,LeChLiKoHuTr08,LeChKoHuTr09,LeKoHuTr09,KoMiEr09,KoErGoMi10,WiKoScTr04,KoLiTrSuStSh04,ChKoViCaVaFe07,MaKoDi09,KoViCh10,CaKoLaTiMiLeSnTr08,TrKoHjLiZhPeBoMcFrTrHu10,KoRiTr02,KoTr02a,KoTr02b,KoTr99} or \cite{KoVi98}.\\
+
+If you use the C-PML absorbing layer capabilities of the code, please cite at least one article
+written by the developers of the package, for instance:
+%
+\begin{itemize}
+\item \cite{XiKoMaMa14},
+\item \cite{XiMaCrKoMa16}.
+\end{itemize}
+%
+If you use the UNDO\_ATTENUATION option of the code in order to produce full anelastic/viscoelastic sensitivity kernels, please cite at least one article
+written by the developers of the package, for instance (and in particular):
+%
+\begin{itemize}
+\item \cite{KoXiBoPeSaLiTr16}.
+\end{itemize}
+%
+More generally, if you use the attenuation (anelastic/viscoelastic) capabilities of the code, please cite at least one article
+written by the developers of the package, for instance:
+%
+\begin{itemize}
+\item \cite{KoXiBoPeSaLiTr16},
+\item \cite{BlKoChLoXi16}.
+\end{itemize}
+%
+If you use the kernel capabilities of the code, please cite at least one article
+written by the developers of the package, for instance:
+%
+\begin{itemize}
+\item \cite{TrKoLi08},
+\item \cite{PeKoLuMaLeCaLeMaLiBlNiBaTr11},
+\item \cite{LiTr06},
+\item \cite{MoLuTr09}.
+\end{itemize}
 
 If you use this new version, which has non blocking MPI for much better performance for medium or large runs,
 please cite at least one of these five articles,

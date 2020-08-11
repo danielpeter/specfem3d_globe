@@ -11,7 +11,7 @@
 !
 ! This program is free software; you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by
-! the Free Software Foundation; either version 2 of the License, or
+! the Free Software Foundation; either version 3 of the License, or
 ! (at your option) any later version.
 !
 ! This program is distributed in the hope that it will be useful,
@@ -25,7 +25,6 @@
 !
 !=====================================================================
 
-
   subroutine compute_forces_viscoelastic()
 
 ! elastic domains for forward or adjoint simulations (SIMULATION_TYPE == 1 or 2 )
@@ -33,12 +32,8 @@
   use specfem_par
   use specfem_par_crustmantle
   use specfem_par_innercore
-  use specfem_par_outercore,only: accel_outer_core, &
-                                  normal_top_outer_core,jacobian2D_top_outer_core, &
-                                  normal_bottom_outer_core,jacobian2D_bottom_outer_core, &
-                                  ibelm_top_outer_core,ibelm_bottom_outer_core, &
-                                  ibool_outer_core
   use specfem_par_movie
+
   implicit none
 
 ! note: instead of using size(factor_common_crust_mantle,5), we use the ATT4_VAL/ATT5_VAL in the function calls;
@@ -50,7 +45,6 @@
   ! iphase: iphase = 1 is for computing outer elements in the crust_mantle and inner_core regions,
   !              iphase = 2 is for computing inner elements (former icall parameter)
   integer :: iphase
-  logical :: phase_is_inner
 
   ! ****************************************************
   !   big loop over all spectral elements in the solid
@@ -68,85 +62,44 @@
     !
     ! compute all the outer elements first, then sends out non blocking MPI communication
     ! and continues computing inner elements (overlapping)
-    if (iphase == 1) then
-      phase_is_inner = .false.
-    else
-      phase_is_inner = .true.
-    endif
-
+    !
     ! compute internal forces in the solid regions
     ! note: for anisotropy and gravity, x y and z contain r theta and phi
     if (.not. GPU_MODE) then
       ! on CPU
-      if (USE_DEVILLE_PRODUCTS_VAL) then
-        ! uses Deville (2002) optimizations
-        ! crust/mantle region
-        call compute_forces_crust_mantle_Dev(NSPEC_CRUST_MANTLE_STR_OR_ATT,NGLOB_CRUST_MANTLE, &
-                                             NSPEC_CRUST_MANTLE_ATTENUATION, &
-                                             deltat, &
-                                             displ_crust_mantle, &
-                                             accel_crust_mantle, &
-                                             phase_is_inner, &
-                                             R_xx_crust_mantle,R_yy_crust_mantle,R_xy_crust_mantle, &
-                                             R_xz_crust_mantle,R_yz_crust_mantle, &
-                                             R_xx_crust_mantle_lddrk,R_yy_crust_mantle_lddrk,R_xy_crust_mantle_lddrk, &
-                                             R_xz_crust_mantle_lddrk,R_yz_crust_mantle_lddrk, &
-                                             epsilondev_xx_crust_mantle,epsilondev_yy_crust_mantle,epsilondev_xy_crust_mantle, &
-                                             epsilondev_xz_crust_mantle,epsilondev_yz_crust_mantle, &
-                                             eps_trace_over_3_crust_mantle, &
-                                             alphaval,betaval,gammaval, &
-                                             factor_common_crust_mantle,ATT4_VAL)
-        ! inner core region
-        call compute_forces_inner_core_Dev(NSPEC_INNER_CORE_STR_OR_ATT,NGLOB_INNER_CORE, &
-                                           NSPEC_INNER_CORE_ATTENUATION, &
-                                           deltat, &
-                                           displ_inner_core, &
-                                           accel_inner_core, &
-                                           phase_is_inner, &
-                                           R_xx_inner_core,R_yy_inner_core,R_xy_inner_core, &
-                                           R_xz_inner_core,R_yz_inner_core, &
-                                           R_xx_inner_core_lddrk,R_yy_inner_core_lddrk,R_xy_inner_core_lddrk, &
-                                           R_xz_inner_core_lddrk,R_yz_inner_core_lddrk, &
-                                           epsilondev_xx_inner_core,epsilondev_yy_inner_core,epsilondev_xy_inner_core, &
-                                           epsilondev_xz_inner_core,epsilondev_yz_inner_core, &
-                                           eps_trace_over_3_inner_core,&
-                                           alphaval,betaval,gammaval, &
-                                           factor_common_inner_core,ATT5_VAL)
-      else
-        ! no Deville optimization
-        ! crust/mantle region
-        call compute_forces_crust_mantle(NSPEC_CRUST_MANTLE_STR_OR_ATT,NGLOB_CRUST_MANTLE, &
-                                         NSPEC_CRUST_MANTLE_ATTENUATION, &
-                                         deltat, &
-                                         displ_crust_mantle, &
-                                         accel_crust_mantle, &
-                                         phase_is_inner, &
-                                         R_xx_crust_mantle,R_yy_crust_mantle,R_xy_crust_mantle, &
-                                         R_xz_crust_mantle,R_yz_crust_mantle, &
-                                         R_xx_crust_mantle_lddrk,R_yy_crust_mantle_lddrk,R_xy_crust_mantle_lddrk, &
-                                         R_xz_crust_mantle_lddrk,R_yz_crust_mantle_lddrk, &
-                                         epsilondev_xx_crust_mantle,epsilondev_yy_crust_mantle,epsilondev_xy_crust_mantle, &
-                                         epsilondev_xz_crust_mantle,epsilondev_yz_crust_mantle, &
-                                         eps_trace_over_3_crust_mantle, &
-                                         alphaval,betaval,gammaval, &
-                                         factor_common_crust_mantle,ATT4_VAL)
-        ! inner core region
-        call compute_forces_inner_core(NSPEC_INNER_CORE_STR_OR_ATT,NGLOB_INNER_CORE, &
-                                       NSPEC_INNER_CORE_ATTENUATION, &
+      ! crust/mantle region
+      call compute_forces_crust_mantle(NSPEC_CRUST_MANTLE_STR_OR_ATT,NGLOB_CRUST_MANTLE, &
+                                       NSPEC_CRUST_MANTLE_ATTENUATION, &
                                        deltat, &
-                                       displ_inner_core, &
-                                       accel_inner_core, &
-                                       phase_is_inner, &
-                                       R_xx_inner_core,R_yy_inner_core,R_xy_inner_core, &
-                                       R_xz_inner_core,R_yz_inner_core, &
-                                       R_xx_inner_core_lddrk,R_yy_inner_core_lddrk,R_xy_inner_core_lddrk, &
-                                       R_xz_inner_core_lddrk,R_yz_inner_core_lddrk, &
-                                       epsilondev_xx_inner_core,epsilondev_yy_inner_core,epsilondev_xy_inner_core, &
-                                       epsilondev_xz_inner_core,epsilondev_yz_inner_core, &
-                                       eps_trace_over_3_inner_core,&
+                                       displ_crust_mantle, &
+                                       accel_crust_mantle, &
+                                       iphase, &
+                                       R_xx_crust_mantle,R_yy_crust_mantle,R_xy_crust_mantle, &
+                                       R_xz_crust_mantle,R_yz_crust_mantle, &
+                                       R_xx_crust_mantle_lddrk,R_yy_crust_mantle_lddrk,R_xy_crust_mantle_lddrk, &
+                                       R_xz_crust_mantle_lddrk,R_yz_crust_mantle_lddrk, &
+                                       epsilondev_xx_crust_mantle,epsilondev_yy_crust_mantle,epsilondev_xy_crust_mantle, &
+                                       epsilondev_xz_crust_mantle,epsilondev_yz_crust_mantle, &
+                                       eps_trace_over_3_crust_mantle, &
                                        alphaval,betaval,gammaval, &
-                                       factor_common_inner_core,ATT5_VAL)
-      endif
+                                       factor_common_crust_mantle,ATT4_VAL)
+
+      ! inner core region
+      call compute_forces_inner_core(NSPEC_INNER_CORE_STR_OR_ATT,NGLOB_INNER_CORE, &
+                                     NSPEC_INNER_CORE_ATTENUATION, &
+                                     deltat, &
+                                     displ_inner_core, &
+                                     accel_inner_core, &
+                                     iphase, &
+                                     R_xx_inner_core,R_yy_inner_core,R_xy_inner_core, &
+                                     R_xz_inner_core,R_yz_inner_core, &
+                                     R_xx_inner_core_lddrk,R_yy_inner_core_lddrk,R_xy_inner_core_lddrk, &
+                                     R_xz_inner_core_lddrk,R_yz_inner_core_lddrk, &
+                                     epsilondev_xx_inner_core,epsilondev_yy_inner_core,epsilondev_xy_inner_core, &
+                                     epsilondev_xz_inner_core,epsilondev_yz_inner_core, &
+                                     eps_trace_over_3_inner_core, &
+                                     alphaval,betaval,gammaval, &
+                                     factor_common_inner_core,ATT5_VAL)
     else
       ! on GPU
       ! contains forward FORWARD_OR_ADJOINT == 1
@@ -154,38 +107,40 @@
       call compute_forces_crust_mantle_gpu(Mesh_pointer,iphase,1)
 
       ! initiates asynchronous MPI transfer
-      if (GPU_ASYNC_COPY .and. iphase == 2) then
-        ! crust/mantle region
-        ! wait for asynchronous copy to finish
-        call sync_copy_from_device(Mesh_pointer,iphase,buffer_send_vector_crust_mantle,IREGION_CRUST_MANTLE,1)
-        ! sends MPI buffers
-        call assemble_MPI_vector_send_gpu(NPROCTOT_VAL, &
-                      buffer_send_vector_crust_mantle,buffer_recv_vector_crust_mantle, &
-                      num_interfaces_crust_mantle,max_nibool_interfaces_cm, &
-                      nibool_interfaces_crust_mantle,&
-                      my_neighbours_crust_mantle, &
-                      request_send_vector_cm,request_recv_vector_cm)
+      if (NPROCTOT_VAL > 1) then
+        if (GPU_ASYNC_COPY .and. iphase == 2) then
+          ! crust/mantle region
+          ! wait for asynchronous copy to finish
+          call sync_copy_from_device(Mesh_pointer,iphase,buffer_send_vector_crust_mantle,IREGION_CRUST_MANTLE,1)
+          ! sends MPI buffers
+          call assemble_MPI_vector_send_gpu(NPROCTOT_VAL, &
+                        buffer_send_vector_crust_mantle,buffer_recv_vector_crust_mantle, &
+                        num_interfaces_crust_mantle,max_nibool_interfaces_cm, &
+                        nibool_interfaces_crust_mantle, &
+                        my_neighbors_crust_mantle, &
+                        request_send_vector_cm,request_recv_vector_cm)
+        endif
       endif
 
       ! for inner core
       call compute_forces_inner_core_gpu(Mesh_pointer,iphase,1)
 
       ! initiates asynchronous MPI transfer
-      if (GPU_ASYNC_COPY .and. iphase == 2) then
-        ! inner core region
-        ! wait for asynchronous copy to finish
-        call sync_copy_from_device(Mesh_pointer,iphase,buffer_send_vector_inner_core,IREGION_INNER_CORE,1)
-        ! sends MPI buffers
-        call assemble_MPI_vector_send_gpu(NPROCTOT_VAL, &
-                      buffer_send_vector_inner_core,buffer_recv_vector_inner_core, &
-                      num_interfaces_inner_core,max_nibool_interfaces_ic, &
-                      nibool_interfaces_inner_core,&
-                      my_neighbours_inner_core, &
-                      request_send_vector_ic,request_recv_vector_ic)
+      if (NPROCTOT_VAL > 1) then
+        if (GPU_ASYNC_COPY .and. iphase == 2) then
+          ! inner core region
+          ! wait for asynchronous copy to finish
+          call sync_copy_from_device(Mesh_pointer,iphase,buffer_send_vector_inner_core,IREGION_INNER_CORE,1)
+          ! sends MPI buffers
+          call assemble_MPI_vector_send_gpu(NPROCTOT_VAL, &
+                        buffer_send_vector_inner_core,buffer_recv_vector_inner_core, &
+                        num_interfaces_inner_core,max_nibool_interfaces_ic, &
+                        nibool_interfaces_inner_core, &
+                        my_neighbors_inner_core, &
+                        request_send_vector_ic,request_recv_vector_ic)
+        endif
       endif
     endif ! GPU_MODE
-
-
 
     ! computes additional contributions to acceleration field
     if (iphase == 1) then
@@ -232,47 +187,8 @@
        ! ****************************************************
        ! **********  add matching with fluid part  **********
        ! ****************************************************
-       ! only for elements in first matching layer in the solid
-       if (.not. GPU_MODE) then
-          ! on CPU
-          !---
-          !--- couple with outer core at the bottom of the mantle
-          !---
-          if (ACTUALLY_COUPLE_FLUID_CMB) &
-            call compute_coupling_CMB_fluid(NGLOB_CRUST_MANTLE,displ_crust_mantle,accel_crust_mantle, &
-                                            ibool_crust_mantle,ibelm_bottom_crust_mantle, &
-                                            NGLOB_OUTER_CORE,accel_outer_core, &
-                                            normal_top_outer_core,jacobian2D_top_outer_core, &
-                                            wgllwgll_xy,ibool_outer_core,ibelm_top_outer_core, &
-                                            RHO_TOP_OC,minus_g_cmb, &
-                                            NSPEC2D_BOTTOM(IREGION_CRUST_MANTLE))
+       call compute_coupling_solid()
 
-          !---
-          !--- couple with outer core at the top of the inner core
-          !---
-          if (ACTUALLY_COUPLE_FLUID_ICB) &
-            call compute_coupling_ICB_fluid(NGLOB_INNER_CORE,displ_inner_core,accel_inner_core, &
-                                            ibool_inner_core,ibelm_top_inner_core, &
-                                            NGLOB_OUTER_CORE,accel_outer_core, &
-                                            normal_bottom_outer_core,jacobian2D_bottom_outer_core, &
-                                            wgllwgll_xy,ibool_outer_core,ibelm_bottom_outer_core, &
-                                            RHO_BOTTOM_OC,minus_g_icb, &
-                                            NSPEC2D_TOP(IREGION_INNER_CORE))
-
-       else
-          ! on GPU
-          !---
-          !--- couple with outer core at the bottom of the mantle
-          !---
-          if (ACTUALLY_COUPLE_FLUID_CMB ) &
-               call compute_coupling_cmb_fluid_gpu(Mesh_pointer,1)
-          !---
-          !--- couple with outer core at the top of the inner core
-          !---
-          if (ACTUALLY_COUPLE_FLUID_ICB ) &
-               call compute_coupling_icb_fluid_gpu(Mesh_pointer,1)
-
-       endif
     endif ! iphase == 1
 
     ! assemble all the contributions between slices using MPI
@@ -282,109 +198,113 @@
 
     if (iphase == 1) then
       ! sends out MPI interface data
-      if (.not. GPU_MODE) then
-        ! on CPU
-        ! sends accel values to corresponding MPI interface neighbors
-        ! crust mantle
-        call assemble_MPI_vector_s(NPROCTOT_VAL,NGLOB_CRUST_MANTLE, &
-                      accel_crust_mantle, &
-                      buffer_send_vector_crust_mantle,buffer_recv_vector_crust_mantle, &
-                      num_interfaces_crust_mantle,max_nibool_interfaces_cm, &
-                      nibool_interfaces_crust_mantle,ibool_interfaces_crust_mantle,&
-                      my_neighbours_crust_mantle, &
-                      request_send_vector_cm,request_recv_vector_cm)
-        ! inner core
-        call assemble_MPI_vector_s(NPROCTOT_VAL,NGLOB_INNER_CORE, &
-                      accel_inner_core, &
-                      buffer_send_vector_inner_core,buffer_recv_vector_inner_core, &
-                      num_interfaces_inner_core,max_nibool_interfaces_ic, &
-                      nibool_interfaces_inner_core,ibool_interfaces_inner_core,&
-                      my_neighbours_inner_core, &
-                      request_send_vector_ic,request_recv_vector_ic)
-      else
-        ! on GPU
-        ! sends accel values to corresponding MPI interface neighbors
-
-        ! preparation of the contribution between partitions using MPI
-        ! transfers MPI buffers to CPU
-        ! note: in case of asynchronous copy, this transfers boundary region to host asynchronously. The
-        !       MPI-send is done after compute_forces_viscoelastic_gpu,
-        !       once the inner element kernels are launched, and the memcpy has finished.
-        call transfer_boun_from_device(Mesh_pointer, &
-                                       buffer_send_vector_crust_mantle,&
-                                       IREGION_CRUST_MANTLE,1)
-        call transfer_boun_from_device(Mesh_pointer, &
-                                       buffer_send_vector_inner_core,&
-                                       IREGION_INNER_CORE,1)
-
-        if (.not. GPU_ASYNC_COPY) then
-          ! for synchronous transfers, sending over MPI can directly proceed
+      if (NPROCTOT_VAL > 1) then
+        if (.not. GPU_MODE) then
+          ! on CPU
+          ! sends accel values to corresponding MPI interface neighbors
           ! crust mantle
-          call assemble_MPI_vector_send_gpu(NPROCTOT_VAL, &
+          call assemble_MPI_vector_s(NPROCTOT_VAL,NGLOB_CRUST_MANTLE, &
+                        accel_crust_mantle, &
                         buffer_send_vector_crust_mantle,buffer_recv_vector_crust_mantle, &
                         num_interfaces_crust_mantle,max_nibool_interfaces_cm, &
-                        nibool_interfaces_crust_mantle,&
-                        my_neighbours_crust_mantle, &
+                        nibool_interfaces_crust_mantle,ibool_interfaces_crust_mantle, &
+                        my_neighbors_crust_mantle, &
                         request_send_vector_cm,request_recv_vector_cm)
           ! inner core
-          call assemble_MPI_vector_send_gpu(NPROCTOT_VAL, &
+          call assemble_MPI_vector_s(NPROCTOT_VAL,NGLOB_INNER_CORE, &
+                        accel_inner_core, &
                         buffer_send_vector_inner_core,buffer_recv_vector_inner_core, &
                         num_interfaces_inner_core,max_nibool_interfaces_ic, &
-                        nibool_interfaces_inner_core,&
-                        my_neighbours_inner_core, &
+                        nibool_interfaces_inner_core,ibool_interfaces_inner_core, &
+                        my_neighbors_inner_core, &
                         request_send_vector_ic,request_recv_vector_ic)
-        endif
-      endif ! GPU_MODE
+        else
+          ! on GPU
+          ! sends accel values to corresponding MPI interface neighbors
+
+          ! preparation of the contribution between partitions using MPI
+          ! transfers MPI buffers to CPU
+          ! note: in case of asynchronous copy, this transfers boundary region to host asynchronously. The
+          !       MPI-send is done after compute_forces_viscoelastic_gpu,
+          !       once the inner element kernels are launched, and the memcpy has finished.
+          call transfer_boun_from_device(Mesh_pointer, &
+                                         buffer_send_vector_crust_mantle, &
+                                         IREGION_CRUST_MANTLE,1)
+          call transfer_boun_from_device(Mesh_pointer, &
+                                         buffer_send_vector_inner_core, &
+                                         IREGION_INNER_CORE,1)
+
+          if (.not. GPU_ASYNC_COPY) then
+            ! for synchronous transfers, sending over MPI can directly proceed
+            ! crust mantle
+            call assemble_MPI_vector_send_gpu(NPROCTOT_VAL, &
+                          buffer_send_vector_crust_mantle,buffer_recv_vector_crust_mantle, &
+                          num_interfaces_crust_mantle,max_nibool_interfaces_cm, &
+                          nibool_interfaces_crust_mantle, &
+                          my_neighbors_crust_mantle, &
+                          request_send_vector_cm,request_recv_vector_cm)
+            ! inner core
+            call assemble_MPI_vector_send_gpu(NPROCTOT_VAL, &
+                          buffer_send_vector_inner_core,buffer_recv_vector_inner_core, &
+                          num_interfaces_inner_core,max_nibool_interfaces_ic, &
+                          nibool_interfaces_inner_core, &
+                          my_neighbors_inner_core, &
+                          request_send_vector_ic,request_recv_vector_ic)
+          endif
+        endif ! GPU_MODE
+      endif
     else
       ! waits for send/receive requests to be completed and assembles values
-      if (.not. GPU_MODE) then
-        ! on CPU
-        ! crust mantle
-        call assemble_MPI_vector_w(NPROCTOT_VAL,NGLOB_CRUST_MANTLE, &
-                              accel_crust_mantle, &
-                              buffer_recv_vector_crust_mantle,num_interfaces_crust_mantle,&
-                              max_nibool_interfaces_cm, &
-                              nibool_interfaces_crust_mantle,ibool_interfaces_crust_mantle, &
-                              request_send_vector_cm,request_recv_vector_cm)
-        ! inner core
-        call assemble_MPI_vector_w(NPROCTOT_VAL,NGLOB_INNER_CORE, &
-                              accel_inner_core, &
-                              buffer_recv_vector_inner_core,num_interfaces_inner_core,&
-                              max_nibool_interfaces_ic, &
-                              nibool_interfaces_inner_core,ibool_interfaces_inner_core, &
-                              request_send_vector_ic,request_recv_vector_ic)
-      else
-        ! on GPU
-        if (GPU_ASYNC_COPY) then
-          ! while inner elements compute "Kernel_2", we wait for MPI to
-          ! finish and transfer the boundary terms to the device asynchronously
-          !
-          ! transfers MPI buffers onto GPU
-          ! crust/mantle region
-          call transfer_boundary_to_device(Mesh_pointer,NPROCTOT_VAL,buffer_recv_vector_crust_mantle, &
-                                           num_interfaces_crust_mantle,max_nibool_interfaces_cm, &
-                                           request_recv_vector_cm, &
-                                           IREGION_CRUST_MANTLE,1)
-          ! inner core region
-          call transfer_boundary_to_device(Mesh_pointer,NPROCTOT_VAL,buffer_recv_vector_inner_core, &
-                                           num_interfaces_inner_core,max_nibool_interfaces_ic, &
-                                           request_recv_vector_ic, &
-                                           IREGION_INNER_CORE,1)
-        endif
+      if (NPROCTOT_VAL > 1) then
+        if (.not. GPU_MODE) then
+          ! on CPU
+          ! crust mantle
+          call assemble_MPI_vector_w(NPROCTOT_VAL,NGLOB_CRUST_MANTLE, &
+                                accel_crust_mantle, &
+                                buffer_recv_vector_crust_mantle,num_interfaces_crust_mantle, &
+                                max_nibool_interfaces_cm, &
+                                nibool_interfaces_crust_mantle,ibool_interfaces_crust_mantle, &
+                                request_send_vector_cm,request_recv_vector_cm)
+          ! inner core
+          call assemble_MPI_vector_w(NPROCTOT_VAL,NGLOB_INNER_CORE, &
+                                accel_inner_core, &
+                                buffer_recv_vector_inner_core,num_interfaces_inner_core, &
+                                max_nibool_interfaces_ic, &
+                                nibool_interfaces_inner_core,ibool_interfaces_inner_core, &
+                                request_send_vector_ic,request_recv_vector_ic)
+        else
+          ! on GPU
+          if (GPU_ASYNC_COPY) then
+            ! while inner elements compute "Kernel_2", we wait for MPI to
+            ! finish and transfer the boundary terms to the device asynchronously
+            !
+            ! transfers MPI buffers onto GPU
+            ! crust/mantle region
+            call transfer_boundary_to_device(Mesh_pointer,NPROCTOT_VAL,buffer_recv_vector_crust_mantle, &
+                                             num_interfaces_crust_mantle,max_nibool_interfaces_cm, &
+                                             request_recv_vector_cm, &
+                                             IREGION_CRUST_MANTLE,1)
+            ! inner core region
+            call transfer_boundary_to_device(Mesh_pointer,NPROCTOT_VAL,buffer_recv_vector_inner_core, &
+                                             num_interfaces_inner_core,max_nibool_interfaces_ic, &
+                                             request_recv_vector_ic, &
+                                             IREGION_INNER_CORE,1)
+          endif
 
-        ! waits for MPI send/receive requests to be completed and assembles values
-        ! crust mantle
-        call assemble_MPI_vector_write_gpu(Mesh_pointer,NPROCTOT_VAL, &
-                            buffer_recv_vector_crust_mantle, &
-                            num_interfaces_crust_mantle,max_nibool_interfaces_cm, &
-                            request_send_vector_cm,request_recv_vector_cm, &
-                            IREGION_CRUST_MANTLE,1) ! <-- 1 == fwd accel
-        ! inner core
-        call assemble_MPI_vector_write_gpu(Mesh_pointer,NPROCTOT_VAL, &
-                            buffer_recv_vector_inner_core, &
-                            num_interfaces_inner_core,max_nibool_interfaces_ic, &
-                            request_send_vector_ic,request_recv_vector_ic, &
-                            IREGION_INNER_CORE,1)
+          ! waits for MPI send/receive requests to be completed and assembles values
+          ! crust mantle
+          call assemble_MPI_vector_write_gpu(Mesh_pointer,NPROCTOT_VAL, &
+                              buffer_recv_vector_crust_mantle, &
+                              num_interfaces_crust_mantle,max_nibool_interfaces_cm, &
+                              request_send_vector_cm,request_recv_vector_cm, &
+                              IREGION_CRUST_MANTLE,1) ! -- 1 == fwd accel
+          ! inner core
+          call assemble_MPI_vector_write_gpu(Mesh_pointer,NPROCTOT_VAL, &
+                              buffer_recv_vector_inner_core, &
+                              num_interfaces_inner_core,max_nibool_interfaces_ic, &
+                              request_send_vector_ic,request_recv_vector_ic, &
+                              IREGION_INNER_CORE,1)
+        endif
       endif
     endif ! iphase == 1
 
@@ -393,13 +313,11 @@
   ! updates (only) acceleration w/ rotation in the crust/mantle and inner core region
   if (.not. GPU_MODE) then
     ! on CPU
-    ! crust/mantle region
-    call multiply_accel_elastic(NGLOB_CRUST_MANTLE,veloc_crust_mantle,accel_crust_mantle, &
-                                two_omega_earth, &
-                                rmassx_crust_mantle,rmassy_crust_mantle,rmassz_crust_mantle)
-    ! inner core region
-    call multiply_accel_elastic(NGLOB_INNER_CORE,veloc_inner_core,accel_inner_core, &
-                                two_omega_earth, &
+    ! crust/mantle and inner core
+    call multiply_accel_elastic(two_omega_earth, &
+                                NGLOB_CRUST_MANTLE,veloc_crust_mantle,accel_crust_mantle, &
+                                rmassx_crust_mantle,rmassy_crust_mantle,rmassz_crust_mantle, &
+                                NGLOB_INNER_CORE,veloc_inner_core,accel_inner_core, &
                                 rmassx_inner_core,rmassy_inner_core,rmassz_inner_core)
   else
     ! on GPU
@@ -414,13 +332,10 @@
       ! on CPU
       call compute_coupling_ocean(NGLOB_CRUST_MANTLE,accel_crust_mantle, &
                                   rmassx_crust_mantle,rmassy_crust_mantle,rmassz_crust_mantle, &
-                                  rmass_ocean_load,normal_top_crust_mantle, &
-                                  ibool_crust_mantle,ibelm_top_crust_mantle, &
-                                  updated_dof_ocean_load, &
-                                  NSPEC2D_TOP(IREGION_CRUST_MANTLE) )
+                                  npoin_oceans,ibool_ocean_load,rmass_ocean_load_selected,normal_ocean_load)
     else
       ! on GPU
-      call compute_coupling_ocean_gpu(Mesh_pointer,1) ! <- 1 == forward arrays
+      call compute_coupling_ocean_gpu(Mesh_pointer,1) ! -- 1 == forward arrays
     endif
   endif
 
@@ -446,12 +361,8 @@
   use specfem_par
   use specfem_par_crustmantle
   use specfem_par_innercore
-  use specfem_par_outercore,only: b_accel_outer_core, &
-                                  normal_top_outer_core,jacobian2D_top_outer_core, &
-                                  normal_bottom_outer_core,jacobian2D_bottom_outer_core, &
-                                  ibelm_top_outer_core,ibelm_bottom_outer_core, &
-                                  ibool_outer_core
   use specfem_par_movie
+
   implicit none
 
   ! local parameters
@@ -459,7 +370,6 @@
   ! iphase: iphase = 1 is for computing outer elements in the crust_mantle and inner_core regions,
   !              iphase = 2 is for computing inner elements (former icall parameter)
   integer :: iphase
-  logical :: phase_is_inner
 
   ! checks
   if (SIMULATION_TYPE /= 3 ) return
@@ -514,88 +424,45 @@
     !
     ! compute all the outer elements first, then sends out non blocking MPI communication
     ! and continues computing inner elements (overlapping)
-    if (iphase == 1) then
-      phase_is_inner = .false.
-    else
-      phase_is_inner = .true.
-    endif
-
+    !
     ! compute internal forces in the solid regions
     ! note: for anisotropy and gravity, x y and z contain r theta and phi
     if (.not. GPU_MODE) then
       ! on CPU
       ! adjoint / kernel runs
-      if (USE_DEVILLE_PRODUCTS_VAL) then
-        ! uses Deville (2002) optimizations
-        ! crust/mantle region
-        call compute_forces_crust_mantle_Dev(NSPEC_CRUST_MANTLE_ADJOINT,NGLOB_CRUST_MANTLE_ADJOINT, &
-                                             NSPEC_CRUST_MANTLE_STR_AND_ATT, &
-                                             b_deltat, &
-                                             b_displ_crust_mantle, &
-                                             b_accel_crust_mantle, &
-                                             phase_is_inner, &
-                                             b_R_xx_crust_mantle,b_R_yy_crust_mantle,b_R_xy_crust_mantle, &
-                                             b_R_xz_crust_mantle,b_R_yz_crust_mantle, &
-                                             b_R_xx_crust_mantle_lddrk,b_R_yy_crust_mantle_lddrk,b_R_xy_crust_mantle_lddrk, &
-                                             b_R_xz_crust_mantle_lddrk,b_R_yz_crust_mantle_lddrk, &
-                                             b_epsilondev_xx_crust_mantle,b_epsilondev_yy_crust_mantle,&
-                                             b_epsilondev_xy_crust_mantle, &
-                                             b_epsilondev_xz_crust_mantle,b_epsilondev_yz_crust_mantle, &
-                                             b_eps_trace_over_3_crust_mantle, &
-                                             b_alphaval,b_betaval,b_gammaval, &
-                                             factor_common_crust_mantle,ATT4_VAL)
-        ! inner core region
-        call compute_forces_inner_core_Dev(NSPEC_INNER_CORE_ADJOINT,NGLOB_INNER_CORE_ADJOINT, &
-                                           NSPEC_INNER_CORE_STR_AND_ATT, &
-                                           b_deltat, &
-                                           b_displ_inner_core, &
-                                           b_accel_inner_core, &
-                                           phase_is_inner, &
-                                           b_R_xx_inner_core,b_R_yy_inner_core,b_R_xy_inner_core, &
-                                           b_R_xz_inner_core,b_R_yz_inner_core, &
-                                           b_R_xx_inner_core_lddrk,b_R_yy_inner_core_lddrk,b_R_xy_inner_core_lddrk, &
-                                           b_R_xz_inner_core_lddrk,b_R_yz_inner_core_lddrk, &
-                                           b_epsilondev_xx_inner_core,b_epsilondev_yy_inner_core,b_epsilondev_xy_inner_core, &
-                                           b_epsilondev_xz_inner_core,b_epsilondev_yz_inner_core, &
-                                           b_eps_trace_over_3_inner_core,&
-                                           b_alphaval,b_betaval,b_gammaval, &
-                                           factor_common_inner_core,ATT5_VAL)
-      else
-        ! no Deville optimization
-        ! crust/mantle region
-        call compute_forces_crust_mantle(NSPEC_CRUST_MANTLE_ADJOINT,NGLOB_CRUST_MANTLE_ADJOINT, &
-                                         NSPEC_CRUST_MANTLE_STR_AND_ATT, &
-                                         b_deltat, &
-                                         b_displ_crust_mantle, &
-                                         b_accel_crust_mantle, &
-                                         phase_is_inner, &
-                                         b_R_xx_crust_mantle,b_R_yy_crust_mantle,b_R_xy_crust_mantle, &
-                                         b_R_xz_crust_mantle,b_R_yz_crust_mantle, &
-                                         b_R_xx_crust_mantle_lddrk,b_R_yy_crust_mantle_lddrk,b_R_xy_crust_mantle_lddrk, &
-                                         b_R_xz_crust_mantle_lddrk,b_R_yz_crust_mantle_lddrk, &
-                                         b_epsilondev_xx_crust_mantle,b_epsilondev_yy_crust_mantle,&
-                                         b_epsilondev_xy_crust_mantle, &
-                                         b_epsilondev_xz_crust_mantle,b_epsilondev_yz_crust_mantle, &
-                                         b_eps_trace_over_3_crust_mantle, &
-                                         b_alphaval,b_betaval,b_gammaval, &
-                                         factor_common_crust_mantle,ATT4_VAL)
-        ! inner core region
-        call compute_forces_inner_core(NSPEC_INNER_CORE_ADJOINT,NGLOB_INNER_CORE_ADJOINT, &
-                                       NSPEC_INNER_CORE_STR_AND_ATT, &
+      ! crust/mantle region
+      call compute_forces_crust_mantle(NSPEC_CRUST_MANTLE_ADJOINT,NGLOB_CRUST_MANTLE_ADJOINT, &
+                                       NSPEC_CRUST_MANTLE_STR_AND_ATT, &
                                        b_deltat, &
-                                       b_displ_inner_core, &
-                                       b_accel_inner_core, &
-                                       phase_is_inner, &
-                                       b_R_xx_inner_core,b_R_yy_inner_core,b_R_xy_inner_core, &
-                                       b_R_xz_inner_core,b_R_yz_inner_core, &
-                                       b_R_xx_inner_core_lddrk,b_R_yy_inner_core_lddrk,b_R_xy_inner_core_lddrk, &
-                                       b_R_xz_inner_core_lddrk,b_R_yz_inner_core_lddrk, &
-                                       b_epsilondev_xx_inner_core,b_epsilondev_yy_inner_core,b_epsilondev_xy_inner_core, &
-                                       b_epsilondev_xz_inner_core,b_epsilondev_yz_inner_core, &
-                                       b_eps_trace_over_3_inner_core,&
+                                       b_displ_crust_mantle, &
+                                       b_accel_crust_mantle, &
+                                       iphase, &
+                                       b_R_xx_crust_mantle,b_R_yy_crust_mantle,b_R_xy_crust_mantle, &
+                                       b_R_xz_crust_mantle,b_R_yz_crust_mantle, &
+                                       b_R_xx_crust_mantle_lddrk,b_R_yy_crust_mantle_lddrk,b_R_xy_crust_mantle_lddrk, &
+                                       b_R_xz_crust_mantle_lddrk,b_R_yz_crust_mantle_lddrk, &
+                                       b_epsilondev_xx_crust_mantle,b_epsilondev_yy_crust_mantle, &
+                                       b_epsilondev_xy_crust_mantle, &
+                                       b_epsilondev_xz_crust_mantle,b_epsilondev_yz_crust_mantle, &
+                                       b_eps_trace_over_3_crust_mantle, &
                                        b_alphaval,b_betaval,b_gammaval, &
-                                       factor_common_inner_core,ATT5_VAL)
-      endif
+                                       factor_common_crust_mantle,ATT4_VAL)
+      ! inner core region
+      call compute_forces_inner_core(NSPEC_INNER_CORE_ADJOINT,NGLOB_INNER_CORE_ADJOINT, &
+                                     NSPEC_INNER_CORE_STR_AND_ATT, &
+                                     b_deltat, &
+                                     b_displ_inner_core, &
+                                     b_accel_inner_core, &
+                                     iphase, &
+                                     b_R_xx_inner_core,b_R_yy_inner_core,b_R_xy_inner_core, &
+                                     b_R_xz_inner_core,b_R_yz_inner_core, &
+                                     b_R_xx_inner_core_lddrk,b_R_yy_inner_core_lddrk,b_R_xy_inner_core_lddrk, &
+                                     b_R_xz_inner_core_lddrk,b_R_yz_inner_core_lddrk, &
+                                     b_epsilondev_xx_inner_core,b_epsilondev_yy_inner_core,b_epsilondev_xy_inner_core, &
+                                     b_epsilondev_xz_inner_core,b_epsilondev_yz_inner_core, &
+                                     b_eps_trace_over_3_inner_core, &
+                                     b_alphaval,b_betaval,b_gammaval, &
+                                     factor_common_inner_core,ATT5_VAL)
     else
       ! on GPU
       ! contains forward FORWARD_OR_ADJOINT == 3
@@ -611,8 +478,8 @@
         call assemble_MPI_vector_send_gpu(NPROCTOT_VAL, &
                       b_buffer_send_vector_cm,b_buffer_recv_vector_cm, &
                       num_interfaces_crust_mantle,max_nibool_interfaces_cm, &
-                      nibool_interfaces_crust_mantle,&
-                      my_neighbours_crust_mantle, &
+                      nibool_interfaces_crust_mantle, &
+                      my_neighbors_crust_mantle, &
                       b_request_send_vector_cm,b_request_recv_vector_cm)
       endif
 
@@ -629,8 +496,8 @@
         call assemble_MPI_vector_send_gpu(NPROCTOT_VAL, &
                       b_buffer_send_vector_inner_core,b_buffer_recv_vector_inner_core, &
                       num_interfaces_inner_core,max_nibool_interfaces_ic, &
-                      nibool_interfaces_inner_core,&
-                      my_neighbours_inner_core, &
+                      nibool_interfaces_inner_core, &
+                      my_neighbors_inner_core, &
                       b_request_send_vector_ic,b_request_recv_vector_ic)
       endif
 
@@ -660,7 +527,8 @@
         ! third step of noise tomography, i.e., read the surface movie saved at every timestep
         ! use the movie to reconstruct the ensemble forward wavefield
         ! the ensemble adjoint wavefield is done as usual
-        ! note instead of "NSTEP-it+1", now we us "it", since reconstruction is a reversal of reversal
+        !
+        ! note instead of "NSTEP-it+1", now we use "it", since reconstruction is a reversal of reversal
         call noise_read_add_surface_movie(NGLOB_CRUST_MANTLE_ADJOINT,b_accel_crust_mantle,it)
 
       end select
@@ -668,46 +536,8 @@
       ! ****************************************************
       ! **********  add matching with fluid part  **********
       ! ****************************************************
-      ! only for elements in first matching layer in the solid
-      if (.not. GPU_MODE) then
-        ! on CPU
-        !---
-        !--- couple with outer core at the bottom of the mantle
-        !---
-        if (ACTUALLY_COUPLE_FLUID_CMB) &
-          call compute_coupling_CMB_fluid(NGLOB_CRUST_MANTLE_ADJOINT,b_displ_crust_mantle,b_accel_crust_mantle, &
-                                          ibool_crust_mantle,ibelm_bottom_crust_mantle, &
-                                          NGLOB_OUTER_CORE_ADJOINT,b_accel_outer_core, &
-                                          normal_top_outer_core,jacobian2D_top_outer_core, &
-                                          wgllwgll_xy,ibool_outer_core,ibelm_top_outer_core, &
-                                          RHO_TOP_OC,minus_g_cmb, &
-                                          NSPEC2D_BOTTOM(IREGION_CRUST_MANTLE))
+      call compute_coupling_solid_backward()
 
-        !---
-        !--- couple with outer core at the top of the inner core
-        !---
-        if (ACTUALLY_COUPLE_FLUID_ICB) &
-          call compute_coupling_ICB_fluid(NGLOB_INNER_CORE_ADJOINT,b_displ_inner_core,b_accel_inner_core, &
-                                          ibool_inner_core,ibelm_top_inner_core, &
-                                          NGLOB_OUTER_CORE_ADJOINT,b_accel_outer_core, &
-                                          normal_bottom_outer_core,jacobian2D_bottom_outer_core, &
-                                          wgllwgll_xy,ibool_outer_core,ibelm_bottom_outer_core, &
-                                          RHO_BOTTOM_OC,minus_g_icb, &
-                                          NSPEC2D_TOP(IREGION_INNER_CORE))
-
-      else
-        ! on GPU
-        !---
-        !--- couple with outer core at the bottom of the mantle
-        !---
-        if (ACTUALLY_COUPLE_FLUID_CMB ) &
-          call compute_coupling_cmb_fluid_gpu(Mesh_pointer,3)
-        !---
-        !--- couple with outer core at the top of the inner core
-        !---
-        if (ACTUALLY_COUPLE_FLUID_ICB ) &
-          call compute_coupling_icb_fluid_gpu(Mesh_pointer,3)
-      endif
     endif ! iphase == 1
 
     ! assemble all the contributions between slices using MPI
@@ -726,16 +556,16 @@
                       b_accel_crust_mantle, &
                       b_buffer_send_vector_cm,b_buffer_recv_vector_cm, &
                       num_interfaces_crust_mantle,max_nibool_interfaces_cm, &
-                      nibool_interfaces_crust_mantle,ibool_interfaces_crust_mantle,&
-                      my_neighbours_crust_mantle, &
+                      nibool_interfaces_crust_mantle,ibool_interfaces_crust_mantle, &
+                      my_neighbors_crust_mantle, &
                       b_request_send_vector_cm,b_request_recv_vector_cm)
         ! inner core
         call assemble_MPI_vector_s(NPROCTOT_VAL,NGLOB_INNER_CORE, &
                       b_accel_inner_core, &
                       b_buffer_send_vector_inner_core,b_buffer_recv_vector_inner_core, &
                       num_interfaces_inner_core,max_nibool_interfaces_ic, &
-                      nibool_interfaces_inner_core,ibool_interfaces_inner_core,&
-                      my_neighbours_inner_core, &
+                      nibool_interfaces_inner_core,ibool_interfaces_inner_core, &
+                      my_neighbors_inner_core, &
                       b_request_send_vector_ic,b_request_recv_vector_ic)
       else
         ! on GPU
@@ -747,10 +577,10 @@
         !       MPI-send is done after compute_forces_viscoelastic_gpu,
         !       once the inner element kernels are launched, and the memcpy has finished.
         call transfer_boun_from_device(Mesh_pointer, &
-                                       b_buffer_send_vector_cm,&
+                                       b_buffer_send_vector_cm, &
                                        IREGION_CRUST_MANTLE,3)
         call transfer_boun_from_device(Mesh_pointer, &
-                                       b_buffer_send_vector_inner_core,&
+                                       b_buffer_send_vector_inner_core, &
                                        IREGION_INNER_CORE,3)
 
         if (.not. GPU_ASYNC_COPY) then
@@ -759,15 +589,15 @@
           call assemble_MPI_vector_send_gpu(NPROCTOT_VAL, &
                       b_buffer_send_vector_cm,b_buffer_recv_vector_cm, &
                       num_interfaces_crust_mantle,max_nibool_interfaces_cm, &
-                      nibool_interfaces_crust_mantle,&
-                      my_neighbours_crust_mantle, &
+                      nibool_interfaces_crust_mantle, &
+                      my_neighbors_crust_mantle, &
                       b_request_send_vector_cm,b_request_recv_vector_cm)
           ! inner core
           call assemble_MPI_vector_send_gpu(NPROCTOT_VAL, &
                       b_buffer_send_vector_inner_core,b_buffer_recv_vector_inner_core, &
                       num_interfaces_inner_core,max_nibool_interfaces_ic, &
-                      nibool_interfaces_inner_core,&
-                      my_neighbours_inner_core, &
+                      nibool_interfaces_inner_core, &
+                      my_neighbors_inner_core, &
                       b_request_send_vector_ic,b_request_recv_vector_ic)
         endif
       endif ! GPU
@@ -779,14 +609,14 @@
         ! crust mantle
         call assemble_MPI_vector_w(NPROCTOT_VAL,NGLOB_CRUST_MANTLE, &
                             b_accel_crust_mantle, &
-                            b_buffer_recv_vector_cm,num_interfaces_crust_mantle,&
+                            b_buffer_recv_vector_cm,num_interfaces_crust_mantle, &
                             max_nibool_interfaces_cm, &
                             nibool_interfaces_crust_mantle,ibool_interfaces_crust_mantle, &
                             b_request_send_vector_cm,b_request_recv_vector_cm)
         ! inner core
         call assemble_MPI_vector_w(NPROCTOT_VAL,NGLOB_INNER_CORE, &
                             b_accel_inner_core, &
-                            b_buffer_recv_vector_inner_core,num_interfaces_inner_core,&
+                            b_buffer_recv_vector_inner_core,num_interfaces_inner_core, &
                             max_nibool_interfaces_ic, &
                             nibool_interfaces_inner_core,ibool_interfaces_inner_core, &
                             b_request_send_vector_ic,b_request_recv_vector_ic)
@@ -817,9 +647,9 @@
                           b_buffer_recv_vector_cm, &
                           num_interfaces_crust_mantle,max_nibool_interfaces_cm, &
                           b_request_send_vector_cm,b_request_recv_vector_cm, &
-                          IREGION_CRUST_MANTLE,3) ! <-- 3 == adjoint b_accel
+                          IREGION_CRUST_MANTLE,3) ! -- 3 == adjoint b_accel
         ! inner core
-        call assemble_MPI_vector_write_gpu(Mesh_pointer,NPROCTOT_VAL,&
+        call assemble_MPI_vector_write_gpu(Mesh_pointer,NPROCTOT_VAL, &
                           b_buffer_recv_vector_inner_core, &
                           num_interfaces_inner_core,max_nibool_interfaces_ic, &
                           b_request_send_vector_ic,b_request_recv_vector_ic, &
@@ -833,13 +663,11 @@
   if (.not. GPU_MODE) then
     ! on CPU
     ! adjoint / kernel runs
-    ! crust/mantle region
-    call multiply_accel_elastic(NGLOB_CRUST_MANTLE_ADJOINT,b_veloc_crust_mantle,b_accel_crust_mantle, &
-                                b_two_omega_earth, &
-                                b_rmassx_crust_mantle,b_rmassy_crust_mantle,b_rmassz_crust_mantle)
-    ! inner core region
-    call multiply_accel_elastic(NGLOB_INNER_CORE,b_veloc_inner_core,b_accel_inner_core, &
-                                b_two_omega_earth, &
+    ! crust/mantle and inner core region
+    call multiply_accel_elastic(b_two_omega_earth, &
+                                NGLOB_CRUST_MANTLE_ADJOINT,b_veloc_crust_mantle,b_accel_crust_mantle, &
+                                b_rmassx_crust_mantle,b_rmassy_crust_mantle,b_rmassz_crust_mantle, &
+                                NGLOB_INNER_CORE,b_veloc_inner_core,b_accel_inner_core, &
                                 b_rmassx_inner_core,b_rmassy_inner_core,b_rmassz_inner_core)
   else
      ! on GPU
@@ -854,13 +682,10 @@
       ! on CPU
       call compute_coupling_ocean(NGLOB_CRUST_MANTLE_ADJOINT,b_accel_crust_mantle, &
                                   b_rmassx_crust_mantle,b_rmassy_crust_mantle,b_rmassz_crust_mantle, &
-                                  rmass_ocean_load,normal_top_crust_mantle, &
-                                  ibool_crust_mantle,ibelm_top_crust_mantle, &
-                                  updated_dof_ocean_load, &
-                                  NSPEC2D_TOP(IREGION_CRUST_MANTLE) )
+                                  npoin_oceans,ibool_ocean_load,rmass_ocean_load_selected,normal_ocean_load)
     else
       ! on GPU
-      call compute_coupling_ocean_gpu(Mesh_pointer,3) ! <- 3 == backward/reconstructed arrays
+      call compute_coupling_ocean_gpu(Mesh_pointer,3) ! -- 3 == backward/reconstructed arrays
     endif
   endif
 
@@ -888,4 +713,186 @@
 !  endif
 
   end subroutine compute_forces_viscoelastic_backward
+
+
+!
+!-------------------------------------------------------------------------------------------------
+!
+
+
+  subroutine compute_forces_crust_mantle( NSPEC,NGLOB,NSPEC_ATT, &
+                                          deltat, &
+                                          displ_crust_mantle, &
+                                          accel_crust_mantle, &
+                                          iphase, &
+                                          R_xx,R_yy,R_xy,R_xz,R_yz, &
+                                          R_xx_lddrk,R_yy_lddrk,R_xy_lddrk,R_xz_lddrk,R_yz_lddrk, &
+                                          epsilondev_xx,epsilondev_yy,epsilondev_xy, &
+                                          epsilondev_xz,epsilondev_yz, &
+                                          epsilon_trace_over_3, &
+                                          alphaval,betaval,gammaval, &
+                                          factor_common,vnspec )
+
+! wrapper function, decides about Deville optimization
+!
+! (left in this file to let compiler decide about inlining)
+
+  use constants_solver, only: CUSTOM_REAL,NDIM,NGLLX,NGLLY,NGLLZ,USE_DEVILLE_PRODUCTS_VAL, &
+    ATT1_VAL,ATT2_VAL,ATT3_VAL,N_SLS,NSPEC_CRUST_MANTLE_STRAIN_ONLY
+
+  ! note: passes sum_terms array as subroutine argument which will help for performance (better than use-statement)
+  use specfem_par_crustmantle, only: sum_terms_crust_mantle
+
+  implicit none
+
+  integer,intent(in) :: NSPEC,NGLOB,NSPEC_ATT
+
+  ! time step
+  real(kind=CUSTOM_REAL),intent(in) :: deltat
+
+  ! displacement, velocity and acceleration
+  real(kind=CUSTOM_REAL), dimension(NDIM,NGLOB),intent(in) :: displ_crust_mantle
+  real(kind=CUSTOM_REAL), dimension(NDIM,NGLOB),intent(inout) :: accel_crust_mantle
+
+  ! variable sized array variables
+  integer,intent(in) :: vnspec
+
+  ! memory variables for attenuation
+  ! memory variables R_ij are stored at the local rather than global level
+  ! to allow for optimization of cache access by compiler
+  real(kind=CUSTOM_REAL), dimension(NGLLX,NGLLY,NGLLZ,N_SLS,NSPEC_ATT),intent(inout) :: R_xx,R_yy,R_xy,R_xz,R_yz
+  real(kind=CUSTOM_REAL), dimension(NGLLX,NGLLY,NGLLZ,N_SLS,NSPEC_ATT),intent(inout) :: &
+    R_xx_lddrk,R_yy_lddrk,R_xy_lddrk,R_xz_lddrk,R_yz_lddrk
+
+  real(kind=CUSTOM_REAL), dimension(NGLLX,NGLLY,NGLLZ,NSPEC),intent(inout) :: &
+    epsilondev_xx,epsilondev_yy,epsilondev_xy,epsilondev_xz,epsilondev_yz
+
+  real(kind=CUSTOM_REAL), dimension(NGLLX,NGLLY,NGLLZ,NSPEC_CRUST_MANTLE_STRAIN_ONLY),intent(inout) :: epsilon_trace_over_3
+
+  ! [alpha,beta,gamma]val reduced to N_SLS and factor_common to N_SLS*NUM_NODES
+  real(kind=CUSTOM_REAL), dimension(ATT1_VAL,ATT2_VAL,ATT3_VAL,N_SLS,vnspec),intent(in) :: factor_common
+  real(kind=CUSTOM_REAL), dimension(N_SLS),intent(in) :: alphaval,betaval,gammaval
+
+  ! inner/outer element run flag
+  integer,intent(in) :: iphase
+
+  if (USE_DEVILLE_PRODUCTS_VAL) then
+    ! uses Deville (2002) optimizations
+    call compute_forces_crust_mantle_Dev(NSPEC,NGLOB,NSPEC_ATT, &
+                                         deltat, &
+                                         displ_crust_mantle, &
+                                         accel_crust_mantle, &
+                                         iphase, &
+                                         R_xx,R_yy,R_xy,R_xz,R_yz, &
+                                         R_xx_lddrk,R_yy_lddrk,R_xy_lddrk,R_xz_lddrk,R_yz_lddrk, &
+                                         epsilondev_xx,epsilondev_yy,epsilondev_xy,epsilondev_xz,epsilondev_yz, &
+                                         epsilon_trace_over_3, &
+                                         alphaval,betaval,gammaval, &
+                                         factor_common,vnspec,sum_terms_crust_mantle)
+  else
+    ! no Deville optimization
+    call compute_forces_crust_mantle_noDev(NSPEC,NGLOB,NSPEC_ATT, &
+                                           deltat, &
+                                           displ_crust_mantle, &
+                                           accel_crust_mantle, &
+                                           iphase, &
+                                           R_xx,R_yy,R_xy,R_xz,R_yz, &
+                                           R_xx_lddrk,R_yy_lddrk,R_xy_lddrk,R_xz_lddrk,R_yz_lddrk, &
+                                           epsilondev_xx,epsilondev_yy,epsilondev_xy,epsilondev_xz,epsilondev_yz, &
+                                           epsilon_trace_over_3, &
+                                           alphaval,betaval,gammaval, &
+                                           factor_common,vnspec)
+  endif
+
+  end subroutine compute_forces_crust_mantle
+
+!
+!-------------------------------------------------------------------------------------------------
+!
+
+
+  subroutine compute_forces_inner_core( NSPEC,NGLOB,NSPEC_ATT, &
+                                        deltat, &
+                                        displ_inner_core, &
+                                        accel_inner_core, &
+                                        iphase, &
+                                        R_xx,R_yy,R_xy,R_xz,R_yz, &
+                                        R_xx_lddrk,R_yy_lddrk,R_xy_lddrk,R_xz_lddrk,R_yz_lddrk, &
+                                        epsilondev_xx,epsilondev_yy,epsilondev_xy, &
+                                        epsilondev_xz,epsilondev_yz, &
+                                        epsilon_trace_over_3, &
+                                        alphaval,betaval,gammaval, &
+                                        factor_common,vnspec)
+
+! wrapper function, decides about Deville optimization
+!
+! (left in this file to let compiler decide about inlining)
+
+  use constants_solver, only: CUSTOM_REAL,NDIM,NGLLX,NGLLY,NGLLZ,USE_DEVILLE_PRODUCTS_VAL, &
+    ATT1_VAL,ATT2_VAL,ATT3_VAL,N_SLS,NSPEC_INNER_CORE_STRAIN_ONLY
+
+  ! note: passes sum_terms array as subroutine argument which will help for performance (better than use-statement)
+  use specfem_par_innercore, only: sum_terms_inner_core
+
+  implicit none
+
+  integer,intent(in) :: NSPEC,NGLOB,NSPEC_ATT
+
+  ! time step
+  real(kind=CUSTOM_REAL),intent(in) :: deltat
+
+  ! displacement and acceleration
+  real(kind=CUSTOM_REAL), dimension(NDIM,NGLOB),intent(in) :: displ_inner_core
+  real(kind=CUSTOM_REAL), dimension(NDIM,NGLOB),intent(inout) :: accel_inner_core
+
+  ! for attenuation
+  ! memory variables R_ij are stored at the local rather than global level
+  ! to allow for optimization of cache access by compiler
+  ! variable lengths for factor_common and one_minus_sum_beta
+  integer,intent(in) :: vnspec
+  real(kind=CUSTOM_REAL), dimension(ATT1_VAL,ATT2_VAL,ATT3_VAL,N_SLS,vnspec),intent(in) :: factor_common
+  real(kind=CUSTOM_REAL), dimension(N_SLS),intent(in) :: alphaval,betaval,gammaval
+
+  real(kind=CUSTOM_REAL), dimension(NGLLX,NGLLY,NGLLZ,N_SLS,NSPEC_ATT),intent(inout) :: R_xx,R_yy,R_xy,R_xz,R_yz
+
+  real(kind=CUSTOM_REAL), dimension(NGLLX,NGLLY,NGLLZ,N_SLS,NSPEC_ATT),intent(inout) :: &
+    R_xx_lddrk,R_yy_lddrk,R_xy_lddrk,R_xz_lddrk,R_yz_lddrk
+
+  real(kind=CUSTOM_REAL), dimension(NGLLX,NGLLY,NGLLZ,NSPEC),intent(inout) :: &
+    epsilondev_xx,epsilondev_yy,epsilondev_xy,epsilondev_xz,epsilondev_yz
+
+  real(kind=CUSTOM_REAL), dimension(NGLLX,NGLLY,NGLLZ,NSPEC_INNER_CORE_STRAIN_ONLY),intent(inout) :: epsilon_trace_over_3
+
+  ! inner/outer element run flag
+  integer,intent(in) :: iphase
+
+  if (USE_DEVILLE_PRODUCTS_VAL) then
+    ! uses Deville (2002) optimizations
+    call compute_forces_inner_core_Dev(NSPEC,NGLOB,NSPEC_ATT, &
+                                       deltat, &
+                                       displ_inner_core, &
+                                       accel_inner_core, &
+                                       iphase, &
+                                       R_xx,R_yy,R_xy,R_xz,R_yz, &
+                                       R_xx_lddrk,R_yy_lddrk,R_xy_lddrk,R_xz_lddrk,R_yz_lddrk, &
+                                       epsilondev_xx,epsilondev_yy,epsilondev_xy,epsilondev_xz,epsilondev_yz, &
+                                       epsilon_trace_over_3, &
+                                       alphaval,betaval,gammaval, &
+                                       factor_common,vnspec,sum_terms_inner_core)
+  else
+    ! no Deville optimization
+    call compute_forces_inner_core_noDev(NSPEC,NGLOB,NSPEC_ATT, &
+                                         deltat, &
+                                         displ_inner_core, &
+                                         accel_inner_core, &
+                                         iphase, &
+                                         R_xx,R_yy,R_xy,R_xz,R_yz, &
+                                         R_xx_lddrk,R_yy_lddrk,R_xy_lddrk,R_xz_lddrk,R_yz_lddrk, &
+                                         epsilondev_xx,epsilondev_yy,epsilondev_xy,epsilondev_xz,epsilondev_yz, &
+                                         epsilon_trace_over_3, &
+                                         alphaval,betaval,gammaval, &
+                                         factor_common,vnspec)
+  endif
+
+  end subroutine compute_forces_inner_core
 

@@ -11,7 +11,7 @@
 !
 ! This program is free software; you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by
-! the Free Software Foundation; either version 2 of the License, or
+! the Free Software Foundation; either version 3 of the License, or
 ! (at your option) any later version.
 !
 ! This program is distributed in the hope that it will be useful,
@@ -25,21 +25,22 @@
 !
 !=====================================================================
 
-  subroutine save_arrays_solver(myrank,nspec,nglob,idoubling,ibool, &
-                                iregion_code,xstore,ystore,zstore, &
+  subroutine save_arrays_solver(idoubling,ibool,xstore,ystore,zstore, &
                                 NSPEC2D_TOP,NSPEC2D_BOTTOM)
 
   use constants
 
-  use meshfem3D_models_par,only: &
+  use meshfem3D_models_par, only: &
     OCEANS,TRANSVERSE_ISOTROPY,HETEROGEN_3D_MANTLE,ANISOTROPIC_3D_MANTLE, &
     ANISOTROPIC_INNER_CORE,ATTENUATION
 
-  use meshfem3D_par,only: &
+  use meshfem3D_par, only: &
+    nspec,nglob,iregion_code, &
     NCHUNKS,ABSORBING_CONDITIONS,SAVE_MESH_FILES, &
-    ROTATION,EXACT_MASS_MATRIX_FOR_ROTATION
+    ROTATION,EXACT_MASS_MATRIX_FOR_ROTATION, &
+    OUTPUT_FILES,xstore_glob,ystore_glob,zstore_glob
 
-  use create_regions_mesh_par2,only: &
+  use regions_mesh_par2, only: &
     xixstore,xiystore,xizstore,etaxstore,etaystore,etazstore, &
     gammaxstore,gammaystore,gammazstore, &
     rhostore,dvpstore,kappavstore,kappahstore,muvstore,muhstore,eta_anisostore, &
@@ -59,14 +60,9 @@
 
   implicit none
 
-  integer,intent(in) :: myrank
-  integer,intent(in) :: nspec,nglob
-
   ! doubling mesh flag
   integer,dimension(nspec),intent(in) :: idoubling
   integer,dimension(NGLLX,NGLLY,NGLLZ,nspec),intent(in) :: ibool
-
-  integer,intent(in) :: iregion_code
 
   ! arrays with the mesh in double precision
   double precision,dimension(NGLLX,NGLLY,NGLLZ,nspec),intent(in) :: xstore,ystore,zstore
@@ -77,6 +73,10 @@
   ! local parameters
   integer :: i,j,k,ispec,iglob,ier
   real(kind=CUSTOM_REAL),dimension(:),allocatable :: tmp_array
+
+  ! debug file output
+  character(len=MAX_STRING_LEN) :: filename
+  logical,parameter :: DEBUG = .false.
 
   ! mesh databases
   open(unit=IOUT,file=prname(1:len_trim(prname))//'solver_data.bin', &
@@ -241,9 +241,8 @@
   write(IOUT) rmassz
 
   ! mass matrices for backward simulation when ROTATION is .true.
-  if (EXACT_MASS_MATRIX_FOR_ROTATION) then
-    if ((ROTATION .and. iregion_code == IREGION_CRUST_MANTLE) .or. &
-       (ROTATION .and. iregion_code == IREGION_INNER_CORE)) then
+  if (ROTATION .and. EXACT_MASS_MATRIX_FOR_ROTATION) then
+    if (iregion_code == IREGION_CRUST_MANTLE .or. iregion_code == IREGION_INNER_CORE) then
        write(IOUT) b_rmassx
        write(IOUT) b_rmassy
     endif
@@ -312,7 +311,16 @@
   ! uncomment for vp & vs model storage
   if (SAVE_MESH_FILES) then
     ! outputs model files in binary format
-    call save_arrays_solver_meshfiles(myrank,nspec)
+    call save_arrays_solver_meshfiles()
+  endif
+
+  ! debug outputs flags as vtk file
+  if (DEBUG) then
+    if (iregion_code == IREGION_CRUST_MANTLE) then
+      write(filename,'(a,i6.6)') trim(OUTPUT_FILES)//'/ispec_is_tiso',myrank
+      call write_VTK_data_elem_l(nspec,nglob,xstore_glob,ystore_glob,zstore_glob,ibool, &
+                                 ispec_is_tiso,filename)
+    endif
   endif
 
   end subroutine save_arrays_solver
@@ -321,24 +329,23 @@
 !-------------------------------------------------------------------------------------------------
 !
 
-  subroutine save_arrays_solver_meshfiles(myrank,nspec)
+  subroutine save_arrays_solver_meshfiles()
 
 ! outputs model files in binary format
 
   use constants
 
-  use meshfem3D_models_par,only: &
+  use meshfem3D_par, only: nspec
+
+  use meshfem3D_models_par, only: &
     TRANSVERSE_ISOTROPY,ATTENUATION,ATTENUATION_3D,ATTENUATION_1D_WITH_3D_STORAGE
 
-  use create_regions_mesh_par2,only: &
+  use regions_mesh_par2, only: &
     rhostore,kappavstore,kappahstore,muvstore,muhstore,eta_anisostore, &
     Qmu_store, &
     prname
 
   implicit none
-
-  integer :: myrank
-  integer :: nspec
 
   ! local parameters
   integer :: i,j,k,ispec,ier
@@ -349,27 +356,36 @@
   scaleval1 = sngl( sqrt(PI*GRAV*RHOAV)*(R_EARTH/1000.0d0) )
   scaleval2 = sngl( RHOAV/1000.0d0 )
 
+  ! uses temporary array
+  allocate(temp_store(NGLLX,NGLLY,NGLLZ,nspec),stat=ier)
+  if (ier /= 0) stop 'Error allocating temp_store array'
+  temp_store(:,:,:,:) = 0._CUSTOM_REAL
+
   ! isotropic model
   ! vp
   open(unit=IOUT,file=prname(1:len_trim(prname))//'vp.bin', &
        status='unknown',form='unformatted',action='write',iostat=ier)
   if (ier /= 0 ) call exit_mpi(myrank,'Error opening vp.bin file')
 
-  write(IOUT) sqrt( (kappavstore+4.*muvstore/3.)/rhostore )*scaleval1
+  temp_store(:,:,:,:) = sqrt((kappavstore(:,:,:,:) + 4.0_CUSTOM_REAL * muvstore(:,:,:,:)/3.0_CUSTOM_REAL)/rhostore(:,:,:,:)) &
+                        * scaleval1
+  write(IOUT) temp_store
   close(IOUT)
   ! vs
   open(unit=IOUT,file=prname(1:len_trim(prname))//'vs.bin', &
         status='unknown',form='unformatted',action='write',iostat=ier)
   if (ier /= 0 ) call exit_mpi(myrank,'Error opening vs.bin file')
 
-  write(IOUT) sqrt( muvstore/rhostore )*scaleval1
+  temp_store(:,:,:,:) = sqrt( muvstore(:,:,:,:)/rhostore(:,:,:,:) )*scaleval1
+  write(IOUT) temp_store
   close(IOUT)
   ! rho
   open(unit=IOUT,file=prname(1:len_trim(prname))//'rho.bin', &
         status='unknown',form='unformatted',action='write',iostat=ier)
   if (ier /= 0 ) call exit_mpi(myrank,'Error opening rho.bin file')
 
-  write(IOUT) rhostore*scaleval2
+  temp_store(:,:,:,:) = rhostore(:,:,:,:) * scaleval2
+  write(IOUT) temp_store
   close(IOUT)
 
   ! transverse isotropic model
@@ -379,50 +395,59 @@
           status='unknown',form='unformatted',action='write',iostat=ier)
     if (ier /= 0 ) call exit_mpi(myrank,'Error opening vpv.bin file')
 
-    write(IOUT) sqrt( (kappavstore+4.*muvstore/3.)/rhostore )*scaleval1
+    temp_store(:,:,:,:) = sqrt((kappavstore(:,:,:,:) + 4.0_CUSTOM_REAL * muvstore(:,:,:,:)/3.0_CUSTOM_REAL)/rhostore(:,:,:,:)) &
+                          * scaleval1
+    write(IOUT) temp_store
     close(IOUT)
+
     ! vph
     open(unit=IOUT,file=prname(1:len_trim(prname))//'vph.bin', &
           status='unknown',form='unformatted',action='write',iostat=ier)
     if (ier /= 0 ) call exit_mpi(myrank,'Error opening vph.bin file')
 
-    write(IOUT) sqrt( (kappahstore+4.*muhstore/3.)/rhostore )*scaleval1
+    temp_store(:,:,:,:) = sqrt((kappahstore(:,:,:,:) + 4.0_CUSTOM_REAL * muhstore(:,:,:,:)/3.0_CUSTOM_REAL)/rhostore(:,:,:,:)) &
+                          * scaleval1
+    write(IOUT) temp_store
     close(IOUT)
+
     ! vsv
     open(unit=IOUT,file=prname(1:len_trim(prname))//'vsv.bin', &
           status='unknown',form='unformatted',action='write',iostat=ier)
     if (ier /= 0 ) call exit_mpi(myrank,'Error opening vsv.bin file')
 
-    write(IOUT) sqrt( muvstore/rhostore )*scaleval1
+    temp_store(:,:,:,:) = sqrt( muvstore(:,:,:,:)/rhostore(:,:,:,:) )*scaleval1
+    write(IOUT) temp_store
     close(IOUT)
+
     ! vsh
     open(unit=IOUT,file=prname(1:len_trim(prname))//'vsh.bin', &
           status='unknown',form='unformatted',action='write',iostat=ier)
     if (ier /= 0 ) call exit_mpi(myrank,'Error opening vsh.bin file')
 
-    write(IOUT) sqrt( muhstore/rhostore )*scaleval1
+    temp_store(:,:,:,:) = sqrt( muhstore(:,:,:,:)/rhostore(:,:,:,:) )*scaleval1
+    write(IOUT) temp_store
     close(IOUT)
+
     ! rho
     open(unit=IOUT,file=prname(1:len_trim(prname))//'rho.bin', &
           status='unknown',form='unformatted',action='write',iostat=ier)
     if (ier /= 0 ) call exit_mpi(myrank,'Error opening rho.bin file')
 
-    write(IOUT) rhostore*scaleval2
+    temp_store(:,:,:,:) = rhostore(:,:,:,:) * scaleval2
+    write(IOUT) temp_store
     close(IOUT)
+
     ! eta
     open(unit=IOUT,file=prname(1:len_trim(prname))//'eta.bin', &
           status='unknown',form='unformatted',action='write',iostat=ier)
     if (ier /= 0 ) call exit_mpi(myrank,'Error opening eta.bin file')
-
     write(IOUT) eta_anisostore
     close(IOUT)
   endif ! TRANSVERSE_ISOTROPY
 
   ! shear attenuation
   if (ATTENUATION) then
-    ! saves Qmu_store to full custom_real array
-    ! uses temporary array
-    allocate(temp_store(NGLLX,NGLLY,NGLLZ,nspec))
+    ! saves Qmu_store to full CUSTOM_REAL array
     if (ATTENUATION_3D .or. ATTENUATION_1D_WITH_3D_STORAGE) then
       ! attenuation arrays are fully 3D
       temp_store(:,:,:,:) = Qmu_store(:,:,:,:)
@@ -443,13 +468,12 @@
     open(unit=IOUT,file=prname(1:len_trim(prname))//'qmu.bin', &
           status='unknown',form='unformatted',action='write',iostat=ier)
     if (ier /= 0 ) call exit_mpi(myrank,'Error opening qmu.bin file')
-
     write(IOUT) temp_store
     close(IOUT)
-
-    ! frees temporary memory
-    deallocate(temp_store)
   endif ! ATTENUATION
+
+  ! frees temporary memory
+  deallocate(temp_store)
 
   end subroutine save_arrays_solver_meshfiles
 !
@@ -457,14 +481,14 @@
 !
 
 
-  subroutine save_arrays_solver_MPI(iregion_code)
+  subroutine save_arrays_solver_MPI()
 
-  use meshfem3D_par,only: &
-    myrank,LOCAL_PATH, &
+  use meshfem3D_par, only: &
+    iregion_code,LOCAL_PATH, &
     IREGION_CRUST_MANTLE,IREGION_OUTER_CORE,IREGION_INNER_CORE, &
     ADIOS_FOR_MPI_ARRAYS
 
-!  use create_MPI_interfaces_par
+!  use MPI_interfaces_par
 
   use MPI_crust_mantle_par
   use MPI_outer_core_par
@@ -472,24 +496,22 @@
 
   implicit none
 
-  integer,intent(in):: iregion_code
-
   select case (iregion_code)
   case (IREGION_CRUST_MANTLE)
     ! crust mantle
     if (ADIOS_FOR_MPI_ARRAYS) then
-      call save_MPI_arrays_adios(myrank,IREGION_CRUST_MANTLE,LOCAL_PATH, &
+      call save_MPI_arrays_adios(IREGION_CRUST_MANTLE,LOCAL_PATH, &
                                   num_interfaces_crust_mantle,max_nibool_interfaces_cm, &
-                                  my_neighbours_crust_mantle,nibool_interfaces_crust_mantle, &
+                                  my_neighbors_crust_mantle,nibool_interfaces_crust_mantle, &
                                   ibool_interfaces_crust_mantle, &
                                   nspec_inner_crust_mantle,nspec_outer_crust_mantle, &
                                   num_phase_ispec_crust_mantle,phase_ispec_inner_crust_mantle, &
                                   num_colors_outer_crust_mantle,num_colors_inner_crust_mantle, &
                                   num_elem_colors_crust_mantle)
     else
-      call save_MPI_arrays(myrank,IREGION_CRUST_MANTLE,LOCAL_PATH, &
+      call save_MPI_arrays(IREGION_CRUST_MANTLE,LOCAL_PATH, &
                             num_interfaces_crust_mantle,max_nibool_interfaces_cm, &
-                            my_neighbours_crust_mantle,nibool_interfaces_crust_mantle, &
+                            my_neighbors_crust_mantle,nibool_interfaces_crust_mantle, &
                             ibool_interfaces_crust_mantle, &
                             nspec_inner_crust_mantle,nspec_outer_crust_mantle, &
                             num_phase_ispec_crust_mantle,phase_ispec_inner_crust_mantle, &
@@ -500,18 +522,18 @@
   case (IREGION_OUTER_CORE)
     ! outer core
     if (ADIOS_FOR_MPI_ARRAYS) then
-      call save_MPI_arrays_adios(myrank,IREGION_OUTER_CORE,LOCAL_PATH, &
+      call save_MPI_arrays_adios(IREGION_OUTER_CORE,LOCAL_PATH, &
                                   num_interfaces_outer_core,max_nibool_interfaces_oc, &
-                                  my_neighbours_outer_core,nibool_interfaces_outer_core, &
+                                  my_neighbors_outer_core,nibool_interfaces_outer_core, &
                                   ibool_interfaces_outer_core, &
                                   nspec_inner_outer_core,nspec_outer_outer_core, &
                                   num_phase_ispec_outer_core,phase_ispec_inner_outer_core, &
                                   num_colors_outer_outer_core,num_colors_inner_outer_core, &
                                   num_elem_colors_outer_core)
     else
-      call save_MPI_arrays(myrank,IREGION_OUTER_CORE,LOCAL_PATH, &
+      call save_MPI_arrays(IREGION_OUTER_CORE,LOCAL_PATH, &
                             num_interfaces_outer_core,max_nibool_interfaces_oc, &
-                            my_neighbours_outer_core,nibool_interfaces_outer_core, &
+                            my_neighbors_outer_core,nibool_interfaces_outer_core, &
                             ibool_interfaces_outer_core, &
                             nspec_inner_outer_core,nspec_outer_outer_core, &
                             num_phase_ispec_outer_core,phase_ispec_inner_outer_core, &
@@ -522,18 +544,18 @@
   case (IREGION_INNER_CORE)
     ! inner core
     if (ADIOS_FOR_MPI_ARRAYS) then
-      call save_MPI_arrays_adios(myrank,IREGION_INNER_CORE,LOCAL_PATH, &
+      call save_MPI_arrays_adios(IREGION_INNER_CORE,LOCAL_PATH, &
                                   num_interfaces_inner_core,max_nibool_interfaces_ic, &
-                                  my_neighbours_inner_core,nibool_interfaces_inner_core, &
+                                  my_neighbors_inner_core,nibool_interfaces_inner_core, &
                                   ibool_interfaces_inner_core, &
                                   nspec_inner_inner_core,nspec_outer_inner_core, &
                                   num_phase_ispec_inner_core,phase_ispec_inner_inner_core, &
                                   num_colors_outer_inner_core,num_colors_inner_inner_core, &
                                   num_elem_colors_inner_core)
     else
-      call save_MPI_arrays(myrank,IREGION_INNER_CORE,LOCAL_PATH, &
+      call save_MPI_arrays(IREGION_INNER_CORE,LOCAL_PATH, &
                             num_interfaces_inner_core,max_nibool_interfaces_ic, &
-                            my_neighbours_inner_core,nibool_interfaces_inner_core, &
+                            my_neighbors_inner_core,nibool_interfaces_inner_core, &
                             ibool_interfaces_inner_core, &
                             nspec_inner_inner_core,nspec_outer_inner_core, &
                             num_phase_ispec_inner_core,phase_ispec_inner_inner_core, &
@@ -549,9 +571,9 @@
 !-------------------------------------------------------------------------------------------------
 !
 
-  subroutine save_MPI_arrays(myrank,iregion_code,LOCAL_PATH, &
+  subroutine save_MPI_arrays(iregion_code,LOCAL_PATH, &
                                   num_interfaces,max_nibool_interfaces, &
-                                  my_neighbours,nibool_interfaces, &
+                                  my_neighbors,nibool_interfaces, &
                                   ibool_interfaces, &
                                   nspec_inner,nspec_outer, &
                                   num_phase_ispec,phase_ispec_inner, &
@@ -561,25 +583,25 @@
 
   implicit none
 
-  integer :: iregion_code,myrank
+  integer,intent(in) :: iregion_code
 
-  character(len=MAX_STRING_LEN) :: LOCAL_PATH
+  character(len=MAX_STRING_LEN),intent(in) :: LOCAL_PATH
 
   ! MPI interfaces
-  integer :: num_interfaces,max_nibool_interfaces
-  integer, dimension(num_interfaces) :: my_neighbours
-  integer, dimension(num_interfaces) :: nibool_interfaces
-  integer, dimension(max_nibool_interfaces,num_interfaces) :: &
+  integer,intent(in) :: num_interfaces,max_nibool_interfaces
+  integer, dimension(num_interfaces),intent(in) :: my_neighbors
+  integer, dimension(num_interfaces),intent(in) :: nibool_interfaces
+  integer, dimension(max_nibool_interfaces,num_interfaces),intent(in) :: &
     ibool_interfaces
 
   ! inner/outer elements
-  integer :: nspec_inner,nspec_outer
-  integer :: num_phase_ispec
-  integer,dimension(num_phase_ispec,2) :: phase_ispec_inner
+  integer,intent(in) :: nspec_inner,nspec_outer
+  integer,intent(in) :: num_phase_ispec
+  integer,dimension(num_phase_ispec,2),intent(in) :: phase_ispec_inner
 
   ! mesh coloring
-  integer :: num_colors_outer,num_colors_inner
-  integer, dimension(num_colors_outer + num_colors_inner) :: &
+  integer,intent(in) :: num_colors_outer,num_colors_inner
+  integer, dimension(num_colors_outer + num_colors_inner),intent(in) :: &
     num_elem_colors
 
   ! local parameters
@@ -597,7 +619,7 @@
   write(IOUT) num_interfaces
   if (num_interfaces > 0) then
     write(IOUT) max_nibool_interfaces
-    write(IOUT) my_neighbours
+    write(IOUT) my_neighbors
     write(IOUT) nibool_interfaces
     write(IOUT) ibool_interfaces
   endif
@@ -626,15 +648,16 @@
 
 ! saves arrays for boundaries such as MOHO, 400 and 670 discontinuities
 
-  use constants,only: IOUT
+  use constants, only: IOUT
 
-  use meshfem3d_par,only: &
+  use meshfem3d_par, only: &
     myrank
 
-  use meshfem3D_models_par,only: &
+  use meshfem3D_models_par, only: &
     SAVE_BOUNDARY_MESH,HONOR_1D_SPHERICAL_MOHO,SUPPRESS_CRUSTAL_MESH
 
-  use create_regions_mesh_par2, only: &
+! boundary kernels
+  use regions_mesh_par2, only: &
     NSPEC2D_MOHO, NSPEC2D_400, NSPEC2D_670, &
     ibelm_moho_top,ibelm_moho_bot,ibelm_400_top,ibelm_400_bot, &
     ibelm_670_top,ibelm_670_bot,normal_moho,normal_400,normal_670, &

@@ -11,7 +11,7 @@
 !
 ! This program is free software; you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by
-! the Free Software Foundation; either version 2 of the License, or
+! the Free Software Foundation; either version 3 of the License, or
 ! (at your option) any later version.
 !
 ! This program is distributed in the hope that it will be useful,
@@ -63,9 +63,9 @@ end subroutine print_usage_adios
 
 subroutine read_args_adios(arg, MAX_NUM_NODES, node_list, num_node, &
                            var_name, value_file_name, mesh_file_name, &
-                           outdir, ires, irs, ire)
+                           outdir, ires, irs, ire, NPROCTOT)
 
-  use constants,only: IIN
+  use constants, only: IIN,MAX_STRING_LEN
 
   implicit none
   ! Arguments
@@ -75,27 +75,40 @@ subroutine read_args_adios(arg, MAX_NUM_NODES, node_list, num_node, &
   integer, intent(out) :: num_node, ires, irs, ire
   character(len=*), intent(out) :: var_name, value_file_name, mesh_file_name, &
                                    outdir
+  integer, intent(in) :: NPROCTOT
+
   ! Variables
-  character(len=256) :: sline
-  integer :: ios, njunk, iregion
+  character(len=MAX_STRING_LEN) :: sline,slice_list_name
+  integer :: i, ios, njunk, iregion
 
   if ((command_argument_count() == 6) .or. (command_argument_count() == 7)) then
     num_node = 0
-    open(unit = IIN, file = trim(arg(1)), status = 'unknown',iostat = ios)
-    if (ios /= 0) then
-      print *,'Error opening slice file ',trim(arg(1))
-      stop
+    slice_list_name = arg(1)
+    if (trim(slice_list_name) == 'all') then
+      ! combines all slices
+      do i = 0,NPROCTOT-1
+        num_node = num_node + 1
+        if (num_node > MAX_NUM_NODES ) stop 'Error number of slices exceeds MAX_NUM_NODES...'
+        node_list(num_node) = i
+      enddo
+    else
+      ! reads in slices file
+      open(unit = IIN, file = trim(slice_list_name), status = 'unknown',iostat = ios)
+      if (ios /= 0) then
+        print *,'Error opening slice file ',trim(slice_list_name)
+        stop
+      endif
+      do while ( 1 == 1)
+        read(IIN,'(a)',iostat=ios) sline
+        if (ios /= 0) exit
+        read(sline,*,iostat=ios) njunk
+        if (ios /= 0) exit
+        num_node = num_node + 1
+        if (num_node > MAX_NUM_NODES ) stop 'Error number of slices exceeds MAX_NUM_NODES...'
+        node_list(num_node) = njunk
+      enddo
+      close(IIN)
     endif
-    do while ( 1 == 1)
-      read(IIN,'(a)',iostat=ios) sline
-      if (ios /= 0) exit
-      read(sline,*,iostat=ios) njunk
-      if (ios /= 0) exit
-      num_node = num_node + 1
-      if (num_node > MAX_NUM_NODES ) stop 'Error number of slices exceeds MAX_NUM_NODES...'
-      node_list(num_node) = njunk
-    enddo
-    close(IIN)
     var_name = arg(2)
     value_file_name = arg(3)
     mesh_file_name = arg(4)
@@ -134,7 +147,7 @@ subroutine init_adios(value_file_name, mesh_file_name, value_handle, mesh_handle
   integer :: ier
   integer :: comm
 
-  call world_get_comm(comm)
+  call world_duplicate(comm)
 
   call adios_read_init_method(ADIOS_READ_METHOD_BP, comm, "verbose=1", ier)
   if (ier /= 0 ) stop 'Error in adios_read_init_method()'
@@ -205,7 +218,7 @@ end subroutine read_scalars_adios_mesh
 subroutine read_coordinates_adios_mesh(mesh_handle, iproc, ir, nglob, nspec, &
                                        xstore, ystore, zstore, ibool)
 
-  use constants,only: CUSTOM_REAL,NGLLX,NGLLY,NGLLZ
+  use constants, only: CUSTOM_REAL,NGLLX,NGLLY,NGLLZ
 
   implicit none
   ! Parameters
@@ -265,7 +278,7 @@ end subroutine read_coordinates_adios_mesh
 
 subroutine read_values_adios(value_handle, var_name, iproc, ir, nspec, data)
 
-  use constants,only: CUSTOM_REAL,NGLLX,NGLLY,NGLLZ,IREGION_CRUST_MANTLE,IREGION_INNER_CORE,IREGION_OUTER_CORE
+  use constants, only: CUSTOM_REAL,NGLLX,NGLLY,NGLLZ,IREGION_CRUST_MANTLE,IREGION_INNER_CORE,IREGION_OUTER_CORE
 
   implicit none
   ! Parameters

@@ -11,7 +11,7 @@
 !
 ! This program is free software; you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by
-! the Free Software Foundation; either version 2 of the License, or
+! the Free Software Foundation; either version 3 of the License, or
 ! (at your option) any later version.
 !
 ! This program is distributed in the hope that it will be useful,
@@ -33,12 +33,12 @@
 
   use constants_solver
 
-  use specfem_par,only: &
+  use specfem_par, only: &
     NTSTEP_BETWEEN_OUTPUT_SEISMOS, &
     nrec_local,nu,ispec_selected_rec,number_receiver_global, &
     scale_displ,hlagrange_store
 
-  use specfem_par_crustmantle,only: ibool_crust_mantle
+  use specfem_par_crustmantle, only: ibool_crust_mantle
 
   implicit none
 
@@ -106,24 +106,24 @@
                                          moment_der,sloc_der,stshift_der,shdur_der, &
                                          seismograms)
 
-  use constants_solver,only: &
+  use constants_solver, only: &
     CUSTOM_REAL,SIZE_REAL,ZERO,ONE,PI,GRAV,RHOAV,NGLLX,NGLLY,NGLLZ, NGLLCUBE, &
     NDIM,NGLOB_CRUST_MANTLE,NSPEC_CRUST_MANTLE, &
     NSPEC_CRUST_MANTLE_STRAIN_ONLY,NSPEC_CRUST_MANTLE_STR_OR_ATT
 
-  use specfem_par,only: &
+  use specfem_par, only: &
     NSTEP,NTSTEP_BETWEEN_OUTPUT_SEISMOS,UNDO_ATTENUATION, &
     nrec_local, &
     nu_source,Mxx,Myy,Mzz,Mxy,Mxz,Myz, &
     hlagrange_store, &
     hxir_store,hpxir_store,hetar_store,hpetar_store,hgammar_store,hpgammar_store, &
-    tshift_cmt,hdur_gaussian, &
+    tshift_src,hdur_Gaussian, &
     DT,t0,deltat,it, &
-    scale_displ, &
+    scale_displ,scale_t, &
     hprime_xx,hprime_yy,hprime_zz, &
     ispec_selected_source,number_receiver_global
 
-  use specfem_par_crustmantle,only: ibool_crust_mantle, &
+  use specfem_par_crustmantle, only: ibool_crust_mantle, &
     xix_crust_mantle,xiy_crust_mantle,xiz_crust_mantle, &
     etax_crust_mantle,etay_crust_mantle,etaz_crust_mantle, &
     gammax_crust_mantle,gammay_crust_mantle,gammaz_crust_mantle
@@ -152,8 +152,7 @@
   double precision :: uxd,uyd,uzd,hlagrange
   double precision :: eps_trace,dxx,dyy,dxy,dxz,dyz
   double precision :: eps_loc(NDIM,NDIM), eps_loc_new(NDIM,NDIM)
-  double precision :: stf
-  double precision :: scale_t
+  double precision :: stf,timeval
 
   real(kind=CUSTOM_REAL) :: displ_s(NDIM,NGLLX,NGLLY,NGLLZ)
   real(kind=CUSTOM_REAL) :: eps_s(NDIM,NDIM), eps_m_s, &
@@ -163,8 +162,8 @@
   double precision, external :: comp_source_time_function
 
   ! element strain
-  real(kind=CUSTOM_REAL), dimension(NGLLX,NGLLY,NGLLZ) :: eps_trace_over_3_loc_cm
-  real(kind=CUSTOM_REAL), dimension(NGLLX,NGLLY,NGLLZ,5) :: epsilondev_loc_crust_mantle
+  real(kind=CUSTOM_REAL), dimension(NGLLX,NGLLY,NGLLZ) :: eps_trace_over_3_loc
+  real(kind=CUSTOM_REAL), dimension(5,NGLLX,NGLLY,NGLLZ) :: epsilondev_loc_matrix
 
   double precision :: hxir(NGLLX), hetar(NGLLY), hgammar(NGLLZ), &
                       hpxir(NGLLX),hpetar(NGLLY),hpgammar(NGLLZ)
@@ -202,15 +201,15 @@
                                                 xix_crust_mantle,xiy_crust_mantle,xiz_crust_mantle, &
                                                 etax_crust_mantle,etay_crust_mantle,etaz_crust_mantle, &
                                                 gammax_crust_mantle,gammay_crust_mantle,gammaz_crust_mantle, &
-                                                epsilondev_loc_crust_mantle,eps_trace_over_3_loc_cm)
+                                                epsilondev_loc_matrix,eps_trace_over_3_loc)
     else
       ! element adjoint strain
-      eps_trace_over_3_loc_cm(:,:,:) = eps_trace_over_3_crust_mantle(:,:,:,ispec)
-      epsilondev_loc_crust_mantle(:,:,:,1) = epsilondev_xx_crust_mantle(:,:,:,ispec)
-      epsilondev_loc_crust_mantle(:,:,:,2) = epsilondev_yy_crust_mantle(:,:,:,ispec)
-      epsilondev_loc_crust_mantle(:,:,:,3) = epsilondev_xy_crust_mantle(:,:,:,ispec)
-      epsilondev_loc_crust_mantle(:,:,:,4) = epsilondev_xz_crust_mantle(:,:,:,ispec)
-      epsilondev_loc_crust_mantle(:,:,:,5) = epsilondev_yz_crust_mantle(:,:,:,ispec)
+      eps_trace_over_3_loc(:,:,:) = eps_trace_over_3_crust_mantle(:,:,:,ispec)
+      epsilondev_loc_matrix(1,:,:,:) = epsilondev_xx_crust_mantle(:,:,:,ispec)
+      epsilondev_loc_matrix(2,:,:,:) = epsilondev_yy_crust_mantle(:,:,:,ispec)
+      epsilondev_loc_matrix(3,:,:,:) = epsilondev_xy_crust_mantle(:,:,:,ispec)
+      epsilondev_loc_matrix(4,:,:,:) = epsilondev_xz_crust_mantle(:,:,:,ispec)
+      epsilondev_loc_matrix(5,:,:,:) = epsilondev_yz_crust_mantle(:,:,:,ispec)
     endif
 
     ! perform the general interpolation using Lagrange polynomials
@@ -224,13 +223,13 @@
       uyd = uyd + dble(displ_crust_mantle(2,iglob))*hlagrange
       uzd = uzd + dble(displ_crust_mantle(3,iglob))*hlagrange
 
-      eps_trace = eps_trace + dble(eps_trace_over_3_loc_cm(INDEX_IJK))*hlagrange
+      eps_trace = eps_trace + dble(eps_trace_over_3_loc(INDEX_IJK))*hlagrange
 
-      dxx = dxx + dble(epsilondev_loc_crust_mantle(INDEX_IJK,1))*hlagrange
-      dyy = dyy + dble(epsilondev_loc_crust_mantle(INDEX_IJK,2))*hlagrange
-      dxy = dxy + dble(epsilondev_loc_crust_mantle(INDEX_IJK,3))*hlagrange
-      dxz = dxz + dble(epsilondev_loc_crust_mantle(INDEX_IJK,4))*hlagrange
-      dyz = dyz + dble(epsilondev_loc_crust_mantle(INDEX_IJK,5))*hlagrange
+      dxx = dxx + dble(epsilondev_loc_matrix(1,INDEX_IJK))*hlagrange
+      dyy = dyy + dble(epsilondev_loc_matrix(2,INDEX_IJK))*hlagrange
+      dxy = dxy + dble(epsilondev_loc_matrix(3,INDEX_IJK))*hlagrange
+      dxz = dxz + dble(epsilondev_loc_matrix(4,INDEX_IJK))*hlagrange
+      dyz = dyz + dble(epsilondev_loc_matrix(5,INDEX_IJK))*hlagrange
 
       displ_s(:,INDEX_IJK) = displ_crust_mantle(:,iglob)
 
@@ -258,9 +257,9 @@
     seismograms(5,irec_local,it-it_adj_written) = real(eps_loc_new(1,3), kind=CUSTOM_REAL)
     seismograms(6,irec_local,it-it_adj_written) = real(eps_loc_new(2,3), kind=CUSTOM_REAL)
     seismograms(7:9,irec_local,it-it_adj_written) = real(scale_displ*(nu_source(:,1,irec)*uxd + &
-                                                                   nu_source(:,2,irec)*uyd + &
-                                                                   nu_source(:,3,irec)*uzd), &
-                                                      kind=CUSTOM_REAL)
+                                                                      nu_source(:,2,irec)*uyd + &
+                                                                      nu_source(:,3,irec)*uzd), &
+                                                                      kind=CUSTOM_REAL)
 
     ! interpolators
     ! note: we explicitly copy the store arrays to local temporary arrays here
@@ -282,20 +281,23 @@
                 etax_crust_mantle(1,1,1,ispec),etay_crust_mantle(1,1,1,ispec),etaz_crust_mantle(1,1,1,ispec), &
                 gammax_crust_mantle(1,1,1,ispec),gammay_crust_mantle(1,1,1,ispec),gammaz_crust_mantle(1,1,1,ispec))
 
-    stf = comp_source_time_function(dble(NSTEP-it)*DT-t0-tshift_cmt(irec),hdur_gaussian(irec))
+    timeval = dble(NSTEP-it)*DT-t0-tshift_src(irec)
+
+    stf = comp_source_time_function(timeval,hdur_Gaussian(irec))
+
     stf_deltat = stf * deltat
 
+    ! moment derivatives
     moment_der(:,:,irec_local) = moment_der(:,:,irec_local) + eps_s(:,:) * stf_deltat
+
+    ! location derivatives
     sloc_der(:,irec_local) = sloc_der(:,irec_local) + eps_m_l_s(:) * stf_deltat
 
-    scale_t = ONE/dsqrt(PI*GRAV*RHOAV)
-
-    Kp_deltat= -1.0d0/sqrt(PI)/hdur_gaussian(irec)*exp(-((dble(NSTEP-it)*DT-t0-tshift_cmt(irec))/hdur_gaussian(irec))**2) &
-                       * deltat * scale_t
-    Hp_deltat= (dble(NSTEP-it)*DT-t0-tshift_cmt(irec))/hdur_gaussian(irec)*Kp_deltat
+    ! derivatives for time shift and hduration
+    Kp_deltat= -1.0d0/sqrt(PI)/hdur_Gaussian(irec) * exp(-(timeval/hdur_Gaussian(irec))**2) * deltat * scale_t
+    Hp_deltat= timeval/hdur_Gaussian(irec) * Kp_deltat
 
     stshift_der(irec_local) = stshift_der(irec_local) + eps_m_s * Kp_deltat
-
     shdur_der(irec_local) = shdur_der(irec_local) + eps_m_s * Hp_deltat
 
   enddo
@@ -313,7 +315,7 @@
 !
 !! re-orders seismogram entries
 !
-!  use specfem_par,only: CUSTOM_REAL,NDIM, &
+!  use specfem_par, only: CUSTOM_REAL,NDIM, &
 !    NT_DUMP_ATTENUATION,NTSTEP_BETWEEN_OUTPUT_SEISMOS, &
 !    nrec_local,myrank, &
 !    seismo_current,seismograms

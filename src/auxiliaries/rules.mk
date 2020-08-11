@@ -11,7 +11,7 @@
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
+# the Free Software Foundation; either version 3 of the License, or
 # (at your option) any later version.
 #
 # This program is distributed in the hope that it will be useful,
@@ -38,12 +38,17 @@ auxiliaries_TARGETS = \
 	$E/xcreate_movie_AVS_DX \
 	$E/xcreate_movie_GMT_global \
 	$E/xextract_database \
+	$E/xwrite_profile \
 	$(EMPTY_MACRO)
 
 ifeq ($(ADIOS),yes)
 auxiliaries_TARGETS += \
 	$E/xcombine_vol_data_adios \
 	$E/xcombine_vol_data_vtk_adios \
+	$(EMPTY_MACRO)
+
+auxiliaries_MODULES = \
+	$(FC_MODDIR)/combine_vol_data_adios_mod.$(FC_MODEXT) \
 	$(EMPTY_MACRO)
 endif
 
@@ -59,6 +64,8 @@ auxiliaries_OBJECTS = \
 	$(xcombine_vol_data_vtk_adios_OBJECTS) \
 	$(xcreate_movie_AVS_DX_OBJECTS) \
 	$(xcreate_movie_GMT_global_OBJECTS) \
+	$(xextract_database_OBJECTS) \
+	$(xwrite_profile_OBJECTS) \
 	$(EMPTY_MACRO)
 
 # These files come from the shared directory
@@ -74,7 +81,7 @@ auxiliaries_SHARED_OBJECTS = \
 	$(xcombine_vol_data_vtk_adios_SHARED_OBJECTS) \
 	$(xcreate_movie_AVS_DX_SHARED_OBJECTS) \
 	$(xcreate_movie_GMT_global_SHARED_OBJECTS) \
-	$(xextract_database_SHARED_OBJECTS) \
+	$(xwrite_profile_SHARED_OBJECTS) \
 	$(EMPTY_MACRO)
 
 ####
@@ -163,6 +170,9 @@ xcombine_paraview_strain_data_OBJECTS = \
 xcombine_paraview_strain_data_SHARED_OBJECTS = \
 	$O/shared_par.shared_module.o \
 	$O/binary_c_io.cc.o \
+	$O/reduce.shared.o \
+	$O/rthetaphi_xyz.shared.o \
+	$O/write_VTK_file.shared.o \
 	$(EMPTY_MACRO)
 
 ${E}/xcombine_paraview_strain_data: $(xcombine_paraview_strain_data_OBJECTS) $(xcombine_paraview_strain_data_SHARED_OBJECTS)
@@ -259,6 +269,7 @@ xcombine_vol_data_vtk_SHARED_OBJECTS = \
 	$O/reduce.shared.o \
 	$O/rthetaphi_xyz.shared.o \
 	$O/spline_routines.shared.o \
+	$O/write_VTK_file.shared.o \
 	$(EMPTY_MACRO)
 
 ${E}/xcombine_vol_data_vtk: $(xcombine_vol_data_vtk_OBJECTS) $(xcombine_vol_data_vtk_SHARED_OBJECTS)
@@ -286,6 +297,7 @@ xcombine_vol_data_vtk_adios_SHARED_OBJECTS = \
 	$O/reduce.shared.o \
 	$O/rthetaphi_xyz.shared.o \
 	$O/spline_routines.shared.o \
+	$O/write_VTK_file.shared.o \
 	$(EMPTY_MACRO)
 
 $O/combine_vol_data.auxadios_vtk.o: $O/combine_vol_data_adios_impl.auxmpi.o
@@ -349,8 +361,123 @@ ${E}/xcreate_movie_GMT_global: $(xcreate_movie_GMT_global_OBJECTS) $(xcreate_mov
 
 #######################################
 
-${E}/xextract_database: $(S_TOP)/utils/extract_database/extract_database.f90 ${OUTPUT}/values_from_mesher.h
-	${FCCOMPILE_CHECK} -o ${E}/xextract_database ${FCFLAGS_f90} $(S_TOP)/utils/extract_database/extract_database.f90
+xextract_database_OBJECTS = \
+	$O/extract_database.aux.o \
+	$(EMPTY_MACRO)
+
+${E}/xextract_database: $(xextract_database_OBJECTS)
+	${FCCOMPILE_CHECK} -o $@ $+
+
+#######################################
+
+xwrite_profile_OBJECTS = \
+	$O/write_profile.aux.o \
+	$(EMPTY_MACRO)
+
+# from src/meshfem3D/
+xwrite_profile_OBJECTS += \
+	$O/get_model.check.o \
+	$O/lgndr.check.o \
+	$O/meshfem3D_models.check.o \
+	$O/meshfem3D_par.check_module.o \
+	$O/model_1dref.check.o \
+	$O/model_1066a.check.o \
+	$O/model_ak135.check.o \
+	$O/model_sea1d.check.o \
+	$O/model_aniso_inner_core.check.o \
+	$O/model_aniso_mantle.check.o \
+	$O/model_atten3D_QRFSI12.check.o \
+	$O/model_attenuation.check.o \
+	$O/model_crust_1_0.check.o \
+	$O/model_crust_2_0.check.o \
+	$O/model_crustmaps.check.o \
+	$O/model_eucrust.check.o \
+	$O/model_epcrust.check.o \
+	$O/model_full_sh.check.o \
+	$O/model_gapp2.check.o \
+	$O/model_gll.check.o \
+	$O/model_heterogen_mantle.check.o \
+	$O/model_iasp91.check.o \
+	$O/model_jp1d.check.o \
+	$O/model_jp3d.check.o \
+	$O/model_ppm.check.o \
+	$O/model_s20rts.check.o \
+	$O/model_s40rts.check.o \
+	$O/model_s362ani.check.o \
+	$O/model_sea99_s.check.o \
+	$O/model_sglobe.check.o \
+	$(EMPTY_MACRO)
+
+# from src/shared/
+xwrite_profile_SHARED_OBJECTS = \
+	$O/adios_manager.shared_adios_module.o \
+	$O/shared_par.shared_module.o \
+	$O/auto_ner.shared.o \
+	$O/binary_c_io.cc.o \
+	$O/count_elements.shared.o \
+	$O/count_number_of_sources.shared.o \
+	$O/count_points.shared.o \
+	$O/create_name_database.shared.o \
+	$O/define_all_layers.shared.o \
+	$O/exit_mpi.shared.o \
+	$O/flush_system.shared.o \
+	$O/get_all_eight_slices.shared.o \
+	$O/get_global.shared.o \
+	$O/get_model_parameters.shared.o \
+	$O/get_timestep_and_layers.shared.o \
+	$O/gll_library.shared.o \
+	$O/heap_sort.shared.o \
+	$O/intgrl.shared.o \
+	$O/make_ellipticity.shared.o \
+	$O/model_prem.shared.o \
+	$O/model_topo_bathy.shared.o \
+	$O/parallel.sharedmpi.o \
+	$O/param_reader.cc.o \
+	$O/read_compute_parameters.shared.o \
+	$O/read_parameter_file.shared.o \
+	$O/read_value_parameters.shared.o \
+	$O/reduce.shared.o \
+	$O/rthetaphi_xyz.shared.o \
+	$O/smooth_weights_vec.shared.o \
+	$O/sort_array_coordinates.shared.o \
+	$O/spline_routines.shared.o \
+	$O/ylm.shared.o \
+	$(EMPTY_MACRO)
+
+# adios
+xwrite_profile_adios_OBJECTS = \
+	$O/model_gll_adios.check_adios.o \
+	$(EMPTY_MACRO)
+
+xwrite_profile_adios_SHARED_OBJECTS = \
+	$O/adios_helpers_definitions.shared_adios_module.o \
+	$O/adios_helpers_writers.shared_adios_module.o \
+	$O/adios_helpers.shared_adios.o \
+	$(EMPTY_MACRO)
+
+xwrite_profile_adios_SHARED_STUBS = \
+	$O/adios_method_stubs.cc.o \
+	$(EMPTY_MACRO)
+
+# conditional adios linking
+ifeq ($(ADIOS),yes)
+xwrite_profile_OBJECTS += $(xwrite_profile_adios_OBJECTS)
+xwrite_profile_SHARED_OBJECTS += $(xwrite_profile_adios_SHARED_OBJECTS)
+else
+xwrite_profile_SHARED_OBJECTS += $(xwrite_profile_adios_SHARED_STUBS)
+endif
+
+# conditional CEM model
+ifeq ($(CEM),yes)
+xwrite_profile_OBJECTS += $O/model_cem.checknetcdf.o
+endif
+
+${E}/xwrite_profile: $(xwrite_profile_OBJECTS) $(xwrite_profile_SHARED_OBJECTS)
+	${MPIFCCOMPILE_CHECK} -o $@ $+ $(LDFLAGS) $(MPILIBS) $(LIBS)
+
+## additional module dependencies
+$O/write_profile.aux.o: $O/meshfem3D_models.check.o
+
 
 #######################################
 
@@ -381,7 +508,7 @@ $O/%.auxsolver_vtk.o: $S/%.F90 ${OUTPUT}/values_from_mesher.h $O/shared_par.shar
 	${FCCOMPILE_CHECK} ${FCFLAGS_f90} -c -o $@ $< $(FC_DEFINE)USE_VTK_INSTEAD_OF_MESH
 
 $O/%.auxadios.o: $S/%.F90 ${OUTPUT}/values_from_mesher.h $O/shared_par.shared_module.o $O/parallel.sharedmpi.o
-	${FCCOMPILE_CHECK} ${FCFLAGS_f90} -c -o $@ $< $(FC_DEFINE)ADIOS_INPUT
+	${FCCOMPILE_CHECK} ${FCFLAGS_f90} -c -o $@ $< $(ADIOS_DEF)
 
 $O/%.auxadios_vtk.o: $S/%.F90 ${OUTPUT}/values_from_mesher.h $O/shared_par.shared_module.o $O/parallel.sharedmpi.o
-	${FCCOMPILE_CHECK} ${FCFLAGS_f90} -c -o $@ $< $(FC_DEFINE)ADIOS_INPUT $(FC_DEFINE)USE_VTK_INSTEAD_OF_MESH
+	${FCCOMPILE_CHECK} ${FCFLAGS_f90} -c -o $@ $< $(ADIOS_DEF) $(FC_DEFINE)USE_VTK_INSTEAD_OF_MESH

@@ -11,7 +11,7 @@
 !
 ! This program is free software; you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by
-! the Free Software Foundation; either version 2 of the License, or
+! the Free Software Foundation; either version 3 of the License, or
 ! (at your option) any later version.
 !
 ! This program is distributed in the hope that it will be useful,
@@ -61,7 +61,7 @@
   call read_compute_parameters()
 
 ! create include file for the solver
-  call save_header_file(NSPEC,NGLOB,NPROC,NPROCTOT, &
+  call save_header_file(NSPEC_REGIONS,NGLOB_REGIONS,NPROC,NPROCTOT, &
                         static_memory_size, &
                         NSPEC2D_TOP,NSPEC2D_BOTTOM, &
                         NSPEC2DMAX_YMIN_YMAX,NSPEC2DMAX_XMIN_XMAX, &

@@ -1,4 +1,4 @@
-!=====================================================================
+!========================================================================
 !
 !          S p e c f e m 3 D  G l o b e  V e r s i o n  7 . 0
 !          --------------------------------------------------
@@ -11,19 +11,21 @@
 !
 ! This program is free software; you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by
-! the Free Software Foundation; either version 2 of the License, or
+! the Free Software Foundation; either version 3 of the License, or
 ! (at your option) any later version.
 !
 ! This program is distributed in the hope that it will be useful,
 ! but WITHOUT ANY WARRANTY; without even the implied warranty of
-! MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+! MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 ! GNU General Public License for more details.
 !
 ! You should have received a copy of the GNU General Public License along
 ! with this program; if not, write to the Free Software Foundation, Inc.,
 ! 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 !
-!=====================================================================
+! The full text of the license is available in file "LICENSE".
+!
+!========================================================================
 
 !=======================================================================
 !
@@ -33,6 +35,8 @@
 !
 !=======================================================================
 
+! note: this version uses zwgljd() with double precision arguments
+
   double precision function endw1(n,alpha,beta)
 
   implicit none
@@ -40,22 +44,22 @@
   integer n
   double precision alpha,beta
 
-  double precision, parameter :: zero = 0.d0,one=1.d0,two=2.d0,three=3.d0,four=4.d0
+  double precision, parameter :: zero=0.d0,one=1.d0,two=2.d0,three=3.d0,four=4.d0
   double precision apb,f1,fint1,fint2,f2,di,abn,abnn,a1,a2,a3,f3
   double precision, external :: gammaf
   integer i
 
   f3 = zero
-  apb   = alpha+beta
+  apb = alpha+beta
   if (n == 0) then
-   endw1 = zero
-   return
+    endw1 = zero
+    return
   endif
   f1   = gammaf(alpha+two)*gammaf(beta+one)/gammaf(apb+three)
   f1   = f1*(apb+two)*two**(apb+two)/two
   if (n == 1) then
-   endw1 = f1
-   return
+    endw1 = f1
+    return
   endif
   fint1 = gammaf(alpha+two)*gammaf(beta+one)/gammaf(apb+three)
   fint1 = fint1*two**(apb+two)
@@ -63,19 +67,19 @@
   fint2 = fint2*two**(apb+three)
   f2    = (-two*(beta+two)*fint1 + (apb+four)*fint2) * (apb+three)/four
   if (n == 2) then
-   endw1 = f2
-   return
+    endw1 = f2
+    return
   endif
   do i=3,n
-   di   = dble(i-1)
-   abn  = alpha+beta+di
-   abnn = abn+di
-   a1   = -(two*(di+alpha)*(di+beta))/(abn*abnn*(abnn+one))
-   a2   =  (two*(alpha-beta))/(abnn*(abnn+two))
-   a3   =  (two*(abn+one))/((abnn+two)*(abnn+one))
-   f3   =  -(a2*f2+a1*f1)/a3
-   f1   = f2
-   f2   = f3
+    di   = dble(i-1)
+    abn  = alpha+beta+di
+    abnn = abn+di
+    a1   = -(two*(di+alpha)*(di+beta))/(abn*abnn*(abnn+one))
+    a2   =  (two*(alpha-beta))/(abnn*(abnn+two))
+    a3   =  (two*(abn+one))/((abnn+two)*(abnn+one))
+    f3   =  -(a2*f2+a1*f1)/a3
+    f1   = f2
+    f2   = f3
   enddo
   endw1  = f3
 
@@ -92,22 +96,22 @@
   integer n
   double precision alpha,beta
 
-  double precision, parameter :: zero = 0.d0,one=1.d0,two=2.d0,three=3.d0,four=4.d0
+  double precision, parameter :: zero=0.d0,one=1.d0,two=2.d0,three=3.d0,four=4.d0
   double precision apb,f1,fint1,fint2,f2,di,abn,abnn,a1,a2,a3,f3
   double precision, external :: gammaf
   integer i
 
-  apb   = alpha+beta
+  apb = alpha+beta
   f3 = zero
   if (n == 0) then
-   endw2 = zero
-   return
+    endw2 = zero
+    return
   endif
   f1   = gammaf(alpha+one)*gammaf(beta+two)/gammaf(apb+three)
   f1   = f1*(apb+two)*two**(apb+two)/two
   if (n == 1) then
-   endw2 = f1
-   return
+    endw2 = f1
+    return
   endif
   fint1 = gammaf(alpha+one)*gammaf(beta+two)/gammaf(apb+three)
   fint1 = fint1*two**(apb+two)
@@ -115,19 +119,19 @@
   fint2 = fint2*two**(apb+three)
   f2    = (two*(alpha+two)*fint1 - (apb+four)*fint2) * (apb+three)/four
   if (n == 2) then
-   endw2 = f2
-   return
+    endw2 = f2
+    return
   endif
   do i=3,n
-   di   = dble(i-1)
-   abn  = alpha+beta+di
-   abnn = abn+di
-   a1   =  -(two*(di+alpha)*(di+beta))/(abn*abnn*(abnn+one))
-   a2   =  (two*(alpha-beta))/(abnn*(abnn+two))
-   a3   =  (two*(abn+one))/((abnn+two)*(abnn+one))
-   f3   =  -(a2*f2+a1*f1)/a3
-   f1   = f2
-   f2   = f3
+    di   = dble(i-1)
+    abn  = alpha+beta+di
+    abnn = abn+di
+    a1   =  -(two*(di+alpha)*(di+beta))/(abn*abnn*(abnn+one))
+    a2   =  (two*(alpha-beta))/(abnn*(abnn+two))
+    a3   =  (two*(abn+one))/((abnn+two)*(abnn+one))
+    f3   =  -(a2*f2+a1*f1)/a3
+    f1   = f2
+    f2   = f3
   enddo
   endw2  = f3
 
@@ -150,16 +154,16 @@
   gammaf = one
 
   if (x == -half) gammaf = -two*dsqrt(pi)
-  if (x ==  half) gammaf =  dsqrt(pi)
-  if (x ==  one ) gammaf =  one
-  if (x ==  two ) gammaf =  one
-  if (x ==  1.5d0) gammaf =  dsqrt(pi)/2.d0
-  if (x ==  2.5d0) gammaf =  1.5d0*dsqrt(pi)/2.d0
-  if (x ==  3.5d0) gammaf =  2.5d0*1.5d0*dsqrt(pi)/2.d0
-  if (x ==  3.d0 ) gammaf =  2.d0
-  if (x ==  4.d0 ) gammaf = 6.d0
-  if (x ==  5.d0 ) gammaf = 24.d0
-  if (x ==  6.d0 ) gammaf = 120.d0
+  if (x == half) gammaf =  dsqrt(pi)
+  if (x == one) gammaf =  one
+  if (x == two) gammaf =  one
+  if (x == 1.5d0) gammaf =  dsqrt(pi)/2.d0
+  if (x == 2.5d0) gammaf =  1.5d0*dsqrt(pi)/2.d0
+  if (x == 3.5d0) gammaf =  2.5d0*1.5d0*dsqrt(pi)/2.d0
+  if (x == 3.d0 ) gammaf =  2.d0
+  if (x == 4.d0 ) gammaf = 6.d0
+  if (x == 5.d0 ) gammaf = 24.d0
+  if (x == 6.d0 ) gammaf = 120.d0
 
   end function gammaf
 
@@ -185,6 +189,7 @@
   double precision alpha,beta
   double precision xjac(np)
 
+  ! local parameters
   integer k,j,i,jmin,jm,n
   double precision xlast,dth,x,x1,x2,recsum,delx,xmin,swap
   double precision p,pd,pm1,pdm1,pm2,pdm2
@@ -202,43 +207,66 @@
   dth = 4.d0*datan(1.d0)/(2.d0*dble(n)+2.d0)
   p = 0.d0
   pd = 0.d0
-  jmin = 0
-  do j = 1,np
-   if (j == 1) then
+
+  do j=1,np
+    if (j == 1) then
       x = dcos((2.d0*(dble(j)-1.d0)+1.d0)*dth)
-   else
+    else
       x1 = dcos((2.d0*(dble(j)-1.d0)+1.d0)*dth)
       x2 = xlast
       x  = (x1+x2)/2.d0
-   endif
-   do k = 1,K_MAX_ITER
+    endif
+
+    do k=1,K_MAX_ITER
       call jacobf (p,pd,pm1,pdm1,pm2,pdm2,np,alpha,beta,x)
       recsum = 0.d0
       jm = j-1
-      do i = 1,jm
-         recsum = recsum+1.d0/(x-xjac(np-i+1))
+      do i=1,jm
+        recsum = recsum+1.d0/(x-xjac(np-i+1))
       enddo
       delx = -p/(pd-recsum*p)
       x    = x+delx
-      if (abs(delx) < eps) goto 31
-   enddo
- 31      continue
-   xjac(np-j+1) = x
-   xlast        = x
+
+      ! exits loop if increment too small
+      if (abs(delx) < eps) exit
+
+    enddo
+
+    ! checks bounds
+    if (np-j+1 < 1 .or. np-j+1 > np) stop 'error np-j+1-index in jacg'
+
+    xjac(np-j+1) = x
+    xlast        = x
   enddo
-  do i = 1,np
-   xmin = 2.d0
-   do j=i,np
-      if (xjac(j) < xmin) then
-         xmin = xjac(j)
-         jmin = j
+
+  jmin = 0
+
+  ! orders xjac array in increasing values
+  do i=1,np
+    xmin = 2.d0
+    jmin = i
+
+    ! looks for index with minimum value
+    do j=i,np
+      ! note: some compilers (cray) might be too aggressive in optimizing this loop,
+      !       thus we need this temporary array value x to store and compare values
+      x = xjac(j)
+
+      if (x < xmin) then
+        xmin = x
+        jmin = j
       endif
-   enddo
-   if (jmin /= i) then
+    enddo
+
+    ! checks bounds
+    if (jmin < 1 .or. jmin > np) stop 'error j-index in jacg'
+
+    if (jmin /= i) then
       swap = xjac(i)
       xjac(i) = xjac(jmin)
       xjac(jmin) = swap
-   endif
+    endif
+
   enddo
 
   end subroutine jacg
@@ -305,7 +333,7 @@
 !------------------------------------------------------------------------
 !
 
-  double precision FUNCTION PNDLEG (Z,N)
+  double precision function PNDLEG (Z,N)
 
 !------------------------------------------------------------------------
 !
@@ -318,7 +346,7 @@
   double precision z
   integer n
 
-  double precision P1,P2,P1D,P2D,P3D,FK,P3
+  double precision P1,P2,P1D,P2D,P3D,DBLE_K,P3
   integer k
 
   P1   = 1.d0
@@ -328,9 +356,9 @@
   P3D  = 1.d0
 
   do K = 1, N-1
-    FK  = dble(K)
-    P3  = ((2.d0*FK+1.d0)*Z*P2 - FK*P1)/(FK+1.d0)
-    P3D = ((2.d0*FK+1.d0)*P2 + (2.d0*FK+1.d0)*Z*P2D - FK*P1D) / (FK+1.d0)
+    DBLE_K  = dble(K)
+    P3  = ((2.d0*DBLE_K+1.d0)*Z*P2 - DBLE_K*P1)/(DBLE_K+1.d0)
+    P3D = ((2.d0*DBLE_K+1.d0)*P2 + (2.d0*DBLE_K+1.d0)*Z*P2D - DBLE_K*P1D) / (DBLE_K+1.d0)
     P1  = P2
     P2  = P3
     P1D = P2D
@@ -345,7 +373,7 @@
 !------------------------------------------------------------------------
 !
 
-  double precision FUNCTION PNLEG (Z,N)
+  double precision function PNLEG (Z,N)
 
 !------------------------------------------------------------------------
 !
@@ -358,7 +386,7 @@
   double precision z
   integer n
 
-  double precision P1,P2,P3,FK
+  double precision P1,P2,P3,DBLE_K
   integer k
 
   P1   = 1.d0
@@ -366,8 +394,8 @@
   P3   = P2
 
   do K = 1, N-1
-    FK  = dble(K)
-    P3  = ((2.d0*FK+1.d0)*Z*P2 - FK*P1)/(FK+1.d0)
+    DBLE_K  = dble(K)
+    P3  = ((2.d0*DBLE_K+1.d0)*Z*P2 - DBLE_K*P1)/(DBLE_K+1.d0)
     P1  = P2
     P2  = P3
   enddo
@@ -435,12 +463,13 @@
 
   implicit none
 
-  double precision, parameter :: zero = 0.d0,one=1.d0,two=2.d0
+  double precision, parameter :: zero=0.d0,one=1.d0,two=2.d0
 
   integer np
   double precision z(np),w(np)
   double precision alpha,beta
 
+  ! local parameters
   integer n,np1,np2,i
   double precision p,pd,pm1,pdm1,pm2,pdm2
   double precision apb,dnp1,dnp2,fac1,fac2,fac3,fnorm,rcoef
@@ -462,9 +491,9 @@
   if ((alpha <= -one) .or. (beta <= -one)) stop 'alpha and beta must be greater than -1'
 
   if (np == 1) then
-   z(1) = (beta-alpha)/(apb+two)
-   w(1) = gammaf(alpha+one)*gammaf(beta+one)/gammaf(apb+two) * two**(apb+one)
-   return
+    z(1) = (beta-alpha)/(apb+two)
+    w(1) = gammaf(alpha+one)*gammaf(beta+one)/gammaf(apb+two) * two**(apb+one)
+    return
   endif
 
   call jacg(z,np,alpha,beta)
@@ -478,7 +507,7 @@
   fac3  = fac2+one
   fnorm = pnormj(np1,alpha,beta)
   rcoef = (fnorm*fac2*fac3)/(two*fac1*dnp2)
-  do i = 1,np
+  do i=1,np
     call jacobf(p,pd,pm1,pdm1,pm2,pdm2,np2,alpha,beta,z(i))
     w(i) = -rcoef/(p*pdm1)
   enddo
@@ -505,12 +534,13 @@
 
   implicit none
 
-  double precision, parameter :: zero = 0.d0,one=1.d0,two=2.d0
+  double precision, parameter :: zero=0.d0,one=1.d0,two=2.d0,tol_zero=1.d-30
 
   integer np
   double precision alpha,beta
   double precision z(np), w(np)
 
+  ! local parameters
   integer n,nm1,i
   double precision p,pd,pm1,pdm1,pm2,pdm2
   double precision alpg,betg
@@ -536,25 +566,87 @@
   if (nm1 > 0) then
     alpg  = alpha+one
     betg  = beta+one
-    call zwgjd(z(2),w(2),nm1,alpg,betg)
+    call zwgjd(z(2:n),w(2:n),nm1,alpg,betg)
   endif
 
 ! start and end point at exactly -1 and 1
   z(1)  = - one
   z(np) =  one
 
-! if number of points is odd, the middle abscissa is exactly zero
-  if (mod(np,2) /= 0) z((np-1)/2+1) = zero
+! note: Jacobi polynomials with (alpha,beta) equal to zero become Legendre polynomials.
+!       for Legendre polynomials, if number of points is odd, the middle abscissa is exactly zero
+  if (abs(alpha) < tol_zero .and. abs(beta) < tol_zero) then
+    if (mod(np,2) /= 0) z((np-1)/2+1) = zero
+  endif
 
 ! weights
   do i=2,np-1
-   w(i) = w(i)/(one-z(i)**2)
+    w(i) = w(i)/(one-z(i)**2)
   enddo
 
   call jacobf(p,pd,pm1,pdm1,pm2,pdm2,n,alpha,beta,z(1))
   w(1)  = endw1(n,alpha,beta)/(two*pd)
+
   call jacobf(p,pd,pm1,pdm1,pm2,pdm2,n,alpha,beta,z(np))
   w(np) = endw2(n,alpha,beta)/(two*pd)
 
   end subroutine zwgljd
+
+
+!
+!------------------------------------------------------------------------
+!
+
+  double precision function pnglj(z,n)
+
+!------------------------------------------------------------------------
+!
+!     Compute the value of the Nth order polynomial of the
+!     Gauss-Lobatto-Jacobi (0,1) at Z. from Legendre polynomials.
+!
+!------------------------------------------------------------------------
+
+  implicit none
+  include "constants.h"
+
+  double precision z
+  integer n
+  double precision, external :: pnleg
+
+  if (abs(z+1.d0) > TINYVAL) then  ! if (z /= -1.d0)
+    pnglj = (pnleg(z,n)+pnleg(z,n+1))/(ONE+z)
+  else
+    pnglj = (dble(n)+ONE)*(-1)**n
+  endif
+
+  end function pnglj
+
+!
+!------------------------------------------------------------------------
+!
+
+  double precision function pndglj(z,n)
+
+!------------------------------------------------------------------------
+!
+!     Compute the value of the derivative of Nth order polynomial of the
+!     Gauss-Lobatto-Jacobi (0,1) at Z. from Legendre polynomials.
+!
+!------------------------------------------------------------------------
+
+  implicit none
+  include "constants.h"
+
+  double precision z
+  integer n
+  double precision, external :: pnleg, pndleg
+
+  if (abs(z+1.d0) > TINYVAL) then  ! if (z /= -1.d0)
+    pndglj = (pndleg(z,n)+pndleg(z,n+1))/(ONE+z) - (pnleg(z,n)+pnleg(z,n+1))/((ONE+z)**2)
+  else
+    pndglj = pnleg(-1.d0,n)+pnleg(-1.d0,n+1)
+  endif
+
+  end function pndglj
+
 

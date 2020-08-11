@@ -11,7 +11,7 @@
 !
 ! This program is free software; you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by
-! the Free Software Foundation; either version 2 of the License, or
+! the Free Software Foundation; either version 3 of the License, or
 ! (at your option) any later version.
 !
 ! This program is distributed in the hope that it will be useful,
@@ -99,6 +99,7 @@ end module my_mpi
 
   ! broadcast parameters read from master to all processes
   my_local_mpi_comm_world = MPI_COMM_WORLD
+
   call bcast_all_singlei(NUMBER_OF_SIMULTANEOUS_RUNS)
   call bcast_all_singlel(BROADCAST_SAME_MESH_AND_MODEL)
 
@@ -123,6 +124,7 @@ end module my_mpi
   call world_unsplit()
 
 ! stop all the MPI processes, and exit
+  call MPI_BARRIER(MPI_COMM_WORLD,ier)
   call MPI_FINALIZE(ier)
   if (ier /= 0) stop 'Error finalizing MPI'
 
@@ -136,7 +138,7 @@ end module my_mpi
 
   use my_mpi
   use constants, only: MAX_STRING_LEN,mygroup
-  use shared_input_parameters, only: NUMBER_OF_SIMULTANEOUS_RUNS,USE_FAILSAFE_MECHANISM
+  use shared_input_parameters, only: NUMBER_OF_SIMULTANEOUS_RUNS
 
   implicit none
 
@@ -150,7 +152,7 @@ end module my_mpi
   call MPI_COMM_RANK(MPI_COMM_WORLD,my_global_rank,ier)
 
   ! write a stamp file to disk to let the user know that the run failed
-  if(NUMBER_OF_SIMULTANEOUS_RUNS > 1) then
+  if (NUMBER_OF_SIMULTANEOUS_RUNS > 1) then
     ! notifies which run directory failed
     write(filename,"('run',i4.4,'_failed')") mygroup + 1
     inquire(file=trim(filename), exist=run_file_exists)
@@ -178,17 +180,9 @@ end module my_mpi
     !close(9765)
   endif
 
-  ! in case of a large number of simultaneous runs, if one fails we may want that one to just call MPI_FINALIZE() and wait
-  ! until all the others are finished instead of calling MPI_ABORT(), which would instead kill all the runs,
-  ! including all the successful ones
-  if(USE_FAILSAFE_MECHANISM .and. NUMBER_OF_SIMULTANEOUS_RUNS > 1) then
-    call MPI_FINALIZE(ier)
-    if (ier /= 0) stop 'Error finalizing MPI'
-  else
-    ! note: MPI_ABORT does not return, it makes the program exit with an error code of 30
-    call MPI_ABORT(MPI_COMM_WORLD,30,ier)
-    stop 'error, program ended in exit_MPI'
-  endif
+  ! note: MPI_ABORT does not return, it makes the program exit with an error code of 30
+  call MPI_ABORT(MPI_COMM_WORLD,30,ier)
+  stop 'error, program ended in exit_MPI'
 
   end subroutine abort_mpi
 
@@ -384,7 +378,7 @@ end module my_mpi
   subroutine bcast_all_cr(buffer, countval)
 
   use my_mpi
-  use constants,only: CUSTOM_REAL
+  use constants, only: CUSTOM_REAL
 
   implicit none
 
@@ -406,7 +400,7 @@ end module my_mpi
   subroutine bcast_all_singlecr(buffer)
 
   use my_mpi
-  use constants,only: CUSTOM_REAL
+  use constants, only: CUSTOM_REAL
 
   implicit none
 
@@ -578,7 +572,7 @@ end module my_mpi
   subroutine bcast_all_i_for_database(buffer, countval)
 
   use my_mpi
-  use shared_parameters,only: NUMBER_OF_SIMULTANEOUS_RUNS,BROADCAST_SAME_MESH_AND_MODEL
+  use shared_parameters, only: NUMBER_OF_SIMULTANEOUS_RUNS,BROADCAST_SAME_MESH_AND_MODEL
 
   implicit none
 
@@ -603,7 +597,7 @@ end module my_mpi
   subroutine bcast_all_l_for_database(buffer, countval)
 
   use my_mpi
-  use shared_parameters,only: NUMBER_OF_SIMULTANEOUS_RUNS,BROADCAST_SAME_MESH_AND_MODEL
+  use shared_parameters, only: NUMBER_OF_SIMULTANEOUS_RUNS,BROADCAST_SAME_MESH_AND_MODEL
 
   implicit none
 
@@ -628,8 +622,8 @@ end module my_mpi
   subroutine bcast_all_cr_for_database(buffer, countval)
 
   use my_mpi
-  use constants,only: CUSTOM_REAL
-  use shared_parameters,only: NUMBER_OF_SIMULTANEOUS_RUNS,BROADCAST_SAME_MESH_AND_MODEL
+  use constants, only: CUSTOM_REAL
+  use shared_parameters, only: NUMBER_OF_SIMULTANEOUS_RUNS,BROADCAST_SAME_MESH_AND_MODEL
 
   implicit none
 
@@ -656,7 +650,7 @@ end module my_mpi
   subroutine bcast_all_dp_for_database(buffer, countval)
 
   use my_mpi
-  use shared_parameters,only: NUMBER_OF_SIMULTANEOUS_RUNS,BROADCAST_SAME_MESH_AND_MODEL
+  use shared_parameters, only: NUMBER_OF_SIMULTANEOUS_RUNS,BROADCAST_SAME_MESH_AND_MODEL
 
   implicit none
 
@@ -681,7 +675,7 @@ end module my_mpi
   subroutine bcast_all_r_for_database(buffer, countval)
 
   use my_mpi
-  use shared_parameters,only: NUMBER_OF_SIMULTANEOUS_RUNS,BROADCAST_SAME_MESH_AND_MODEL
+  use shared_parameters, only: NUMBER_OF_SIMULTANEOUS_RUNS,BROADCAST_SAME_MESH_AND_MODEL
 
   implicit none
 
@@ -698,35 +692,6 @@ end module my_mpi
   call MPI_BCAST(buffer,countval,MPI_REAL,0,my_local_mpi_comm_for_bcast,ier)
 
   end subroutine bcast_all_r_for_database
-
-!
-!---- broadcast using MPI_COMM_WORLD
-!
-
-!  subroutine bcast_all_singlei_world(buffer)
-!  end subroutine bcast_all_singlei_world
-
-!
-!-------------------------------------------------------------------------------------------------
-!
-
-!  subroutine bcast_all_singlel_world(buffer)
-!  end subroutine bcast_all_singlel_world
-
-!
-!-------------------------------------------------------------------------------------------------
-!
-
-!  subroutine bcast_all_singledp_world(buffer)
-!  end subroutine bcast_all_singledp_world
-
-!
-!-------------------------------------------------------------------------------------------------
-!
-
-!  subroutine bcast_all_string_world(buffer)
-!  end subroutine bcast_all_string_world
-
 
 !-------------------------------------------------------------------------------------------------
 !
@@ -785,7 +750,7 @@ end module my_mpi
   !! DK DK: yes, I confirm, using MPI_IN_PLACE is tricky
   !! DK DK (see the answer at http://stackoverflow.com/questions/17741574/in-place-mpi-reduce-crashes-with-openmpi
   !! DK DK      for how to use it right)
-  !call MPI_ALLREDUCE(MPI_IN_PLACE, buffer, countval, MPI_INTEGER, MPI_MAX, MPI_COMM_WORLD, ier)
+  !call MPI_ALLREDUCE(MPI_IN_PLACE, buffer, countval, MPI_INTEGER, MPI_MAX, my_local_mpi_comm_world, ier)
 
   send(:) = buffer(:)
 
@@ -801,7 +766,7 @@ end module my_mpi
   subroutine min_all_cr(sendbuf, recvbuf)
 
   use my_mpi
-  use constants,only: CUSTOM_REAL
+  use constants, only: CUSTOM_REAL
 
   implicit none
 
@@ -814,12 +779,26 @@ end module my_mpi
 
   end subroutine min_all_cr
 
+
 !
 !-------------------------------------------------------------------------------------------------
 !
 
-!  subroutine min_all_all_cr(sendbuf, recvbuf)
-!  end subroutine min_all_all_cr
+  subroutine min_all_all_cr(sendbuf, recvbuf)
+
+  use my_mpi
+  use constants, only: CUSTOM_REAL
+
+  implicit none
+
+  include "precision.h"
+
+  real(kind=CUSTOM_REAL):: sendbuf, recvbuf
+  integer :: ier
+
+  call MPI_ALLREDUCE(sendbuf,recvbuf,1,CUSTOM_MPI_TYPE,MPI_MIN,my_local_mpi_comm_world,ier)
+
+  end subroutine min_all_all_cr
 
 !
 !-------------------------------------------------------------------------------------------------
@@ -828,7 +807,7 @@ end module my_mpi
   subroutine max_all_cr(sendbuf, recvbuf)
 
   use my_mpi
-  use constants,only: CUSTOM_REAL
+  use constants, only: CUSTOM_REAL
 
   implicit none
 
@@ -848,7 +827,7 @@ end module my_mpi
   subroutine max_allreduce_cr(sendbuf, recvbuf)
 
   use my_mpi
-  use constants,only: CUSTOM_REAL
+  use constants, only: CUSTOM_REAL
 
   implicit none
 
@@ -865,8 +844,21 @@ end module my_mpi
 !-------------------------------------------------------------------------------------------------
 !
 
-!  subroutine max_all_all_cr(sendbuf, recvbuf)
-!  end subroutine max_all_all_cr
+  subroutine max_all_all_cr(sendbuf, recvbuf)
+
+  use my_mpi
+  use constants, only: CUSTOM_REAL
+
+  implicit none
+
+  include "precision.h"
+
+  real(kind=CUSTOM_REAL):: sendbuf, recvbuf
+  integer :: ier
+
+  call MPI_ALLREDUCE(sendbuf,recvbuf,1,CUSTOM_MPI_TYPE,MPI_MAX,my_local_mpi_comm_world,ier)
+
+  end subroutine max_all_all_cr
 
 !
 !-------------------------------------------------------------------------------------------------
@@ -946,7 +938,7 @@ end module my_mpi
   subroutine sum_all_cr(sendbuf, recvbuf)
 
   use my_mpi
-  use constants,only: CUSTOM_REAL
+  use constants, only: CUSTOM_REAL
 
   implicit none
 
@@ -1021,7 +1013,7 @@ end module my_mpi
   subroutine isend_cr(sendbuf, sendcount, dest, sendtag, req)
 
   use my_mpi
-  use constants,only: CUSTOM_REAL
+  use constants, only: CUSTOM_REAL
 
   implicit none
 
@@ -1069,7 +1061,7 @@ end module my_mpi
   subroutine irecv_cr(recvbuf, recvcount, dest, recvtag, req)
 
   use my_mpi
-  use constants,only: CUSTOM_REAL
+  use constants, only: CUSTOM_REAL
 
   implicit none
 
@@ -1131,8 +1123,8 @@ end module my_mpi
 
   subroutine recv_cr(recvbuf, recvcount, dest, recvtag)
 
-  use constants
   use my_mpi
+  use constants, only: CUSTOM_REAL
 
   implicit none
 
@@ -1311,8 +1303,8 @@ end module my_mpi
 
   subroutine send_cr(sendbuf, sendcount, dest, sendtag)
 
-  use constants
   use my_mpi
+  use constants, only: CUSTOM_REAL
 
   implicit none
 
@@ -1353,8 +1345,8 @@ end module my_mpi
   subroutine sendrecv_cr(sendbuf, sendcount, dest, sendtag, &
                          recvbuf, recvcount, source, recvtag)
 
-  use constants
   use my_mpi
+  use constants, only: CUSTOM_REAL
 
   implicit none
 
@@ -1448,7 +1440,7 @@ end module my_mpi
   subroutine gather_all_cr(sendbuf, sendcnt, recvbuf, recvcount, NPROC)
 
   use my_mpi
-  use constants,only: CUSTOM_REAL
+  use constants, only: CUSTOM_REAL
 
   implicit none
 
@@ -1520,7 +1512,7 @@ end module my_mpi
   subroutine gatherv_all_cr(sendbuf, sendcnt, recvbuf, recvcount, recvoffset,recvcounttot, NPROC)
 
   use my_mpi
-  use constants,only: CUSTOM_REAL
+  use constants, only: CUSTOM_REAL
 
   implicit none
 
@@ -1561,6 +1553,81 @@ end module my_mpi
                   0,my_local_mpi_comm_world,ier)
 
   end subroutine gatherv_all_r
+
+!
+!-------------------------------------------------------------------------------------------------
+!
+
+  subroutine all_gather_all_i(sendbuf, recvbuf, NPROC)
+
+  use constants
+  use my_mpi
+
+  implicit none
+
+  integer :: NPROC
+  integer :: sendbuf
+  integer, dimension(NPROC) :: recvbuf
+
+  integer :: ier
+
+  call MPI_Allgather(sendbuf,1,MPI_INTEGER, &
+                  recvbuf,1,MPI_INTEGER, &
+                  my_local_mpi_comm_world,ier)
+
+  end subroutine all_gather_all_i
+
+!
+!-------------------------------------------------------------------------------------------------
+!
+
+  subroutine all_gather_all_r(sendbuf, sendcnt, recvbuf, recvcnt, recvoffset, dim1, NPROC)
+
+  use constants
+  use my_mpi
+
+  implicit none
+
+  integer :: sendcnt, dim1, NPROC
+
+  real, dimension(NPROC) :: sendbuf
+  real, dimension(dim1, NPROC) :: recvbuf
+
+  integer, dimension(NPROC) :: recvoffset, recvcnt
+
+  integer :: ier
+
+  call MPI_Allgatherv(sendbuf,sendcnt,MPI_REAL, &
+                  recvbuf,recvcnt,recvoffset,MPI_REAL, &
+                  my_local_mpi_comm_world,ier)
+
+  end subroutine all_gather_all_r
+
+!
+!-------------------------------------------------------------------------------------------------
+!
+
+  subroutine all_gather_all_ch(sendbuf, sendcnt, recvbuf, recvcnt, recvoffset, dim1, dim2, NPROC)
+
+  use constants
+  use my_mpi
+
+  implicit none
+
+  integer :: sendcnt, dim1, dim2, NPROC
+
+  character(len=dim2), dimension(NPROC) :: sendbuf
+  character(len=dim2), dimension(dim1, NPROC) :: recvbuf
+
+  integer, dimension(NPROC) :: recvoffset, recvcnt
+
+  integer :: ier
+
+  call MPI_Allgatherv(sendbuf,sendcnt,MPI_CHARACTER, &
+                  recvbuf,recvcnt,recvoffset,MPI_CHARACTER, &
+                  my_local_mpi_comm_world,ier)
+
+  end subroutine all_gather_all_ch
 
 !
 !-------------------------------------------------------------------------------------------------
@@ -1630,6 +1697,27 @@ end module my_mpi
 !-------------------------------------------------------------------------------------------------
 !
 
+  subroutine world_rank_comm(rank,comm)
+
+  use my_mpi
+
+  implicit none
+
+  integer,intent(out) :: rank
+  integer,intent(in) :: comm
+
+  ! local parameters
+  integer :: ier
+
+  call MPI_COMM_RANK(comm,rank,ier)
+  if (ier /= 0 ) stop 'Error getting MPI rank'
+
+  end subroutine world_rank_comm
+
+!
+!-------------------------------------------------------------------------------------------------
+!
+
   subroutine world_duplicate(comm)
 
   use my_mpi
@@ -1638,6 +1726,16 @@ end module my_mpi
 
   integer,intent(out) :: comm
   integer :: ier
+
+  ! note: see http://www.mpich.org/static/docs/v3.1/www3/MPI_Comm_dup.html
+  ! "..
+  ! This routine is used to create a new communicator that has a new communication context but contains
+  ! the same group of processes as the input communicator. Since all MPI communication is performed within
+  ! a communicator (specifies as the group of processes plus the context), this routine provides an effective way
+  ! to create a private communicator for use by a software module or library.
+  !
+  ! In particular, no library routine should use MPI_COMM_WORLD as the communicator;
+  ! instead, a duplicate of a user-specified communicator should always be used."
 
   call MPI_COMM_DUP(my_local_mpi_comm_world,comm,ier)
   if (ier /= 0 ) stop 'Error duplicating my_local_mpi_comm_world communicator'
@@ -1697,15 +1795,38 @@ end module my_mpi
 !-------------------------------------------------------------------------------------------------
 !
 
+  subroutine world_comm_free(comm)
+
+  use my_mpi
+
+  implicit none
+
+  integer,intent(inout) :: comm
+
+  ! local parameters
+  integer :: ier
+
+  call MPI_Comm_free(comm,ier)
+  if (ier /= 0 ) stop 'Error freeing MPI communicator'
+
+  end subroutine world_comm_free
+
+
+!
+!-------------------------------------------------------------------------------------------------
+!
+
 ! create sub-communicators if needed, if running more than one earthquake from the same job.
 ! create a sub-communicator for each independent run;
 ! if there is a single run to do, then just copy the default communicator to the new one
   subroutine world_split()
 
   use my_mpi
-  use constants,only: MAX_STRING_LEN,OUTPUT_FILES_BASE, &
+
+  use constants, only: MAX_STRING_LEN,OUTPUT_FILES_BASE, &
     IMAIN,ISTANDARD_OUTPUT,mygroup,I_should_read_the_database
-  use shared_parameters,only: NUMBER_OF_SIMULTANEOUS_RUNS,BROADCAST_SAME_MESH_AND_MODEL,OUTPUT_FILES
+
+  use shared_parameters, only: NUMBER_OF_SIMULTANEOUS_RUNS,BROADCAST_SAME_MESH_AND_MODEL,OUTPUT_FILES
 
   implicit none
 
@@ -1794,7 +1915,7 @@ end module my_mpi
   subroutine world_unsplit()
 
   use my_mpi
-  use shared_parameters,only: NUMBER_OF_SIMULTANEOUS_RUNS,BROADCAST_SAME_MESH_AND_MODEL
+  use shared_parameters, only: NUMBER_OF_SIMULTANEOUS_RUNS,BROADCAST_SAME_MESH_AND_MODEL
 
   implicit none
 

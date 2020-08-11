@@ -11,7 +11,7 @@
 !
 ! This program is free software; you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by
-! the Free Software Foundation; either version 2 of the License, or
+! the Free Software Foundation; either version 3 of the License, or
 ! (at your option) any later version.
 !
 ! This program is distributed in the hope that it will be useful,
@@ -30,7 +30,11 @@
   use meshfem3D_par
   use meshfem3D_models_par
 
+  use manager_adios
+
   implicit none
+
+  include 'version.fh'
 
   ! local parameters
   integer :: sizeprocs
@@ -58,6 +62,8 @@
     write(IMAIN,*) '*** Specfem3D MPI Mesher ***'
     write(IMAIN,*) '****************************'
     write(IMAIN,*)
+    write(IMAIN,*) 'Version: ', git_version
+    write(IMAIN,*)
     call flush_IMAIN()
   endif
 
@@ -70,18 +76,13 @@
   endif
 
   ! broadcast parameters read from master to all processes
-  call broadcast_computed_parameters(myrank)
+  call broadcast_computed_parameters()
 
   ! check that the code is running with the requested number of processes
   if (sizeprocs /= NPROCTOT) then
     if (myrank == 0) print *,'Error wrong number of MPI processes ',sizeprocs,' should be ',NPROCTOT,', please check...'
     call exit_MPI(myrank,'wrong number of MPI processes')
   endif
-
-!! DK DK for gravity integrals
-  ! in the case of GRAVITY_INTEGRALS we should always use double precision
-  if (GRAVITY_INTEGRALS .and. CUSTOM_REAL /= SIZE_DOUBLE) &
-    call exit_MPI(myrank,'for GRAVITY_INTEGRALS use double precision i.e. configure the code with --enable-double-precision')
 
   ! synchronizes processes
   call synchronize_all()
@@ -92,8 +93,17 @@
 
   if (NCHUNKS /= 6) call euler_angles(rotation_matrix,CENTER_LONGITUDE_IN_DEGREES,CENTER_LATITUDE_IN_DEGREES,GAMMA_ROTATION_AZIMUTH)
 
+  ! ADIOS
   if (ADIOS_ENABLED) then
-    call adios_setup()
+    call initialize_adios()
   endif
+
+  ! gravity integrals
+  if (GRAVITY_INTEGRALS) then
+    call gravity_initialize_integrals()
+  endif
+
+  ! OpenMP
+  call init_openmp()
 
   end subroutine initialize_mesher

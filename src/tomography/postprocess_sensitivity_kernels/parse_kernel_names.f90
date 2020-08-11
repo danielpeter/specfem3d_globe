@@ -11,7 +11,7 @@
 !
 ! This program is free software; you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by
-! the Free Software Foundation; either version 2 of the License, or
+! the Free Software Foundation; either version 3 of the License, or
 ! (at your option) any later version.
 !
 ! This program is distributed in the hope that it will be useful,
@@ -26,9 +26,9 @@
 !=====================================================================
 
 
-subroutine parse_kernel_names(kernel_names_comma_delimited,kernel_names,nker)
+  subroutine parse_kernel_names(kernel_names_comma_delimited,kernel_names,nker)
 
-  use postprocess_par,only: MAX_STRING_LEN, MAX_KERNEL_NAMES
+  use postprocess_par, only: MAX_STRING_LEN, MAX_KERNEL_NAMES
 
   implicit none
 
@@ -68,16 +68,16 @@ subroutine parse_kernel_names(kernel_names_comma_delimited,kernel_names,nker)
     endif
   enddo
 
-end subroutine parse_kernel_names
+  end subroutine parse_kernel_names
 
 
 !
 !-------------------------------------------------------------------------------------------------
 !
 
-! The following utility function was modified from http://fortranwiki.org/fortran/show/strtok
+! The following utility function was modified from http://Fortranwiki.org/Fortran/show/strtok
 !
-subroutine strtok (source_string, delimiter, token)
+  subroutine strtok (source_string, delimiter, token)
 
 !     @(#) Tokenize a string in a similar manner to C routine strtok(3c).
 !
@@ -98,7 +98,7 @@ subroutine strtok (source_string, delimiter, token)
 !     LIMITATIONS:
 !     can not be called with a different string until current string is totally processed, even from different procedures
 
-  use postprocess_par,only: MAX_STRING_LEN
+  use postprocess_par, only: MAX_STRING_LEN
 
   !     PARAMETERS:
   character(len=MAX_STRING_LEN), intent(in)  :: source_string
@@ -144,7 +144,7 @@ subroutine strtok (source_string, delimiter, token)
   ifinish = ibegin
 
   do while (.true.)
-    if ((ifinish <= isource_len) .and.  (index(delimiter,saved_string(ifinish:ifinish)) == 0)) then
+    if ((ifinish <= isource_len) .and. (index(delimiter,saved_string(ifinish:ifinish)) == 0)) then
       ! delimiter is not encountered yet, increases finish index
       ifinish = ifinish + 1
     else
@@ -158,5 +158,5 @@ subroutine strtok (source_string, delimiter, token)
   token = saved_string(ibegin:ifinish-1)
   isaved_start = ifinish
 
-end subroutine strtok
+  end subroutine strtok
 

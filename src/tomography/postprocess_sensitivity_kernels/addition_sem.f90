@@ -11,7 +11,7 @@
 !
 ! This program is free software; you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by
-! the Free Software Foundation; either version 2 of the License, or
+! the Free Software Foundation; either version 3 of the License, or
 ! (at your option) any later version.
 !
 ! This program is distributed in the hope that it will be useful,
@@ -37,7 +37,7 @@
 
 program addition_sem
 
-  use postprocess_par,only: &
+  use postprocess_par, only: &
     CUSTOM_REAL,NGLLX,NGLLY,NGLLZ,IIN,IOUT,MAX_STRING_LEN, &
     NPROCTOT_VAL,NSPEC_CRUST_MANTLE,NSPEC_OUTER_CORE,NSPEC_INNER_CORE
 
@@ -51,8 +51,10 @@ program addition_sem
 
   real(kind=CUSTOM_REAL), dimension(NGLLX,NGLLY,NGLLZ,NSPEC_CRUST_MANTLE) :: sem_data,sem_data_2
 
-  real(kind=CUSTOM_REAL) :: min,max,min_rel,max_rel
-  real(kind=CUSTOM_REAL) :: min_all,max_all,min_rel_all,max_rel_all
+  real(kind=CUSTOM_REAL) :: min_val,max_val
+  real(kind=CUSTOM_REAL) :: min_val_all,max_val_all
+  real(kind=CUSTOM_REAL) :: min_rel,max_rel
+  real(kind=CUSTOM_REAL) :: min_rel_all,max_rel_all
 
   integer :: i,iproc,ier
   integer :: iregion,ir,irs,ire
@@ -130,8 +132,8 @@ program addition_sem
   outputdir = trim(arg(4))
 
   ! loops over slices
-  min_all = 0.0
-  max_all = 0.0
+  min_val_all = 0.0
+  max_val_all = 0.0
   min_rel_all = 0.0
   max_rel_all = 0.0
 
@@ -179,7 +181,7 @@ program addition_sem
     write(file2name,'(a,i6.6,a)') trim(input2dir)//'/proc',iproc,'_'//trim(reg_name)//trim(kernel_name)//'.bin'
 
     ! reads in file from first directory
-    if(myrank==0) write(*,*) '  data_1: ',trim(file1name)
+    if (myrank == 0) write(*,*) '  data_1: ',trim(file1name)
     open(IIN,file=trim(file1name),status='old',action='read',form='unformatted',iostat=ier)
     if (ier /= 0) then
       print *,'Error opening file: ',trim(file1name)
@@ -224,10 +226,10 @@ program addition_sem
     close(IOUT)
 
     ! min/max
-    min = minval(sem_data(:,:,:,1:nspec))
-    max = maxval(sem_data(:,:,:,1:nspec))
-    call min_all_cr(min,min_all)
-    call max_all_cr(max,max_all)
+    min_val = minval(sem_data(:,:,:,1:nspec))
+    max_val = maxval(sem_data(:,:,:,1:nspec))
+    call min_all_cr(min_val,min_val_all)
+    call max_all_cr(max_val,max_val_all)
 
     ! stores relative addition (k1 + k2)/ k2 with respect to second input file
     write(file1name,'(a,i6.6,a)') trim(outputdir)//'/proc',iproc,'_'//trim(reg_name)//trim(kernel_name)//'_add_relative.bin'
@@ -256,7 +258,7 @@ program addition_sem
 
     ! output
     if (myrank == 0) then
-      write(*,*) '  min/max value         : ',min,max
+      write(*,*) '  min/max value         : ',min_val,max_val
       write(*,*) '  min/max relative value: ',min_rel,max_rel
       write(*,*)
     endif
@@ -267,7 +269,7 @@ program addition_sem
   if (myrank == 0) then
     write(*,*)
     write(*,*) 'statistics:'
-    write(*,*) '  total min/max         : ',min_all,max_all
+    write(*,*) '  total min/max         : ',min_val_all,max_val_all
     write(*,*) '  total relative min/max: ',min_rel_all,max_rel_all
     write(*,*)
     write(*,*) 'done writing all additions and relative addition files'

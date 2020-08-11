@@ -11,7 +11,7 @@
 !
 ! This program is free software; you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by
-! the Free Software Foundation; either version 2 of the License, or
+! the Free Software Foundation; either version 3 of the License, or
 ! (at your option) any later version.
 !
 ! This program is distributed in the hope that it will be useful,
@@ -26,42 +26,44 @@
 !=====================================================================
 
   subroutine compute_coord_main_mesh(offset_x,offset_y,offset_z,xelm,yelm,zelm, &
-               ANGULAR_WIDTH_XI_RAD,ANGULAR_WIDTH_ETA_RAD,iproc_xi,iproc_eta, &
-               NPROC_XI,NPROC_ETA,NEX_PER_PROC_XI,NEX_PER_PROC_ETA, &
-               r_top,r_bottom,ner,ilayer,ichunk,rotation_matrix,NCHUNKS,&
-               INCLUDE_CENTRAL_CUBE,NUMBER_OF_MESH_LAYERS)
+                                     ANGULAR_WIDTH_XI_RAD,ANGULAR_WIDTH_ETA_RAD,iproc_xi,iproc_eta, &
+                                     NPROC_XI,NPROC_ETA,NEX_PER_PROC_XI,NEX_PER_PROC_ETA, &
+                                     r_top,r_bottom,ner,ilayer,ichunk,rotation_matrix,NCHUNKS, &
+                                     INCLUDE_CENTRAL_CUBE,NUMBER_OF_MESH_LAYERS)
 
   use constants
 
   implicit none
 
-  double precision, dimension(NGNOD) :: xelm,yelm,zelm,offset_x,offset_y,offset_z
+  double precision, dimension(NGNOD),intent(out) :: xelm,yelm,zelm
+  double precision, dimension(NGNOD),intent(in) :: offset_x,offset_y,offset_z
 
 ! rotation matrix from Euler angles
-  double precision, dimension(NDIM,NDIM) :: rotation_matrix
+  double precision, dimension(NDIM,NDIM),intent(in) :: rotation_matrix
 
   integer, intent(in) :: iproc_xi,iproc_eta,NPROC_XI,NPROC_ETA, &
                    NEX_PER_PROC_XI,NEX_PER_PROC_ETA,ner,ilayer,ichunk,NCHUNKS
 
-  double precision :: ANGULAR_WIDTH_XI_RAD,ANGULAR_WIDTH_ETA_RAD,r_top,r_bottom
+  double precision,intent(in) :: ANGULAR_WIDTH_XI_RAD,ANGULAR_WIDTH_ETA_RAD,r_top,r_bottom
 
-  logical :: INCLUDE_CENTRAL_CUBE
-  integer :: NUMBER_OF_MESH_LAYERS
+  logical,intent(in) :: INCLUDE_CENTRAL_CUBE
+  integer,intent(in) :: NUMBER_OF_MESH_LAYERS
 
 ! local variables
   integer :: i,j,ignod
 
-  double precision :: xi,eta,gamma,x,y,x_,y_,z,rgb,rgt,rn
+  double precision :: xi,eta,gamma,x,y,z,rgb,rgt,rn
   double precision :: x_bot,y_bot,z_bot
   double precision :: x_top,y_top,z_top
+!  double precision :: x_,y_
 
   double precision, dimension(NDIM) :: vector_ori,vector_rotated
 
   double precision :: ratio_xi, ratio_eta, fact_xi, fact_eta, fact_xi_,fact_eta_
 
 ! to avoid compiler warnings
-  x_ = 0
-  y_ = 0
+!  x_ = 0
+!  y_ = 0
 
 ! loop on all the nodes in this element
   do ignod = 1,NGNOD
@@ -162,7 +164,7 @@
       rgt = (r_top / R_EARTH)*gamma
       rgb = (r_bottom / R_EARTH)*gamma
 
-    ! define the mesh points on the top and the bottom in the six regions of the cubed sphere
+      ! define the mesh points on the top and the bottom in the six regions of the cubed sphere
       select case (ichunk)
 
         case (CHUNK_AB)
@@ -230,10 +232,10 @@
 
       end select
 
-    ! rotate the chunk to the right location if we do not mesh the full Earth
+      ! rotate the chunk to the right location if we do not mesh the full Earth
       if (NCHUNKS /= 6) then
 
-    ! rotate bottom
+        ! rotate bottom
         vector_ori(1) = x_bot
         vector_ori(2) = y_bot
         vector_ori(3) = z_bot
@@ -247,7 +249,7 @@
         y_bot = vector_rotated(2)
         z_bot = vector_rotated(3)
 
-    ! rotate top
+        ! rotate top
         vector_ori(1) = x_top
         vector_ori(2) = y_top
         vector_ori(3) = z_top
@@ -263,7 +265,7 @@
 
       endif
 
-    ! compute the position of the point
+      ! compute the position of the point
       rn = offset_z(ignod) / dble(ner)
       xelm(ignod) = x_top*rn + x_bot*(ONE-rn)
       yelm(ignod) = y_top*rn + y_bot*(ONE-rn)
@@ -319,209 +321,4 @@
   zgrid_central_cube = radius_cube * fact_z * (1 + (cos(xi)+cos(eta))*CENTRAL_CUBE_INFLATE_FACTOR / PI)
 
   end subroutine compute_coord_central_cube
-
-
-!---------------------------------------------------------------------------
-
-! create observation grid (surface) on which we compute the gravity integrals.
-! each processor has a copy of the whole grid and sums its contribution there,
-! and at the end of the process an MPI reduction is performed to compute the global sum
-
-  subroutine compute_observation_surface()
-
-  use constants
-
-  use meshfem3D_par, only: myrank,x_observation,y_observation,z_observation,x_observation1D,y_observation1D,z_observation1D, &
-                           lon_observation,lat_observation,ELLIPTICITY,TOPOGRAPHY,OUTPUT_FILES
-
-  use meshfem3D_models_par, only: nspl,rspl,espl,espl2,ibathy_topo
-
-  implicit none
-
-! local variables
-  integer :: ix,iy,ichunk,ier
-
-  double precision :: gamma,x,y,rgt
-  double precision :: x_top,y_top,z_top
-  double precision :: ratio_xi, ratio_eta
-
-  double precision :: r,lat,lon,elevation
-
-! the observation surface is always above the whole Earth, thus each mesh chunk has a size of PI / 2 in each direction
-  double precision, parameter :: ANGULAR_WIDTH_XI_RAD = PI_OVER_TWO, ANGULAR_WIDTH_ETA_RAD = PI_OVER_TWO
-
-! reuse an existing observation surface created in another run and stored to disk,
-! so that we are sure that they are exactly the same (for instance when comparing results for a reference ellipsoidal Earth
-! and results for a 3D Earth with topography)
-  if (REUSE_EXISTING_OBSERVATION_SURF) then
-
-    if (myrank == 0) then
-      open(unit=IIN,file=trim(OUTPUT_FILES)//'/saved_observation_grid_real_x_y_z_used_by_the_code.txt',status='old', &
-                                                                                               action='read',iostat=ier)
-      if (ier /= 0 ) call exit_mpi(myrank,'Error opening file for REUSE_EXISTING_OBSERVATION_SURF')
-
-!     loop on all the chunks and then on all the observation nodes in each chunk
-      do ichunk = 1,NCHUNKS_MAX
-        do iy = 1,NY_OBSERVATION
-          do ix = 1,NX_OBSERVATION
-            ! read the saved values
-            read(IIN,*) x_observation(ix,iy,ichunk),y_observation(ix,iy,ichunk),z_observation(ix,iy,ichunk)
-          enddo
-        enddo
-      enddo
-      close(unit=IIN)
-
-    endif
-
-!   the 3D and 1D versions of these arrays are equivalenced in the module in which they are declared
-    call bcast_all_dp(x_observation1D, NTOTAL_OBSERVATION)
-    call bcast_all_dp(y_observation1D, NTOTAL_OBSERVATION)
-    call bcast_all_dp(z_observation1D, NTOTAL_OBSERVATION)
-
-!   loop on all the chunks and then on all the observation nodes in each chunk
-    do ichunk = 1,NCHUNKS_MAX
-      do iy = 1,NY_OBSERVATION
-        do ix = 1,NX_OBSERVATION
-
-          x_top = x_observation(ix,iy,ichunk)
-          y_top = y_observation(ix,iy,ichunk)
-          z_top = z_observation(ix,iy,ichunk)
-
-          ! converts geocentric coordinates x/y/z to geographic radius/latitude/longitude (in degrees)
-          call xyz_2_rlatlon_dble(x_top,y_top,z_top,r,lat,lon)
-
-          ! store the values obtained for future display with GMT
-          if (lon > 180.0d0 ) lon = lon - 360.0d0
-          lon_observation(ix,iy,ichunk) = lon
-          lat_observation(ix,iy,ichunk) = lat
-
-        enddo
-      enddo
-    enddo
-
-  else ! of if (REUSE_EXISTING_OBSERVATION_SURF)
-
-  ! for future GMT display
-  if (myrank == 0) then
-    open(unit=IOUT,file=trim(OUTPUT_FILES)//'/observation_grid_long_lat_topo_for_GMT.txt',status='unknown',action='write')
-    open(unit=9965,file=trim(OUTPUT_FILES)//'/saved_observation_grid_real_x_y_z_used_by_the_code.txt',status='unknown', &
-                                                                                                 action='write')
-  endif
-
-! loop on all the chunks and then on all the observation nodes in each chunk
-  do ichunk = 1,NCHUNKS_MAX
-    do iy = 1,NY_OBSERVATION
-      do ix = 1,NX_OBSERVATION
-
-      ratio_xi = dble(ix - 1) / dble(NX_OBSERVATION - 1)
-      x = 2.d0*ratio_xi-1
-
-      ratio_eta = dble(iy - 1) / dble(NY_OBSERVATION - 1)
-      y = 2.d0*ratio_eta-1
-
-      x = tan((ANGULAR_WIDTH_XI_RAD/2.d0) * x)
-      y = tan((ANGULAR_WIDTH_ETA_RAD/2.d0) * y)
-
-      gamma = ONE / sqrt(ONE + x*x + y*y)
-
-! first compute the position of the points exactly at the free surface of the Earth (without the oceans)
-! keeping in mind that the code non-dimensionalizes the radius of the spherical Earth to one
-      rgt = R_UNIT_SPHERE*gamma
-
-    ! define the mesh points on the top and the bottom in the six regions of the cubed sphere
-      select case (ichunk)
-
-        case (CHUNK_AB)
-
-          x_top = -y*rgt
-          y_top = x*rgt
-          z_top = rgt
-
-        case (CHUNK_AB_ANTIPODE)
-
-          x_top = -y*rgt
-          y_top = -x*rgt
-          z_top = -rgt
-
-        case (CHUNK_AC)
-
-          x_top = -y*rgt
-          y_top = -rgt
-          z_top = x*rgt
-
-        case (CHUNK_AC_ANTIPODE)
-
-          x_top = -y*rgt
-          y_top = rgt
-          z_top = -x*rgt
-
-        case (CHUNK_BC)
-
-          x_top = -rgt
-          y_top = y*rgt
-          z_top = x*rgt
-
-        case (CHUNK_BC_ANTIPODE)
-
-          x_top = rgt
-          y_top = -y*rgt
-          z_top = x*rgt
-
-        case default
-          stop 'incorrect chunk number in compute_coord_main_mesh'
-
-      end select
-
-      ! add ellipticity
-      if (ELLIPTICITY) call get_ellipticity_single_point(x_top,y_top,z_top,nspl,rspl,espl,espl2)
-
-      ! converts geocentric coordinates x/y/z to geographic radius/latitude/longitude (in degrees)
-      call xyz_2_rlatlon_dble(x_top,y_top,z_top,r,lat,lon)
-
-      ! compute elevation at current point
-      if (TOPOGRAPHY) then
-        call get_topo_bathy(lat,lon,elevation,ibathy_topo)
-      else
-        elevation = ZERO
-      endif
-
-      ! store the values obtained for future display with GMT
-      if (myrank == 0) then
-        if (lon > 180.0d0 ) lon = lon - 360.0d0
-        write(IOUT,*) lon,lat,elevation
-        lon_observation(ix,iy,ichunk) = lon
-        lat_observation(ix,iy,ichunk) = lat
-      endif
-
-      ! add topography
-      if (TOPOGRAPHY) then
-        ! non-dimensionalize the elevation, which is in meters
-        elevation = elevation / R_EARTH
-
-        x_top = x_top*(ONE + elevation)
-        y_top = y_top*(ONE + elevation)
-        z_top = z_top*(ONE + elevation)
-      endif
-
-      ! compute the position of the point
-      x_observation(ix,iy,ichunk) = x_top * observation_elevation_ratio
-      y_observation(ix,iy,ichunk) = y_top * observation_elevation_ratio
-      z_observation(ix,iy,ichunk) = z_top * observation_elevation_ratio
-
-      ! store the values obtained so that they can be reused from other runs
-      if (myrank == 0) write(9965,*) x_observation(ix,iy,ichunk),y_observation(ix,iy,ichunk),z_observation(ix,iy,ichunk)
-
-      enddo
-    enddo
-  enddo
-
-  ! for future GMT display
-  if (myrank == 0) then
-    close(unit=IOUT)
-    close(unit=9965)
-  endif
-
-  endif ! of if (REUSE_EXISTING_OBSERVATION_SURF)
-
-  end subroutine compute_observation_surface
 

@@ -11,7 +11,7 @@
 !
 ! This program is free software; you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by
-! the Free Software Foundation; either version 2 of the License, or
+! the Free Software Foundation; either version 3 of the License, or
 ! (at your option) any later version.
 !
 ! This program is distributed in the hope that it will be useful,
@@ -27,8 +27,8 @@
 
 ! create AVS or DX 2D data for the surface of the model
 ! to be recombined in postprocessing
-  subroutine write_AVS_DX_surface_data(myrank,prname,nspec,iboun, &
-     ibool,idoubling,xstore,ystore,zstore,num_ibool_AVS_DX,mask_ibool,npointot,&
+  subroutine write_AVS_DX_surface_data(prname,nspec,iboun, &
+     ibool,idoubling,xstore,ystore,zstore,num_ibool_AVS_DX,mask_ibool,npointot, &
      rhostore,kappavstore,muvstore,nspl,rspl,espl,espl2, &
      ELLIPTICITY,ISOTROPIC_3D_MANTLE, &
      RICB,RCMB,RTOPDDOUBLEPRIME,R600,R670,R220,R771,R400,R120,R80,RMOHO, &
@@ -38,7 +38,7 @@
 
   implicit none
 
-  integer nspec,myrank
+  integer nspec
   integer ibool(NGLLX,NGLLY,NGLLZ,nspec)
 
   integer idoubling(nspec)
@@ -230,7 +230,7 @@
 
 
                        ! gets reference model values: rho,vpv,vph,vsv,vsh and eta_aniso
-                       call meshfem3D_models_get1D_val(myrank,iregion_code,idoubling(ispec), &
+                       call meshfem3D_models_get1D_val(iregion_code,idoubling(ispec), &
                             r,rho,vpv,vph,vsv,vsh,eta_aniso, &
                             Qkappa,Qmu,RICB,RCMB, &
                             RTOPDDOUBLEPRIME,R80,R120,R220,R400,R600,R670,R771, &
@@ -242,14 +242,14 @@
                        vs = sqrt(((1.d0-2.d0*eta_aniso)*vph*vph + vpv*vpv &
                             + 5.d0*vsh*vsh + (6.d0+4.d0*eta_aniso)*vsv*vsv)/15.d0)
 
-                       if (abs(rhostore(i,j,k,ispec))< 1.e-20) then
+                       if (abs(rhostore(i,j,k,ispec)) < 1.e-20) then
                           print *,' attention: rhostore close to zero',rhostore(i,j,k,ispec),r,i,j,k,ispec
                           dvp = 0.0
                           dvs = 0.0
-                       else if (abs(sngl(vp))< 1.e-20) then
+                       else if (abs(sngl(vp)) < 1.e-20) then
                           print *,' attention: vp close to zero',sngl(vp),r,i,j,k,ispec
                           dvp = 0.0
-                       else if (abs(sngl(vs))< 1.e-20) then
+                       else if (abs(sngl(vs)) < 1.e-20) then
                           print *,' attention: vs close to zero',sngl(vs),r,i,j,k,ispec
                           dvs = 0.0
                        else

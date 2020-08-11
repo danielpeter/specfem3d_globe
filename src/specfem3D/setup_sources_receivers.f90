@@ -11,7 +11,7 @@
 !
 ! This program is free software; you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by
-! the Free Software Foundation; either version 2 of the License, or
+! the Free Software Foundation; either version 3 of the License, or
 ! (at your option) any later version.
 !
 ! This program is distributed in the hope that it will be useful,
@@ -77,18 +77,14 @@
   implicit none
 
   ! local parameters
-  double precision :: min_tshift_cmt_original
-  integer :: isource
+  double precision :: min_tshift_src_original
+  integer :: isource,ier
   character(len=MAX_STRING_LEN) :: filename
-  integer :: ier
-
-  ! makes smaller hdur for movies
-  logical,parameter :: USE_SMALLER_HDUR_MOVIE = .true.
 
   ! user output
   if (myrank == 0) then
     write(IMAIN,*)
-    write(IMAIN,*) 'sources:'
+    write(IMAIN,*) 'sources:',NSOURCES
     call flush_IMAIN()
   endif
 
@@ -108,9 +104,9 @@
            gamma_source(NSOURCES),stat=ier)
   if (ier /= 0 ) call exit_MPI(myrank,'Error allocating source arrays')
 
-  allocate(tshift_cmt(NSOURCES), &
+  allocate(tshift_src(NSOURCES), &
            hdur(NSOURCES), &
-           hdur_gaussian(NSOURCES),stat=ier)
+           hdur_Gaussian(NSOURCES),stat=ier)
   if (ier /= 0 ) call exit_MPI(myrank,'Error allocating source arrays')
 
   allocate(theta_source(NSOURCES), &
@@ -119,6 +115,14 @@
 
   allocate(nu_source(NDIM,NDIM,NSOURCES),stat=ier)
   if (ier /= 0 ) call exit_MPI(myrank,'Error allocating source arrays')
+
+  if (USE_FORCE_POINT_SOURCE) then
+    allocate(force_stf(NSOURCES),factor_force_source(NSOURCES), &
+             comp_dir_vect_source_E(NSOURCES), &
+             comp_dir_vect_source_N(NSOURCES), &
+             comp_dir_vect_source_Z_UP(NSOURCES),stat=ier)
+    if (ier /= 0) stop 'error allocating arrays for force point sources'
+  endif
 
   ! sources
   ! BS BS moved open statement and writing of first lines into sr.vtk before the
@@ -141,10 +145,10 @@
   ! locate sources in the mesh
   call locate_sources(NSPEC_CRUST_MANTLE,NGLOB_CRUST_MANTLE,ibool_crust_mantle, &
                      xstore_crust_mantle,ystore_crust_mantle,zstore_crust_mantle, &
-                     ELLIPTICITY_VAL,min_tshift_cmt_original)
+                     ELLIPTICITY_VAL,min_tshift_src_original)
 
-  if (abs(minval(tshift_cmt)) > TINYVAL) &
-    call exit_MPI(myrank,'one tshift_cmt must be zero, others must be positive')
+  ! determines onset time
+  call setup_stf_constants(min_tshift_src_original)
 
   ! count number of sources located in this slice
   nsources_local = 0
@@ -154,13 +158,63 @@
     enddo
   endif
 
+  ! determines number of times steps for simulation
+  call setup_timesteps()
+
+  ! prints source time functions and spectrum to output files
+  if (PRINT_SOURCE_TIME_FUNCTION) call print_stf_file()
+
+  ! get information about event name and location
+  ! (e.g. needed for SAC seismograms)
+
+  ! The following line is added for get_event_info subroutine.
+  ! Because the way NSOURCES_SAC was declared has been changed.
+  ! The rest of the changes in this program is just the updates of the subroutines that
+  ! I did changes, e.g., adding/removing parameters. by Ebru Bozdag
+  call get_event_info_parallel(yr_SAC,jda_SAC,mo_SAC, da_SAC, ho_SAC,mi_SAC,sec_SAC, &
+                               event_name_SAC,t_cmt_SAC,t_shift_SAC, &
+                               elat_SAC,elon_SAC,depth_SAC,mb_SAC,ms_SAC,cmt_lat_SAC, &
+                               cmt_lon_SAC,cmt_depth_SAC,cmt_hdur_SAC,NSOURCES, &
+                               Mrr,Mtt,Mpp,Mrt,Mrp,Mtp)
+
+  ! noise simulations ignore the CMTSOLUTIONS sources but employ a noise-spectrum source S_squared instead
+  ! checks if anything to do for noise simulations
+  if (NOISE_TOMOGRAPHY /= 0) then
+    if (myrank == 0) then
+      write(IMAIN,*) 'noise simulation will ignore CMT sources'
+    endif
+  endif
+
+  end subroutine setup_sources
+
+!
+!-------------------------------------------------------------------------------------------------
+!
+
+  subroutine setup_stf_constants(min_tshift_src_original)
+
+  use specfem_par
+  use specfem_par_movie
+  implicit none
+
+  double precision,intent(in) :: min_tshift_src_original
+
+  ! local parameters
+  integer :: isource
+
+  ! makes smaller hdur for movies
+  logical,parameter :: USE_SMALLER_HDUR_MOVIE = .true.
+
+  if (abs(minval(tshift_src)) > TINYVAL) &
+    call exit_MPI(myrank,'one tshift_src must be zero, others must be positive')
+
   ! filter source time function by Gaussian with hdur = HDUR_MOVIE when writing movies or shakemaps
   if (MOVIE_SURFACE .or. MOVIE_VOLUME) then
     ! smaller hdur_movie will do
     if (USE_SMALLER_HDUR_MOVIE) then
       ! hdur_movie gets assigned an automatic value based on the simulation resolution
       ! this will make that a bit smaller to have a higher-frequency movie output
-      HDUR_MOVIE = 0.5* HDUR_MOVIE
+      HDUR_MOVIE = 0.5 * HDUR_MOVIE
     endif
 
     ! new hdur for simulation
@@ -173,24 +227,43 @@
   endif
 
   ! convert the half duration for triangle STF to the one for Gaussian STF
-  hdur_gaussian(:) = hdur(:)/SOURCE_DECAY_MIMIC_TRIANGLE
+  hdur_Gaussian(:) = hdur(:)/SOURCE_DECAY_MIMIC_TRIANGLE
 
   ! define t0 as the earliest start time
-  t0 = - 1.5d0*minval( tshift_cmt(:) - hdur(:) )
+  if (USE_FORCE_POINT_SOURCE) then
+    ! point force sources
+    ! (might start depending on the frequency given by hdur)
+    ! note: point force sources will give the dominant frequency in hdur, thus the main period is 1/hdur.
+    !       also, these sources might use a Ricker source time function instead of a Gaussian.
+    !       For a Ricker source time function, a start time ~1.2 * main_period is a good choice.
+    t0 = 0.d0
+    do isource = 1,NSOURCES
+      select case(force_stf(isource))
+      case (0)
+        ! Gaussian source time function
+        t0 = min(t0,1.5d0 * (tshift_src(isource) - hdur(isource)))
+      case (1)
+        ! Ricker source time function
+        t0 = min(t0,1.2d0 * (tshift_src(isource) - 1.0d0/hdur(isource)))
+      case (2)
+        ! Heaviside
+        t0 = min(t0,1.5d0 * (tshift_src(isource) - hdur(isource)))
+      case default
+        stop 'unsupported force_stf value!'
+      end select
+    enddo
+    ! start time defined as positive value, will be subtracted
+    t0 = - t0
+  else
+    ! moment tensors
+    ! (based on Heaviside functions)
+    t0 = - 1.5d0 * minval( tshift_src(:) - hdur(:) )
+  endif
 
   ! uses an external file for source time function, which starts at time 0.0
   if (EXTERNAL_SOURCE_TIME_FUNCTION) then
     hdur(:) = 0.d0
     t0      = 0.d0
-  endif
-
-  ! point force sources will start depending on the frequency given by hdur
-  if (USE_FORCE_POINT_SOURCE) then
-    ! note: point force sources will give the dominant frequency in hdur,
-    !          thus the main period is 1/hdur.
-    !          also, these sources use a Ricker source time function instead of a Gaussian.
-    !          for a Ricker source time function, a start time ~1.2 * main_period is a good choice
-    t0 = - 1.2d0 * minval(tshift_cmt(:) - 1.0d0/hdur(:))
   endif
 
   ! checks if user set USER_T0 to fix simulation start time
@@ -203,17 +276,17 @@
     ! notifies user
     if (myrank == 0) then
       write(IMAIN,*) 'USER_T0: ',USER_T0
-      write(IMAIN,*) 't0: ',t0,'min_tshift_cmt_original: ',min_tshift_cmt_original
+      write(IMAIN,*) 't0: ',t0,'min_tshift_src_original: ',min_tshift_src_original
       write(IMAIN,*)
     endif
 
     ! checks if automatically set t0 is too small
-    ! note: min_tshift_cmt_original can be a positive or negative time shift (minimum from all tshift)
-    if (t0 <= USER_T0 + min_tshift_cmt_original) then
-      ! by default, tshift_cmt(:) holds relative time shifts with a minimum time shift set to zero
+    ! note: min_tshift_src_original can be a positive or negative time shift (minimum from all tshift)
+    if (t0 <= USER_T0 + min_tshift_src_original) then
+      ! by default, tshift_src(:) holds relative time shifts with a minimum time shift set to zero
       ! re-adds (minimum) original time shift such that sources will kick in
       ! according to their absolute time shift
-      tshift_cmt(:) = tshift_cmt(:) + min_tshift_cmt_original
+      tshift_src(:) = tshift_src(:) + min_tshift_src_original
 
       ! sets new simulation start time such that
       ! simulation starts at t = - t0 = - USER_T0
@@ -230,7 +303,7 @@
       if (myrank == 0) then
         write(IMAIN,*) 'Error: USER_T0 is too small'
         write(IMAIN,*) '       must make one of three adjustments:'
-        write(IMAIN,*) '       - increase USER_T0 to be at least: ',t0-min_tshift_cmt_original
+        write(IMAIN,*) '       - increase USER_T0 to be at least: ',t0-min_tshift_src_original
         write(IMAIN,*) '       - decrease time shift in CMTSOLUTION file'
         write(IMAIN,*) '       - decrease hdur in CMTSOLUTION file'
         call flush_IMAIN()
@@ -244,39 +317,7 @@
     call exit_mpi(myrank,'Error negative USER_T0 parameter in constants.h')
   endif
 
-  ! determines number of times steps for simulation
-  call setup_timesteps()
-
-  ! prints source time functions to output files
-  if (PRINT_SOURCE_TIME_FUNCTION .and. myrank == 0) then
-    do isource = 1,NSOURCES
-        ! print source time function and spectrum
-         call print_stf(NSOURCES,isource,Mxx,Myy,Mzz,Mxy,Mxz,Myz, &
-                        tshift_cmt,hdur,min_tshift_cmt_original,NSTEP,DT)
-    enddo
-  endif
-
-  ! get information about event name and location
-  ! (e.g. needed for SAC seismograms)
-
-  ! The following line is added for get_event_info subroutine.
-  ! Because the way NSOURCES_SAC was declared has been changed.
-  ! The rest of the changes in this program is just the updates of the subroutines that
-  ! I did changes, e.g., adding/removing parameters. by Ebru Bozdag
-  call get_event_info_parallel(myrank,yr_SAC,jda_SAC,ho_SAC,mi_SAC,sec_SAC,&
-                              event_name_SAC,t_cmt_SAC,t_shift_SAC, &
-                              elat_SAC,elon_SAC,depth_SAC,mb_SAC,cmt_lat_SAC,&
-                              cmt_lon_SAC,cmt_depth_SAC,cmt_hdur_SAC,NSOURCES)
-
-  ! noise simulations ignore the CMTSOLUTIONS sources but employ a noise-spectrum source S_squared instead
-  ! checks if anything to do for noise simulations
-  if (NOISE_TOMOGRAPHY /= 0) then
-    if (myrank == 0) then
-      write(IMAIN,*) 'noise simulation will ignore CMT sources'
-    endif
-  endif
-
-  end subroutine setup_sources
+  end subroutine setup_stf_constants
 
 !
 !-------------------------------------------------------------------------------------------------
@@ -303,28 +344,25 @@
   !
   ! adds initial t0 time to update number of time steps and reach full record length
   if (abs(t0) > 0.d0) then
-    NSTEP = NSTEP + 100 * (int( abs(t0) / (100.d0*DT)) + 1)
+    ! note: for zero length, nstep has minimal of 5 timesteps for testing
+    !       we won't extend this
+    !
+    ! careful: do not use RECORD_LENGTH_IN_MINUTES here, as it is only read by the master process
+    !          when reading the parameter file, but it is not broadcasted to all other processes
+    !          NSTEP gets broadcasted, so we work with this values
+    if (NSTEP /= 5) then
+      ! extend by bulk of 100 steps to account for half-duration rise time
+      NSTEP = NSTEP + 100 * (int( abs(t0) / (100.d0*DT)) + 1)
+    endif
   endif
 
   ! if doing benchmark runs to measure scaling of the code for a limited number of time steps only
   if (DO_BENCHMARK_RUN_ONLY) NSTEP = NSTEP_FOR_BENCHMARK
 
-  ! checks with undo_attenuation
-  if (UNDO_ATTENUATION) then
-    ! old:
-    !! DK DK make sure NSTEP is a multiple of NT_DUMP_ATTENUATION
-    !if (mod(NSTEP,NT_DUMP_ATTENUATION) /= 0) then
-    !  NSTEP = (NSTEP/NT_DUMP_ATTENUATION + 1) * NT_DUMP_ATTENUATION
-    !endif
-    ! makes sure buffer size is not too big for total time length
-    if (NSTEP < NT_DUMP_ATTENUATION) &
-      call exit_MPI(myrank,'Error undoing attenuation: number of time steps are too small, please increase record length!')
-  endif
-
   ! checks length for symmetry in case of noise simulations
   if (NOISE_TOMOGRAPHY /= 0) then
     if (mod(NSTEP+1,2) /= 0) then
-      print *,'Error noise simulation: invalid time steps = ',NSTEP,' -> NSTEP + 1 must be a multiple of 2 due to branch symmetry'
+      print *,'Error noise simulation: invalid time steps = ',NSTEP,', NSTEP + 1 must be a multiple of 2 due to branch symmetry'
       call exit_MPI(myrank,'Error noise simulation: number of timesteps must be symmetric, due to +/- branches')
     endif
   endif
@@ -340,6 +378,16 @@
   ! otherwise we waste memory
   if (SIMULATION_TYPE == 2 .or. SIMULATION_TYPE == 3) then
     if (NTSTEP_BETWEEN_READ_ADJSRC > NSTEP) NTSTEP_BETWEEN_READ_ADJSRC = NSTEP
+  endif
+
+  ! buffering with undo_attenuation
+  NT_DUMP_ATTENUATION = NT_DUMP_ATTENUATION_VAL
+  if (UNDO_ATTENUATION) then
+    ! makes sure buffer size is not too big for total time length
+    !
+    ! note: NSTEP must not be a multiple of NT_DUMP_ATTENUATION.
+    !       the value from the header file NT_DUMP_ATTENUATION_VAL gives the optimal (maximum) number of time steps for buffering
+    if (NSTEP < NT_DUMP_ATTENUATION) NT_DUMP_ATTENUATION = NSTEP
   endif
 
   ! debug
@@ -358,12 +406,15 @@
 
   implicit none
 
+! check for imbalance of distribution of receivers or of adjoint sources
+  logical, parameter :: CHECK_FOR_IMBALANCE = .false.
+
   ! local parameters
-  integer :: irec,isource,nrec_tot_found
+  integer :: irec,isource,nrec_tot_found,i
   integer :: nrec_simulation
   integer :: nadj_files_found,nadj_files_found_tot
   integer :: ier
-  integer,dimension(:),allocatable :: tmp_rec_local_all
+  integer,dimension(0:NPROCTOT_VAL-1) :: tmp_rec_local_all
   integer :: maxrec,maxproc(1)
   double precision :: sizeval
 
@@ -445,7 +496,11 @@
         nadj_rec_local = nadj_rec_local + 1
 
         ! checks **net**.**sta**.**MX**.adj files for correct number of time steps
-        call check_adjoint_sources(irec,nadj_files_found)
+        if (READ_ADJSRC_ASDF) then
+          call check_adjoint_sources_asdf(irec,nadj_files_found)
+        else
+          call check_adjoint_sources(irec,nadj_files_found)
+        endif
       endif
     enddo
 
@@ -483,17 +538,6 @@
   call synchronize_all()
 
   ! statistics about allocation memory for seismograms & adj_sourcearrays
-  ! gathers info about receivers on master
-  if (myrank == 0) then
-    ! only master process needs full arrays allocated
-    allocate(tmp_rec_local_all(NPROCTOT_VAL),stat=ier)
-    if (ier /= 0 ) call exit_MPI(myrank,'Error allocating temporary array tmp_rec_local_all')
-  else
-    ! dummy arrays
-    allocate(tmp_rec_local_all(1),stat=ier)
-    if (ier /= 0 ) call exit_MPI(myrank,'Error allocating temporary array tmp_rec_local_all')
-  endif
-
   ! user output info
   ! sources
   if (SIMULATION_TYPE == 1 .or. SIMULATION_TYPE == 3) then
@@ -515,7 +559,7 @@
   ! seismograms
   ! gather from slaves on master
   tmp_rec_local_all(:) = 0
-  tmp_rec_local_all(1) = nrec_local
+  tmp_rec_local_all(0) = nrec_local
   if (NPROCTOT_VAL > 1) then
     call gather_all_singlei(nrec_local,tmp_rec_local_all,NPROCTOT_VAL)
   endif
@@ -523,7 +567,8 @@
   if (myrank == 0) then
     ! determines maximum number of local receivers and corresponding rank
     maxrec = maxval(tmp_rec_local_all(:))
-    maxproc = maxloc(tmp_rec_local_all(:))
+    ! note: MAXLOC will determine the lower bound index as '1'.
+    maxproc = maxloc(tmp_rec_local_all(:)) - 1
     ! seismograms array size in MB
     if (SIMULATION_TYPE == 1 .or. SIMULATION_TYPE == 3) then
       ! seismograms need seismograms(NDIM,nrec_local,NTSTEP_BETWEEN_OUTPUT_SEISMOS)
@@ -551,7 +596,7 @@
   if (SIMULATION_TYPE == 2 .or. SIMULATION_TYPE == 3) then
     ! gather from slaves on master
     tmp_rec_local_all(:) = 0
-    tmp_rec_local_all(1) = nadj_rec_local
+    tmp_rec_local_all(0) = nadj_rec_local
     if (NPROCTOT_VAL > 1) then
       call gather_all_singlei(nadj_rec_local,tmp_rec_local_all,NPROCTOT_VAL)
     endif
@@ -559,16 +604,17 @@
     if (myrank == 0) then
       ! determines maximum number of local receivers and corresponding rank
       maxrec = maxval(tmp_rec_local_all(:))
-      maxproc = maxloc(tmp_rec_local_all(:))
+      ! note: MAXLOC will determine the lower bound index as '1'.
+      maxproc = maxloc(tmp_rec_local_all(:)) - 1
       !do i = 1, NPROCTOT_VAL
       !  if (tmp_rec_local_all(i) > maxrec) then
       !    maxrec = tmp_rec_local_all(i)
       !    maxproc = i-1
       !  endif
       !enddo
-      ! adj_sourcearrays size in MB
-      ! adj_sourcearrays(NDIM,NGLLX,NGLLY,NGLLZ,nadj_rec_local,NTSTEP_BETWEEN_READ_ADJSRC)
-      sizeval = dble(maxrec) * dble(NDIM * NGLLX * NGLLY * NGLLZ * NTSTEP_BETWEEN_READ_ADJSRC * CUSTOM_REAL / 1024. / 1024. )
+      ! source_adjoint size in MB
+      ! source_adjoint(NDIM,nadj_rec_local,NTSTEP_BETWEEN_READ_ADJSRC)
+      sizeval = dble(maxrec) * dble(NDIM * NTSTEP_BETWEEN_READ_ADJSRC * CUSTOM_REAL / 1024. / 1024. )
       ! note: in case IO_ASYNC_COPY is set, and depending of NSTEP_SUB_ADJ,
       !       this memory requirement might double.
       !       at this point, NSTEP_SUB_ADJ is not set yet...
@@ -586,7 +632,50 @@
     endif
   endif
 
-  deallocate(tmp_rec_local_all)
+! check for imbalance of distribution of receivers or of adjoint sources
+  if (CHECK_FOR_IMBALANCE .and. NPROCTOT_VAL > 1) then
+    call gather_all_singlei(nrec_local,tmp_rec_local_all,NPROCTOT_VAL)
+    if (myrank == 0) then
+      open(unit=9977,file='imbalance_of_nrec_local.dat',status='unknown')
+      do i = 0,NPROCTOT_VAL-1
+        write(9977,*) i,tmp_rec_local_all(i)
+      enddo
+      close(9977)
+    endif
+
+    call gather_all_singlei(nadj_rec_local,tmp_rec_local_all,NPROCTOT_VAL)
+    if (myrank == 0) then
+      open(unit=9977,file='imbalance_of_nadj_rec_local.dat',status='unknown')
+      do i = 0,NPROCTOT_VAL-1
+        write(9977,*) i,tmp_rec_local_all(i)
+      enddo
+      close(9977)
+    endif
+
+    if (myrank == 0) then
+      open(unit=9977,file='plot_imbalance_histogram.gnu',status='unknown')
+      write(9977,*) '#set terminal x11'
+      write(9977,*) 'set terminal wxt'
+      write(9977,*) '#set terminal gif'
+      write(9977,*) '#set output "imbalance_histogram.gif"'
+      write(9977,*)
+      write(9977,*) 'set xrange [1:',NPROCTOT_VAL,']'
+      write(9977,*) '#set xtics 0,0.1,1'
+      write(9977,*) 'set boxwidth 1.'
+      write(9977,*) 'set xlabel "Mesh slice number"'
+      write(9977,*)
+      write(9977,*) 'set ylabel "Number of receivers in that mesh slice"'
+      write(9977,*) 'plot "imbalance_of_nrec_local.dat" with boxes'
+      write(9977,*) 'pause -1 "hit any key..."'
+      write(9977,*)
+      write(9977,*) 'set ylabel "Number of adjoint sources in that mesh slice"'
+      write(9977,*) 'plot "imbalance_of_nadj_rec_local.dat" with boxes'
+      write(9977,*) 'pause -1 "hit any key..."'
+      close(9977)
+    endif
+
+    call synchronize_all()
+  endif
 
   end subroutine setup_receivers
 
@@ -596,7 +685,7 @@
 
   subroutine setup_sources_receivers_VTKfile()
 
-  use specfem_par,only: myrank,OUTPUT_FILES,NSOURCES,nrec,MAX_STRING_LEN
+  use specfem_par, only: myrank,OUTPUT_FILES,NSOURCES,nrec,MAX_STRING_LEN
   implicit none
 
   ! local parameters
@@ -612,28 +701,29 @@
     filename = trim(OUTPUT_FILES)//'/sr_tmp.vtk'
     filename_new = trim(OUTPUT_FILES)//'/sr.vtk'
     write(command, &
-  "('sed -e ',a1,'s/POINTS.*/POINTS',i6,' float/',a1,' < ',a,' > ',a)")&
+  "('sed -e ',a1,'s/POINTS.*/POINTS',i6,' float/',a1,'<',a,'>',a)")&
       "'",NSOURCES + nrec,"'",trim(filename),trim(filename_new)
 
-    ! note: this system() routine is non-standard fortran
+    ! note: this system() routine is non-standard Fortran
     call system_command(command)
 
     ! only extract receiver locations and remove temporary file
     filename_new = trim(OUTPUT_FILES)//'/receiver.vtk'
     write(command, &
-  "('awk ',a1,'{if (NR<5) print $0;if (NR==6)print ',a1,'POINTS',i6,' float',a1,';if (NR>5+',i6,')print $0}',a1,' < ',a,' > ',a)")&
+  "('awk ',a1,'{if (NR < 5) print $0;if (NR == 6)&
+   &print ',a1,'POINTS',i6,' float',a1,';if (NR > 5+',i6,')print $0}',a1,'<',a,'>',a)")&
       "'",'"',nrec,'"',NSOURCES,"'",trim(filename),trim(filename_new)
 
-    ! note: this system() routine is non-standard fortran
+    ! note: this system() routine is non-standard Fortran
     call system_command(command)
 
     ! only extract source locations and remove temporary file
     filename_new = trim(OUTPUT_FILES)//'/source.vtk'
     write(command, &
-  "('awk ',a1,'{if (NR< 6 + ',i6,') print $0}END{print}',a1,' < ',a,' > ',a,'; rm -f ',a)")&
+  "('awk ',a1,'{if (NR < 6 + ',i6,') print $0}END{print}',a1,'<',a,'>',a,'; rm -f ',a)")&
       "'",NSOURCES,"'",trim(filename),trim(filename_new),trim(filename)
 
-    ! note: this system() routine is non-standard fortran
+    ! note: this system() routine is non-standard Fortran
     call system_command(command)
 
   endif
@@ -655,7 +745,7 @@
   integer(kind=8) :: arraysize
 
   ! allocates source arrays
-  if (SIMULATION_TYPE == 1  .or. SIMULATION_TYPE == 3) then
+  if (SIMULATION_TYPE == 1 .or. SIMULATION_TYPE == 3) then
     ! source interpolated on all GLL points in source element
     allocate(sourcearrays(NDIM,NGLLX,NGLLY,NGLLZ,NSOURCES),stat=ier)
     if (ier /= 0 ) then
@@ -684,33 +774,30 @@
     NSTEP_SUB_ADJ = ceiling( dble(NSTEP)/dble(NTSTEP_BETWEEN_READ_ADJSRC) )
 
     if (nadj_rec_local > 0) then
-      ! allocate adjoint source arrays
-      allocate(adj_sourcearrays(NDIM,NGLLX,NGLLY,NGLLZ,nadj_rec_local,NTSTEP_BETWEEN_READ_ADJSRC), &
+      allocate(source_adjoint(NDIM,nadj_rec_local,NTSTEP_BETWEEN_READ_ADJSRC), &
                stat=ier)
       if (ier /= 0 ) then
-        print *,'Error rank ',myrank,': allocating adjoint sourcearrays failed! Please check your memory usage...'
+        print *,'Error rank ',myrank,': allocating source_adjoint failed! Please check your memory usage...'
         print *,'  failed number of local adjoint sources = ',nadj_rec_local,' steps = ',NTSTEP_BETWEEN_READ_ADJSRC
         call exit_MPI(myrank,'Error allocating adjoint sourcearrays')
       endif
-      ! initializes
-      adj_sourcearrays(:,:,:,:,:,:) = 0._CUSTOM_REAL
 
       ! additional buffer for asynchronous file i/o
       if (IO_ASYNC_COPY .and. NSTEP_SUB_ADJ > 1) then
         ! allocates read buffer
-        allocate(buffer_sourcearrays(NDIM,NGLLX,NGLLY,NGLLZ,nadj_rec_local,NTSTEP_BETWEEN_READ_ADJSRC), &
+        allocate(buffer_source_adjoint(NDIM,nadj_rec_local,NTSTEP_BETWEEN_READ_ADJSRC), &
                  stat=ier)
-        if (ier /= 0 ) call exit_MPI(myrank,'Error allocating array buffer_sourcearrays')
+        if (ier /= 0 ) call exit_MPI(myrank,'Error allocating array buffer_source_adjoint')
 
         ! array size in bytes (note: the multiplication is split into two line to avoid integer-overflow)
-        arraysize = NDIM * NGLLX * NGLLY * NGLLZ * CUSTOM_REAL
+        arraysize = NDIM *  CUSTOM_REAL
         arraysize = arraysize * nadj_rec_local * NTSTEP_BETWEEN_READ_ADJSRC
 
         ! debug
         !print *,'buffer_sourcearrays: size = ',arraysize,' Bytes = ',arraysize/1024./1024.,'MB'
 
         ! initializes io thread
-        call prepare_adj_io_thread(buffer_sourcearrays,arraysize,nadj_rec_local)
+        call prepare_adj_io_thread(buffer_source_adjoint,arraysize,nadj_rec_local)
       endif
 
       ! allocate indexing arrays
@@ -739,9 +826,18 @@
   implicit none
 
   ! local parameters
-  integer :: isource,iglob,i,j,k,ispec
+  integer :: isource,i,j,k,ispec !,iglob
+
+  double precision, dimension(NGLLX) :: hxis,hpxis
+  double precision, dimension(NGLLY) :: hetas,hpetas
+  double precision, dimension(NGLLZ) :: hgammas,hpgammas
+
   real(kind=CUSTOM_REAL), dimension(NDIM,NGLLX,NGLLY,NGLLZ) :: sourcearray
+  double precision, dimension(NDIM,NGLLX,NGLLY,NGLLZ) :: sourcearrayd
+
   double precision :: xi,eta,gamma
+  double precision :: hlagrange
+  double precision :: norm
 
   do isource = 1,NSOURCES
 
@@ -767,36 +863,109 @@
       eta = eta_source(isource)
       gamma = gamma_source(isource)
 
-      ! pre-computes source contribution on GLL points
-      call compute_arrays_source(sourcearray,xi,eta,gamma, &
-                          Mxx(isource),Myy(isource),Mzz(isource),Mxy(isource),Mxz(isource),Myz(isource), &
-                          xix_crust_mantle(:,:,:,ispec),xiy_crust_mantle(:,:,:,ispec),xiz_crust_mantle(:,:,:,ispec), &
-                          etax_crust_mantle(:,:,:,ispec),etay_crust_mantle(:,:,:,ispec),etaz_crust_mantle(:,:,:,ispec), &
-                          gammax_crust_mantle(:,:,:,ispec),gammay_crust_mantle(:,:,:,ispec),gammaz_crust_mantle(:,:,:,ispec), &
-                          xigll,yigll,zigll)
+!      ! pre-computes source contribution on GLL points
+!      call compute_arrays_source(sourcearray,xi,eta,gamma, &
+!                          Mxx(isource),Myy(isource),Mzz(isource),Mxy(isource),Mxz(isource),Myz(isource), &
+!                          xix_crust_mantle(:,:,:,ispec),xiy_crust_mantle(:,:,:,ispec),xiz_crust_mantle(:,:,:,ispec), &
+!                          etax_crust_mantle(:,:,:,ispec),etay_crust_mantle(:,:,:,ispec),etaz_crust_mantle(:,:,:,ispec), &
+!                          gammax_crust_mantle(:,:,:,ispec),gammay_crust_mantle(:,:,:,ispec),gammaz_crust_mantle(:,:,:,ispec), &
+!                          xigll,yigll,zigll)
+!
+!      ! point forces, initializes sourcearray, used for simplified CUDA routines
+!    !-------------POINT FORCE-----------------------------------------------
+!      if (USE_FORCE_POINT_SOURCE) then
+!        ! note: for use_force_point_source xi/eta/gamma are in the range [1,NGLL*]
+!        iglob = ibool_crust_mantle(nint(xi),nint(eta),nint(gamma),ispec)
+!
+!        ! sets sourcearrays
+!        do k = 1,NGLLZ
+!          do j = 1,NGLLY
+!            do i = 1,NGLLX
+!              if (ibool_crust_mantle(i,j,k,ispec) == iglob) then
+!                ! elastic source components
+!                sourcearray(:,i,j,k) = nu_source(COMPONENT_FORCE_SOURCE,:,isource)
+!              endif
+!            enddo
+!          enddo
+!        enddo
+!      endif
+!    !-------------POINT FORCE-----------------------------------------------
+!
+!      ! stores source excitations
+!      sourcearrays(:,:,:,:,isource) = sourcearray(:,:,:,:)
+!    endif
 
-      ! point forces, initializes sourcearray, used for simplified CUDA routines
-      if (USE_FORCE_POINT_SOURCE) then
-        ! note: for use_force_point_source xi/eta/gamma are in the range [1,NGLL*]
-        iglob = ibool_crust_mantle(nint(xi),nint(eta),nint(gamma),ispec)
+      ! compute Lagrange polynomials at the source location
+      call lagrange_any(xi,NGLLX,xigll,hxis,hpxis)
+      call lagrange_any(eta,NGLLY,yigll,hetas,hpetas)
+      call lagrange_any(gamma,NGLLZ,zigll,hgammas,hpgammas)
 
-        ! sets sourcearrays
-        do k = 1,NGLLZ
-          do j = 1,NGLLY
-            do i = 1,NGLLX
-              if (ibool_crust_mantle(i,j,k,ispec) == iglob) then
-                ! elastic source components
-                sourcearray(:,i,j,k) = nu_source(COMPONENT_FORCE_SOURCE,:,isource)
+      if (USE_FORCE_POINT_SOURCE) then ! use of FORCESOLUTION files
+
+        ! note: for use_force_point_source xi/eta/gamma are also in the range [-1,1], for exact positioning
+
+        ! initializes source array
+        sourcearrayd(:,:,:,:) = 0.0d0
+
+        ! calculates source array for interpolated location
+        do k=1,NGLLZ
+          do j=1,NGLLY
+            do i=1,NGLLX
+              hlagrange = hxis(i) * hetas(j) * hgammas(k)
+
+              ! elastic source
+              norm = sqrt( comp_dir_vect_source_E(isource)**2 &
+                         + comp_dir_vect_source_N(isource)**2 &
+                         + comp_dir_vect_source_Z_UP(isource)**2 )
+
+              ! checks norm of component vector
+              if (norm < TINYVAL) then
+                call exit_MPI(myrank,'error force point source: component vector has (almost) zero norm')
               endif
+
+              ! normalizes vector
+              comp_dir_vect_source_E(isource) = comp_dir_vect_source_E(isource) / norm
+              comp_dir_vect_source_N(isource) = comp_dir_vect_source_N(isource) / norm
+              comp_dir_vect_source_Z_UP(isource) = comp_dir_vect_source_Z_UP(isource) / norm
+
+              ! we use a tilted force defined by its magnitude and the projections
+              ! of an arbitrary (non-unitary) direction vector on the E/N/Z_UP basis
+              !
+              ! note: nu_source(iorientation,:,isource) is the rotation matrix from ECEF to local N-E-UP
+              !       (defined in src/specfem3D/locate_sources.f90)
+              sourcearrayd(:,i,j,k) = factor_force_source(isource) * hlagrange * &
+                                      ( nu_source(1,:,isource) * comp_dir_vect_source_N(isource) + &
+                                        nu_source(2,:,isource) * comp_dir_vect_source_E(isource) + &
+                                        nu_source(3,:,isource) * comp_dir_vect_source_Z_UP(isource) )
             enddo
           enddo
         enddo
+
+        ! distinguish between single and double precision for reals
+        sourcearray(:,:,:,:) = real(sourcearrayd(:,:,:,:),kind=CUSTOM_REAL)
+
+      else ! use of CMTSOLUTION files
+
+        call compute_arrays_source(sourcearray,xi,eta,gamma, &
+                          Mxx(isource),Myy(isource),Mzz(isource),Mxy(isource), &
+                          Mxz(isource),Myz(isource), &
+                          xix_crust_mantle(:,:,:,ispec), &
+                          xiy_crust_mantle(:,:,:,ispec), &
+                          xiz_crust_mantle(:,:,:,ispec), &
+                          etax_crust_mantle(:,:,:,ispec), &
+                          etay_crust_mantle(:,:,:,ispec), &
+                          etaz_crust_mantle(:,:,:,ispec), &
+                          gammax_crust_mantle(:,:,:,ispec), &
+                          gammay_crust_mantle(:,:,:,ispec), &
+                          gammaz_crust_mantle(:,:,:,ispec), &
+                          xigll,yigll,zigll)
+
       endif
 
       ! stores source excitations
       sourcearrays(:,:,:,:,isource) = sourcearray(:,:,:,:)
-    endif
 
+    endif
   enddo
 
   end subroutine setup_sources_receivers_srcarr
@@ -925,7 +1094,7 @@
     if (ier /= 0 ) call exit_MPI(myrank,'Error allocating derivative interpolators')
 
     ! stores interpolators for receiver positions
-    call setup_sources_receivers_intp(NSOURCES,myrank, &
+    call setup_sources_receivers_intp(NSOURCES, &
                       islice_selected_source, &
                       xi_source,eta_source,gamma_source, &
                       xigll,yigll,zigll, &
@@ -962,9 +1131,14 @@
     it_adj_written = 0
   else
     ! allocates dummy array since we need it to pass as argument e.g. in write_seismograms() routine
-    ! note: nrec_local is zero, fortran 90/95 should allow zero-sized array allocation...
+    ! note: nrec_local is zero, Fortran 90/95 should allow zero-sized array allocation...
     allocate(seismograms(NDIM,0,NTSTEP_BETWEEN_OUTPUT_SEISMOS),stat=ier)
     if (ier /= 0) stop 'Error while allocating zero seismograms'
+    ! dummy allocation
+    allocate(hxir_store(1,1), &
+             hetar_store(1,1), &
+             hgammar_store(1,1),stat=ier)
+    if (ier /= 0 ) call exit_MPI(myrank,'Error allocating dummy receiver interpolators')
   endif
 
   end subroutine setup_receivers_precompute_intp
@@ -973,7 +1147,7 @@
 !-------------------------------------------------------------------------------------------------
 !
 
-  subroutine setup_sources_receivers_intp(NSOURCES,myrank, &
+  subroutine setup_sources_receivers_intp(NSOURCES, &
                       islice_selected_source, &
                       xi_source,eta_source,gamma_source, &
                       xigll,yigll,zigll, &
@@ -987,7 +1161,7 @@
 
   implicit none
 
-  integer :: NSOURCES,myrank
+  integer :: NSOURCES
 
   integer, dimension(NSOURCES) :: islice_selected_source
 

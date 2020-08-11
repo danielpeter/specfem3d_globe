@@ -11,7 +11,7 @@
 !
 ! This program is free software; you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by
-! the Free Software Foundation; either version 2 of the License, or
+! the Free Software Foundation; either version 3 of the License, or
 ! (at your option) any later version.
 !
 ! This program is distributed in the hope that it will be useful,
@@ -28,7 +28,7 @@
 
 module tomography_par
 
-  use constants,only: CUSTOM_REAL,MAX_STRING_LEN, &
+  use constants, only: CUSTOM_REAL,MAX_STRING_LEN, &
     NGLLX,NGLLY,NGLLZ,IIN,IOUT, &
     FOUR_THIRDS,R_EARTH_KM,GAUSSALPHA,GAUSSBETA
 
@@ -51,7 +51,7 @@ module tomography_par
   ! model update length
   real(kind=CUSTOM_REAL) :: step_fac,step_length
 
-  ! mpi process
+  ! MPI process
   integer :: myrank,sizeprocs
 
 end module tomography_par

@@ -11,7 +11,7 @@
 !
 ! This program is free software; you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by
-! the Free Software Foundation; either version 2 of the License, or
+! the Free Software Foundation; either version 3 of the License, or
 ! (at your option) any later version.
 !
 ! This program is distributed in the hope that it will be useful,
@@ -34,7 +34,7 @@
   use specfem_par_innercore
   use specfem_par_outercore
   use specfem_par_movie
-  use write_seismograms_mod, only: write_seismograms
+
   implicit none
 
   ! timing
@@ -52,14 +52,14 @@
     write(IOUT_ENERGY,*) 'set logscale y'
     write(IOUT_ENERGY,*) 'set xlabel "Time step number"'
     write(IOUT_ENERGY,*) 'set ylabel "Energy (J)"'
-    write(IOUT_ENERGY,'(a152)') '#plot "energy.dat" us 1:2 t ''Kinetic Energy'' w l lc 1, "energy.dat" us 1:3 &
-                         &t ''Potential Energy'' w l lc 2, "energy.dat" us 1:4 t ''Total Energy'' w l lc 4'
+    write(IOUT_ENERGY,'(a152)') '#plot "energy.dat" us 1:2 t "Kinetic Energy" w l lc 1, "energy.dat" us 1:3 &
+                         &t "Potential Energy" w l lc 2, "energy.dat" us 1:4 t "Total Energy" w l lc 4'
     write(IOUT_ENERGY,*) '#pause -1 "Hit any key..."'
-    write(IOUT_ENERGY,*) '#plot "energy.dat" us 1:2 t ''Kinetic Energy'' w l lc 1'
+    write(IOUT_ENERGY,*) '#plot "energy.dat" us 1:2 t "Kinetic Energy" w l lc 1'
     write(IOUT_ENERGY,*) '#pause -1 "Hit any key..."'
-    write(IOUT_ENERGY,*) '#plot "energy.dat" us 1:3 t ''Potential Energy'' w l lc 2'
+    write(IOUT_ENERGY,*) '#plot "energy.dat" us 1:3 t "Potential Energy" w l lc 2'
     write(IOUT_ENERGY,*) '#pause -1 "Hit any key..."'
-    write(IOUT_ENERGY,*) 'plot "energy.dat" us 1:4 t ''Total Energy'' w l lc 4'
+    write(IOUT_ENERGY,*) 'plot "energy.dat" us 1:4 t "Total Energy" w l lc 4'
     write(IOUT_ENERGY,*) 'pause -1 "Hit any key..."'
     close(IOUT_ENERGY)
   endif
@@ -106,9 +106,11 @@
   ! time loop
   do it = it_begin,it_end
 
+
     ! simulation status output and stability check
     if (mod(it,NTSTEP_BETWEEN_OUTPUT_INFO) == 0 .or. it == it_begin + 4 .or. it == it_end) then
       call check_stability()
+      if (I_am_running_on_a_slow_node) goto 100
     endif
 
     do istage = 1, NSTAGE_TIME_SCHEME ! is equal to 1 if Newmark because only one stage then
@@ -138,12 +140,23 @@
             do i = 1, NGLLX
               iglob = ibool_crust_mantle(i,j,k,ispec)
               if (integer_mask_ibool_exact_undo(iglob) /= -1) &
-                buffer_for_disk(integer_mask_ibool_exact_undo(iglob)) = eps_trace_over_3_crust_mantle(i,j,k,ispec)
+                buffer_for_disk(integer_mask_ibool_exact_undo(iglob),it_of_this_exact_subset) = &
+                  eps_trace_over_3_crust_mantle(i,j,k,ispec)
             enddo
           enddo
         enddo
       enddo
-      write(IFILE_FOR_EXACT_UNDOING,rec=it) buffer_for_disk
+      if (it_of_this_exact_subset == it_exact_subset_end) then
+        do it_of_this_exact_subset = 1, it_exact_subset_end
+          write(IFILE_FOR_EXACT_UNDOING,rec=it_exact_subset_offset+it_of_this_exact_subset) &
+            buffer_for_disk(:,it_of_this_exact_subset)
+        enddo
+        it_of_this_exact_subset = 1
+        it_exact_subset_offset = it_exact_subset_offset + it_exact_subset_end
+        it_exact_subset_end = min(NSTEP_FOR_EXACT_UNDOING, it_end - it_exact_subset_offset)
+      else
+        it_of_this_exact_subset = it_of_this_exact_subset + 1
+      endif
     endif
 
     ! kernel simulations (forward and adjoint wavefields)
@@ -185,15 +198,28 @@
       else ! of if (.not. EXACT_UNDOING_TO_DISK)
 
         ! read the forward run from disk for the alpha kernel only
-        ! here we time revert the forward run by reading time step NSTEP - it + 1
-        read(IFILE_FOR_EXACT_UNDOING,rec=NSTEP-it+1) buffer_for_disk
+        it_of_this_exact_subset = it_of_this_exact_subset + 1
+        if (it_of_this_exact_subset > it_exact_subset_end) then
+          it_exact_subset_offset = it_exact_subset_offset + it_exact_subset_end
+          it_exact_subset_end = min(NSTEP_FOR_EXACT_UNDOING, it_end - it_exact_subset_offset)
+          do it_of_this_exact_subset = 1, it_exact_subset_end
+            ! here we time revert the forward run by reading time step NSTEP - it + 1
+            ! but here, it == it_exact_subset_offset + it_of_this_exact_subset
+            read(IFILE_FOR_EXACT_UNDOING,rec=NSTEP-it_exact_subset_offset-it_of_this_exact_subset+1) &
+              buffer_for_disk(:,it_of_this_exact_subset)
+          enddo
+          it_of_this_exact_subset = 1
+        endif
+
         do ispec = 1, NSPEC_CRUST_MANTLE
           do k = 1, NGLLZ
             do j = 1, NGLLY
               do i = 1, NGLLX
                 iglob = ibool_crust_mantle(i,j,k,ispec)
-                if (integer_mask_ibool_exact_undo(iglob) /= -1) &
-                  b_eps_trace_over_3_crust_mantle(i,j,k,ispec) = buffer_for_disk(integer_mask_ibool_exact_undo(iglob))
+                if (integer_mask_ibool_exact_undo(iglob) /= -1) then
+                  b_eps_trace_over_3_crust_mantle(i,j,k,ispec) = &
+                    buffer_for_disk(integer_mask_ibool_exact_undo(iglob),it_of_this_exact_subset)
+                endif
               enddo
             enddo
           enddo
@@ -210,12 +236,13 @@
     call write_seismograms()
 
     ! adjoint simulations: kernels
+    ! attention: for GPU_MODE and ANISOTROPIC_KL it is necessary to use resort_array (see lines 265-268)
     if (SIMULATION_TYPE == 3) then
       call compute_kernels()
     endif
 
     ! outputs movie files
-    call write_movie_output()
+    if (MOVIE_SURFACE .or. MOVIE_VOLUME) call write_movie_output()
 
     ! first step of noise tomography, i.e., save a surface movie at every time step
     ! modified from the subroutine 'write_movie_surface'
@@ -232,6 +259,14 @@
   !---- end of time iteration loop
   !
   enddo   ! end of main time loop
+
+ 100 continue
+
+
+  if (SIMULATION_TYPE == 3 .and. GPU_MODE) then
+    ! attention: cijkl_kl_crust_mantle is sorted differently on GPU and CPU
+    call resort_array(Mesh_pointer)
+  endif
 
   ! close the huge file that contains a dump of all the time steps to disk
   if (EXACT_UNDOING_TO_DISK) call finish_exact_undoing_to_disk()
@@ -259,6 +294,7 @@
   use specfem_par_crustmantle
   use specfem_par_innercore
   use specfem_par_outercore
+  use specfem_par_noise
 
   implicit none
 
@@ -307,7 +343,7 @@
                                      beta_kl_inner_core,NSPEC_INNER_CORE)
     ! outer core
     call transfer_kernels_oc_to_host(Mesh_pointer, &
-                                     rho_kl_outer_core,&
+                                     rho_kl_outer_core, &
                                      alpha_kl_outer_core,NSPEC_OUTER_CORE)
     ! crust/mantle
     call transfer_kernels_cm_to_host(Mesh_pointer, &
@@ -323,7 +359,7 @@
       call transfer_kernels_noise_to_host(Mesh_pointer,sigma_kl_crust_mantle,NSPEC_CRUST_MANTLE)
     endif
 
-    ! approximative hessian for preconditioning kernels
+    ! approximative Hessian for preconditioning kernels
     if (APPROXIMATE_HESS_KL) then
       call transfer_kernels_hess_cm_tohost(Mesh_pointer,hess_kl_crust_mantle,NSPEC_CRUST_MANTLE)
     endif
@@ -386,14 +422,14 @@
       data_size = size(vtkdata)
       if (myrank == 0) then
         ! gather data
-        call gatherv_all_r(vtkdata,data_size,&
+        call gatherv_all_r(vtkdata,data_size, &
                             vtkdata_all,vtkdata_points_all,vtkdata_offset_all, &
                             vtkdata_numpoints_all,NPROCTOT_VAL)
         ! updates VTK window
         call visualize_vtkdata(it,currenttime,vtkdata_all)
       else
         ! all other process just send data
-        call gatherv_all_r(vtkdata,data_size,&
+        call gatherv_all_r(vtkdata,data_size, &
                             dummy,vtkdata_points_all,vtkdata_offset_all, &
                             1,NPROCTOT_VAL)
       endif
@@ -451,7 +487,7 @@
 
   if (ANISOTROPIC_KL) call exit_MPI(myrank,'EXACT_UNDOING_TO_DISK requires ANISOTROPIC_KL to be turned off')
 
-  if (SIMULATION_TYPE /= 1 .and. SIMULATION_TYPE /=3) &
+  if (SIMULATION_TYPE /= 1 .and. SIMULATION_TYPE /= 3) &
     call exit_MPI(myrank,'EXACT_UNDOING_TO_DISK can only be used with SIMULATION_TYPE == 1 or SIMULATION_TYPE == 3')
 
 
@@ -467,8 +503,8 @@
       do j = 1, NGLLY
         do i = 1, NGLLX
           iglob = ibool_crust_mantle(i,j,k,ispec)
-          ! xstore ystore zstore have previously been converted to r theta phi, thus xstore now stores the radius
-          radius = xstore_crust_mantle(iglob) ! <- radius r (normalized)
+          ! xstore ystore zstore have previously been converted to r theta phi in rstore
+          radius = rstore_crust_mantle(1,iglob) ! radius r (normalized)
           ! save that element only if it is in the upper part of the mesh
           if (radius >= R670 / R_EARTH) then
             ! if this point has not yet been found before
@@ -484,11 +520,11 @@
   enddo
 
   ! allocate the buffer used to dump a single time step
-  allocate(buffer_for_disk(counter))
+  allocate(buffer_for_disk(counter,NSTEP_FOR_EXACT_UNDOING))
 
   ! open the file in which we will dump all the time steps (in a single file)
   write(outputname,"('huge_dumps/proc',i6.6,'_huge_dump_of_all_time_steps.bin')") myrank
-  inquire(iolength=record_length) buffer_for_disk
+  inquire(iolength=record_length) buffer_for_disk(:,1)
   ! we write to or read from the file depending on the simulation type
   if (SIMULATION_TYPE == 1) then
     open(file=outputname, unit=IFILE_FOR_EXACT_UNDOING, action='write', status='unknown', &
@@ -496,6 +532,17 @@
   else if (SIMULATION_TYPE == 3) then
     open(file=outputname, unit=IFILE_FOR_EXACT_UNDOING, action='read', status='old', &
                     form='unformatted', access='direct', recl=record_length)
+  endif
+
+  if (SIMULATION_TYPE == 1) then
+    it_of_this_exact_subset = 1
+    it_exact_subset_offset = it_begin - 1
+    it_exact_subset_end = min(NSTEP_FOR_EXACT_UNDOING, it_end - it_begin + 1)
+  else if (SIMULATION_TYPE == 3) then
+    ! Trigger a read at the start of the loop
+    it_of_this_exact_subset = 0
+    it_exact_subset_offset = it_begin - 1
+    it_exact_subset_end = 0
   endif
 
   end subroutine setup_exact_undoing_to_disk

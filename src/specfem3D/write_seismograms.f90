@@ -11,7 +11,7 @@
 !
 ! This program is free software; you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by
-! the Free Software Foundation; either version 2 of the License, or
+! the Free Software Foundation; either version 3 of the License, or
 ! (at your option) any later version.
 !
 ! This program is distributed in the hope that it will be useful,
@@ -25,22 +25,25 @@
 !
 !=====================================================================
 
-module write_seismograms_mod
-
-contains
-
   subroutine write_seismograms()
 
-  use specfem_par,only: myrank,Mesh_pointer,GPU_MODE,GPU_ASYNC_COPY,SIMULATION_TYPE, &
+  use constants, only: IMAIN
+
+  use constants_solver, only: NGLOB_CRUST_MANTLE,NGLOB_CRUST_MANTLE_ADJOINT
+
+  use specfem_par, only: myrank,Mesh_pointer,GPU_MODE,GPU_ASYNC_COPY,SIMULATION_TYPE, &
     nrec_local,number_receiver_global,ispec_selected_rec,ispec_selected_source, &
     it,it_begin,it_end,seismo_current,seismo_offset, seismograms,NTSTEP_BETWEEN_OUTPUT_SEISMOS, &
-    WRITE_SEISMOGRAMS_BY_MASTER,OUTPUT_SEISMOS_ASDF, &
-    it_adj_written,moment_der,sloc_der,shdur_der,stshift_der
+    WRITE_SEISMOGRAMS_BY_MASTER,OUTPUT_SEISMOS_ASDF, SAVE_SEISMOGRAMS_IN_ADJOINT_RUN, &
+    it_adj_written,moment_der,sloc_der,shdur_der,stshift_der,scale_displ,NSTEP
 
-
-  use specfem_par_crustmantle
+  use specfem_par_crustmantle, only: displ_crust_mantle,b_displ_crust_mantle, &
+    eps_trace_over_3_crust_mantle,epsilondev_xx_crust_mantle,epsilondev_xy_crust_mantle,epsilondev_xz_crust_mantle, &
+    epsilondev_yy_crust_mantle,epsilondev_yz_crust_mantle, &
+    ibool_crust_mantle
 
   implicit none
+
   ! local parameters
   ! timing
   double precision, external :: wtime
@@ -55,7 +58,9 @@ contains
     if (GPU_MODE) then
       ! gets field values from GPU
       ! this transfers fields only in elements with stations for efficiency
-      call write_seismograms_transfer_gpu(Mesh_pointer, &
+      if (SIMULATION_TYPE == 2) then
+
+        call write_seismograms_transfer_gpu(Mesh_pointer, &
                                           displ_crust_mantle,b_displ_crust_mantle, &
                                           eps_trace_over_3_crust_mantle, &
                                           epsilondev_xx_crust_mantle,epsilondev_yy_crust_mantle,epsilondev_xy_crust_mantle, &
@@ -64,12 +69,17 @@ contains
                                           ispec_selected_rec,ispec_selected_source, &
                                           ibool_crust_mantle)
 
-      ! synchronizes field values from GPU
-      if (GPU_ASYNC_COPY) then
-        call transfer_seismo_from_device_async(Mesh_pointer, &
+        ! synchronizes field values from GPU
+        if (GPU_ASYNC_COPY) then
+          call transfer_seismo_from_device_async(Mesh_pointer, &
                                                displ_crust_mantle,b_displ_crust_mantle, &
                                                number_receiver_global,ispec_selected_rec,ispec_selected_source, &
                                                ibool_crust_mantle)
+        endif
+      ! for forward and kernel simulations, seismograms are computed by the GPU, thus no need to transfer the wavefield
+    else
+      if (.not. ( SIMULATION_TYPE == 3 .and. (.not. SAVE_SEISMOGRAMS_IN_ADJOINT_RUN) ) ) &
+        call compute_seismograms_gpu(Mesh_pointer,seismograms,seismo_current,it,scale_displ,NTSTEP_BETWEEN_OUTPUT_SEISMOS,NSTEP)
       endif
 
     endif
@@ -77,10 +87,11 @@ contains
     ! computes traces at interpolated receiver locations
     select case (SIMULATION_TYPE)
     case (1)
-      call compute_seismograms(NGLOB_CRUST_MANTLE,displ_crust_mantle, &
+      if (.not. GPU_MODE) &
+        call compute_seismograms(NGLOB_CRUST_MANTLE,displ_crust_mantle, &
                                seismo_current,seismograms)
     case (2)
-      call compute_seismograms_adjoint(displ_crust_mantle, &
+        call compute_seismograms_adjoint(displ_crust_mantle, &
                                        eps_trace_over_3_crust_mantle, &
                                        epsilondev_xx_crust_mantle,epsilondev_yy_crust_mantle,epsilondev_xy_crust_mantle, &
                                        epsilondev_xz_crust_mantle,epsilondev_yz_crust_mantle, &
@@ -88,7 +99,8 @@ contains
                                        moment_der,sloc_der,stshift_der,shdur_der, &
                                        seismograms)
     case (3)
-      call compute_seismograms(NGLOB_CRUST_MANTLE_ADJOINT,b_displ_crust_mantle, &
+      if (.not. GPU_MODE .or. (.not. ( SIMULATION_TYPE == 3 .and. (.not. SAVE_SEISMOGRAMS_IN_ADJOINT_RUN)) ) ) &
+        call compute_seismograms(NGLOB_CRUST_MANTLE_ADJOINT,b_displ_crust_mantle, &
                                seismo_current,seismograms)
     end select
   endif ! nrec_local
@@ -99,20 +111,22 @@ contains
     write_time_begin = wtime()
 
     ! checks if anything to do
-    ! note: ASDF uses adios that defines the MPI communicator group that the solver is
+    ! note: ASDF uses parallel hdf5 that defines the MPI communicator group that the solver is
     !       run with. this means every processor in the group is needed for write_seismograms
     if (nrec_local > 0 .or. ( WRITE_SEISMOGRAMS_BY_MASTER .and. myrank == 0 ) .or. OUTPUT_SEISMOS_ASDF) then
       ! writes out seismogram files
       select case (SIMULATION_TYPE)
       case (1,3)
         ! forward/reconstructed wavefields
-        call write_seismograms_to_file()
+        if (.not. ( SIMULATION_TYPE == 3 .and. (.not. SAVE_SEISMOGRAMS_IN_ADJOINT_RUN) ) ) &
+          call write_seismograms_to_file()
       case (2)
         ! adjoint wavefield
         call write_adj_seismograms(it_adj_written)
         it_adj_written = it
       end select
     endif
+
     ! synchronizes processes (waits for all processes to finish writing)
     call synchronize_all()
 
@@ -147,9 +161,9 @@ contains
 ! write seismograms to files
   subroutine write_seismograms_to_file()
 
-  use constants_solver,only: MAX_STRING_LEN,CUSTOM_REAL,NDIM,IMAIN,IOUT,itag
+  use constants_solver, only: MAX_STRING_LEN,CUSTOM_REAL,NDIM,IMAIN,IOUT,itag
 
-  use specfem_par,only: &
+  use specfem_par, only: &
           NPROCTOT_VAL,myrank,nrec,nrec_local, &
           number_receiver_global,seismograms, &
           islice_selected_rec, &
@@ -161,21 +175,16 @@ contains
           OUTPUT_FILES, &
           WRITE_SEISMOGRAMS_BY_MASTER
 
-  use asdf_data,only: asdf_event
-
   implicit none
 
   ! local parameters
   real(kind=CUSTOM_REAL), dimension(:,:), allocatable :: one_seismogram
 
-  integer :: iproc,sender,irec_local,iorientation,irec,ier,receiver
+  integer :: iproc,sender,irec_local,irec,ier,receiver
   integer :: nrec_local_received
   integer :: total_seismos
   integer,dimension(:),allocatable:: islice_num_rec_local
   character(len=MAX_STRING_LEN) :: sisname
-  ! ASDF
-  type(asdf_event) :: asdf_container
-  integer :: total_seismos_local
 
   ! allocates single station seismogram
   allocate(one_seismogram(NDIM,NTSTEP_BETWEEN_OUTPUT_SEISMOS),stat=ier)
@@ -192,29 +201,21 @@ contains
         if (seismo_offset == 0) then
           open(unit=IOUT,file=trim(OUTPUT_FILES)//trim(sisname)//'.bin',status='unknown',form='unformatted',action='write')
         else
-          open(unit=IOUT,file=trim(OUTPUT_FILES)//trim(sisname)//'.bin',status='old',&
+          open(unit=IOUT,file=trim(OUTPUT_FILES)//trim(sisname)//'.bin',status='old', &
                form='unformatted',position='append',action='write')
         endif
       else
         if (seismo_offset == 0) then
           open(unit=IOUT,file=trim(OUTPUT_FILES)//trim(sisname)//'.ascii',status='unknown',form='formatted',action='write')
         else
-          open(unit=IOUT,file=trim(OUTPUT_FILES)//trim(sisname)//'.ascii',status='old',&
+          open(unit=IOUT,file=trim(OUTPUT_FILES)//trim(sisname)//'.ascii',status='old', &
                form='formatted',position='append',action='write')
         endif
       endif
     endif
 
     ! initializes the ASDF data structure by allocating arrays
-    if (OUTPUT_SEISMOS_ASDF) then
-      total_seismos_local = 0
-      do irec_local = 1, nrec_local
-        do iorientation = 1, 3
-          total_seismos_local = total_seismos_local + 1
-        enddo
-      enddo
-      call init_asdf_data(asdf_container, total_seismos_local)
-    endif
+    if (OUTPUT_SEISMOS_ASDF) call init_asdf_data(nrec_local)
 
     ! loop on all the local receivers
     do irec_local = 1,nrec_local
@@ -225,27 +226,47 @@ contains
       one_seismogram(:,:) = seismograms(:,irec_local,:)
 
       ! write this seismogram
-      if (OUTPUT_SEISMOS_ASDF) then
-        ! note: ASDF data structure is passed as an argument
-        ! stores all traces into ASDF container
-        call write_one_seismogram(one_seismogram,irec,irec_local,asdf_container)
-      else
-        call write_one_seismogram(one_seismogram,irec,irec_local)
-      endif
+      ! note: ASDF data structure is given in module
+      !       stores all traces into ASDF container in case
+      call write_one_seismogram(one_seismogram,irec,irec_local)
     enddo
 
     ! writes out ASDF container to the file
     if (OUTPUT_SEISMOS_ASDF) then
-      call write_asdf(asdf_container)
-
+      call write_asdf()
       ! deallocate the container
-      call close_asdf_data(asdf_container, total_seismos_local)
+      call close_asdf_data()
     endif
 
     ! create one large file instead of one small file per station to avoid file system overload
     if (OUTPUT_SEISMOS_ASCII_TEXT .and. SAVE_ALL_SEISMOS_IN_ONE_FILE) close(IOUT)
 
-  else ! WRITE_SEISMOGRAMS_BY_MASTER
+  else if (WRITE_SEISMOGRAMS_BY_MASTER .and. OUTPUT_SEISMOS_ASDF) then
+    ! BS BS
+    ! The writing of seismograms by the master proc is handled within
+    ! write_asdf()
+    ! initializes the ASDF data structure by allocating arrays
+    call init_asdf_data(nrec_local)
+    call synchronize_all()
+    do irec_local = 1,nrec_local
+
+      ! get global number of that receiver
+      irec = number_receiver_global(irec_local)
+
+      one_seismogram(:,:) = seismograms(:,irec_local,:)
+
+      ! write this seismogram
+      ! note: ASDF data structure is given in module
+      !       stores all traces into ASDF container in case
+      call write_one_seismogram(one_seismogram,irec,irec_local)
+    enddo
+    call write_asdf()
+    call synchronize_all()
+    ! deallocate the container
+    call close_asdf_data()
+
+  else
+    ! WRITE_SEISMOGRAMS_BY_MASTER .and. .not. OUTPUT_SEISMOS_ASDF
 
     ! only the master process does the writing of seismograms and
     ! collects the data from all other processes
@@ -260,14 +281,14 @@ contains
          if (seismo_offset == 0) then
            open(unit=IOUT,file=trim(OUTPUT_FILES)//trim(sisname)//'.bin',status='unknown',form='unformatted',action='write')
          else
-           open(unit=IOUT,file=trim(OUTPUT_FILES)//trim(sisname)//'.bin',status='old',&
+           open(unit=IOUT,file=trim(OUTPUT_FILES)//trim(sisname)//'.bin',status='old', &
                 form='unformatted',position='append',action='write')
          endif
        else
          if (seismo_offset == 0) then
            open(unit=IOUT,file=trim(OUTPUT_FILES)//trim(sisname)//'.ascii',status='unknown',form='formatted',action='write')
          else
-           open(unit=IOUT,file=trim(OUTPUT_FILES)//trim(sisname)//'.ascii',status='old',&
+           open(unit=IOUT,file=trim(OUTPUT_FILES)//trim(sisname)//'.ascii',status='old', &
                 form='formatted',position='append',action='write')
          endif
        endif
@@ -356,6 +377,7 @@ contains
         enddo
       endif
     endif
+
   endif ! WRITE_SEISMOGRAMS_BY_MASTER
 
   deallocate(one_seismogram)
@@ -366,30 +388,26 @@ contains
 !-------------------------------------------------------------------------------------------------
 !
 
-  subroutine write_one_seismogram(one_seismogram,irec,irec_local,asdf_container)
+  subroutine write_one_seismogram(one_seismogram,irec,irec_local)
 
-  use constants_solver,only: MAX_STRING_LEN,CUSTOM_REAL,NDIM,DEGREES_TO_RADIANS, &
+  use constants_solver, only: MAX_STRING_LEN,CUSTOM_REAL,NDIM,DEGREES_TO_RADIANS, &
     MAX_LENGTH_STATION_NAME,MAX_LENGTH_NETWORK_NAME
 
-  use specfem_par,only: &
+  use specfem_par, only: &
           myrank, &
           station_name,network_name,stlat,stlon, &
           DT, &
           seismo_current, &
-          OUTPUT_SEISMOS_ASCII_TEXT,OUTPUT_SEISMOS_SAC_ALPHANUM,OUTPUT_SEISMOS_ASDF,&
+          OUTPUT_SEISMOS_ASCII_TEXT,OUTPUT_SEISMOS_SAC_ALPHANUM,OUTPUT_SEISMOS_ASDF, &
           OUTPUT_SEISMOS_SAC_BINARY,ROTATE_SEISMOGRAMS_RT,NTSTEP_BETWEEN_OUTPUT_SEISMOS
 
-  use specfem_par,only: &
-          cmt_lat=>cmt_lat_SAC,cmt_lon=>cmt_lon_SAC
-
-  use asdf_data,only: asdf_event
+  use specfem_par, only: &
+          cmt_lat => cmt_lat_SAC,cmt_lon => cmt_lon_SAC
 
   implicit none
 
   integer :: irec,irec_local
   real(kind=CUSTOM_REAL), dimension(NDIM,NTSTEP_BETWEEN_OUTPUT_SEISMOS) :: one_seismogram
-
-  type(asdf_event), optional :: asdf_container
 
   ! local parameters
   real(kind=CUSTOM_REAL), dimension(5,NTSTEP_BETWEEN_OUTPUT_SEISMOS) :: seismogram_tmp
@@ -447,16 +465,22 @@ contains
 
       ! BS BS calculate backazimuth needed to rotate East and North
       ! components to Radial and Transverse components
-      !  call get_backazimuth(elat,elon,stlat(irec),stlon(irec),backaz)
+      ! (back-azimuth returned in degrees between [0,360])
       call get_backazimuth(cmt_lat,cmt_lon,stlat(irec),stlon(irec),backaz)
 
       phi = backaz
-      if (phi>180.d0) then
+
+      ! back azimuth is the incoming direction of a raypath to a receiving station, i.e. the angle of
+      ! the incoming wave front arriving at the station measured between north and the direction to the epicenter in degrees.
+      ! (north corresponds to zero degrees)
+
+      ! rotation angle phi takes opposite direction; to have radial direction pointing in outgoing direction
+      if (phi > 180.d0) then
          phi = phi-180.d0
-      else if (phi<180.d0) then
+      else if (phi < 180.d0) then
          phi = phi+180.d0
-      else if (phi==180.d0) then
-         phi = backaz
+      else if (phi == 180.d0) then
+         phi = 0.d0
       endif
 
       cphi=cos(phi*DEGREES_TO_RADIANS)
@@ -505,16 +529,19 @@ contains
                    station_name(irec)(1:length_station_name),chn
 
     ! SAC output format
-    if (OUTPUT_SEISMOS_SAC_ALPHANUM .or. OUTPUT_SEISMOS_SAC_BINARY ) &
+    if (OUTPUT_SEISMOS_SAC_ALPHANUM .or. OUTPUT_SEISMOS_SAC_BINARY ) then
       call write_output_SAC(seismogram_tmp,irec,iorientation,sisname,chn,phi)
+    endif
 
     ! ASCII output format
-    if (OUTPUT_SEISMOS_ASCII_TEXT) &
+    if (OUTPUT_SEISMOS_ASCII_TEXT) then
       call write_output_ASCII(seismogram_tmp,iorientation,sisname,sisname_big_file)
+    endif
 
     ! ASDF output format
-    if (OUTPUT_SEISMOS_ASDF) &
-      call store_asdf_data(asdf_container,seismogram_tmp,irec_local,irec,chn,iorientation,phi)
+    if (OUTPUT_SEISMOS_ASDF) then
+      call store_asdf_data(seismogram_tmp,irec_local,irec,chn,iorientation)
+    endif
 
   enddo ! do iorientation
 
@@ -528,9 +555,9 @@ contains
 
   subroutine write_adj_seismograms(it_adj_written)
 
-  use constants,only: MAX_STRING_LEN,CUSTOM_REAL,IOUT
+  use constants, only: MAX_STRING_LEN,CUSTOM_REAL,IOUT
 
-  use specfem_par,only: NSTEP,NTSTEP_BETWEEN_OUTPUT_SEISMOS, &
+  use specfem_par, only: NSTEP,NTSTEP_BETWEEN_OUTPUT_SEISMOS, &
     DT,t0,LOCAL_TMP_PATH, &
     seismograms,number_receiver_global,nrec_local, &
     it
@@ -591,11 +618,11 @@ contains
       ! the results with the source time function
       if (it <= NTSTEP_BETWEEN_OUTPUT_SEISMOS) then
         !open new file
-        open(unit=IOUT,file=LOCAL_TMP_PATH(1:len_trim(LOCAL_TMP_PATH))//sisname(1:len_trim(sisname)),&
+        open(unit=IOUT,file=LOCAL_TMP_PATH(1:len_trim(LOCAL_TMP_PATH))//sisname(1:len_trim(sisname)), &
               status='unknown',action='write')
       else if (it > NTSTEP_BETWEEN_OUTPUT_SEISMOS) then
         !append to existing file
-        open(unit=IOUT,file=LOCAL_TMP_PATH(1:len_trim(LOCAL_TMP_PATH))//sisname(1:len_trim(sisname)),&
+        open(unit=IOUT,file=LOCAL_TMP_PATH(1:len_trim(LOCAL_TMP_PATH))//sisname(1:len_trim(sisname)), &
               status='old',position='append',action='write')
       endif
       ! make sure we never write more than the maximum number of time steps
@@ -616,7 +643,7 @@ contains
 !-------------------------------------------------------------------------------------------------
 !
 
- subroutine band_instrument_code(DT,bic)
+  subroutine band_instrument_code(DT,bic)
 
 ! This subroutine is to choose the appropriate band and instrument codes for channel names of seismograms
 ! based on the IRIS convention (first two letters of channel codes which were LH(Z/E/N) previously).
@@ -627,8 +654,11 @@ contains
 ! Ebru, November 2010
 
   implicit none
-  double precision :: DT
-  character(len=2) :: bic
+
+  double precision,intent(in) :: DT
+  character(len=2),intent(out) :: bic
+
+  bic = ''
 
   if (1.0d0 <= DT)  bic = 'LX'
   if (0.1d0 < DT .and. DT < 1.0d0) bic = 'MX'
@@ -637,6 +667,5 @@ contains
   if (0.001d0 < DT .and. DT <= 0.004d0) bic = 'CX'
   if (DT <= 0.001d0) bic = 'FX'
 
- end subroutine band_instrument_code
+  end subroutine band_instrument_code
 
-end module write_seismograms_mod

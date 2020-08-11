@@ -11,7 +11,7 @@
 !
 ! This program is free software; you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by
-! the Free Software Foundation; either version 2 of the License, or
+! the Free Software Foundation; either version 3 of the License, or
 ! (at your option) any later version.
 !
 ! This program is distributed in the hope that it will be useful,
@@ -40,28 +40,28 @@
 !         gammaxstore,gammaystore,gammazstore ------ parameters used to calculate Jacobian
 
 
-  subroutine recalc_jacobian_gll3D(myrank,xstore,ystore,zstore,xigll,yigll,zigll,&
-                                   ispec,nspec,&
+  subroutine recalc_jacobian_gll3D(xstore,ystore,zstore,xigll,yigll,zigll, &
+                                   ispec,nspec, &
                                    xixstore,xiystore,xizstore, &
                                    etaxstore,etaystore,etazstore, &
                                    gammaxstore,gammaystore,gammazstore)
 
-  use constants,only: NGLLX,NGLLY,NGLLZ,CUSTOM_REAL,SIZE_REAL, &
+  use constants, only: myrank,NGLLX,NGLLY,NGLLZ,CUSTOM_REAL,SIZE_REAL, &
     ZERO,ONE,TINYVAL,VERYSMALLVAL,R_EARTH_KM,RADIANS_TO_DEGREES
 
   implicit none
 
   ! input parameter
-  integer::myrank,ispec,nspec
+  integer,intent(in) :: ispec,nspec
 
-  double precision, dimension(NGLLX,NGLLY,NGLLZ,nspec) :: xstore,ystore,zstore
+  double precision, dimension(NGLLX,NGLLY,NGLLZ,nspec),intent(in) :: xstore,ystore,zstore
 
-  double precision, dimension(NGLLX):: xigll
-  double precision, dimension(NGLLY):: yigll
-  double precision, dimension(NGLLZ):: zigll
+  double precision, dimension(NGLLX),intent(in) :: xigll
+  double precision, dimension(NGLLY),intent(in) :: yigll
+  double precision, dimension(NGLLZ),intent(in) :: zigll
 
   ! output results
-  real(kind=CUSTOM_REAL), dimension(NGLLX,NGLLY,NGLLZ,nspec) :: &
+  real(kind=CUSTOM_REAL), dimension(NGLLX,NGLLY,NGLLZ,nspec),intent(out) :: &
     xixstore,xiystore,xizstore,etaxstore,etaystore,etazstore, &
     gammaxstore,gammaystore,gammazstore
 
@@ -171,16 +171,16 @@
             .or. abs(zmesh - zstore(i,j,k,ispec)) > TINYVAL) then
             call exit_MPI(myrank,'Error new mesh is wrong in recalc_jacobian_gll3D.f90')
           endif
-          if (abs(sumshape-one) >  TINYVAL) then
+          if (abs(sumshape-one) > TINYVAL) then
             call exit_MPI(myrank,'Error shape functions in recalc_jacobian_gll3D.f90')
           endif
-          if (abs(sumdershapexi) >  TINYVAL) then
+          if (abs(sumdershapexi) > TINYVAL) then
             call exit_MPI(myrank,'Error derivative xi in recalc_jacobian_gll3D.f90')
           endif
-          if (abs(sumdershapeeta) >  TINYVAL) then
+          if (abs(sumdershapeeta) > TINYVAL) then
             call exit_MPI(myrank,'Error derivative eta in recalc_jacobian_gll3D.f90')
           endif
-          if (abs(sumdershapegamma) >  TINYVAL) then
+          if (abs(sumdershapegamma) > TINYVAL) then
             call exit_MPI(myrank,'Error derivative gamma in recalc_jacobian_gll3D.f90')
           endif
         endif
@@ -205,7 +205,7 @@
           call exit_MPI(myrank,'3D Jacobian undefined in recalc_jacobian_gll3D.f90')
         endif
 
-        !     invert the relation (Fletcher p. 50 vol. 2)
+        ! invert the relation (Fletcher p. 50 vol. 2)
         jacobian_inv = ONE / jacobian
 
         xix = (yeta*zgamma-ygamma*zeta) * jacobian_inv
@@ -250,33 +250,33 @@
   !                     xigll,yigll,NSPEC2DMAX_AB,NGLLA,NGLLB
 
   ! output results:     jacobian2D,normal
-  subroutine recalc_jacobian_gll2D(myrank,ispecb, &
-                                xelm2D,yelm2D,zelm2D,xigll,yigll,&
-                                jacobian2D,normal,NGLLA,NGLLB,NSPEC2DMAX_AB)
+  subroutine recalc_jacobian_gll2D(ispecb, &
+                                   xelm2D,yelm2D,zelm2D,xigll,yigll, &
+                                   jacobian2D,normal,NGLLA,NGLLB,NSPEC2DMAX_AB)
 
   use constants
 
   implicit none
 
   ! input parameters
-  integer::myrank,ispecb,NSPEC2DMAX_AB,NGLLA,NGLLB
+  integer,intent(in) :: ispecb,NSPEC2DMAX_AB,NGLLA,NGLLB
 
-  double precision,dimension(NGLLA,NGLLB)::xelm2D,yelm2D,zelm2D
+  double precision,dimension(NGLLA,NGLLB),intent(in) :: xelm2D,yelm2D,zelm2D
 
-  double precision,dimension(NGLLA)::xigll
-  double precision,dimension(NGLLB)::yigll
+  double precision,dimension(NGLLA),intent(in) :: xigll
+  double precision,dimension(NGLLB),intent(in) :: yigll
 
   ! output results
-  real(kind=CUSTOM_REAL),dimension(NGLLA,NGLLB,NSPEC2DMAX_AB)::jacobian2D
-  real(kind=CUSTOM_REAL),dimension(3,NGLLA,NGLLB,NSPEC2DMAX_AB)::normal
+  real(kind=CUSTOM_REAL),dimension(NGLLA,NGLLB,NSPEC2DMAX_AB),intent(out) :: jacobian2D
+  real(kind=CUSTOM_REAL),dimension(3,NGLLA,NGLLB,NSPEC2DMAX_AB),intent(out) :: normal
 
   ! local parameters in this subroutine
-  integer::i,j,i1,j1
-  double precision::xxi,xeta,yxi,yeta,zxi,zeta,&
-    xi,eta,xmesh,ymesh,zmesh,hlagrange,hlagrange_xi,hlagrange_eta,&
+  integer :: i,j,i1,j1
+  double precision :: xxi,xeta,yxi,yeta,zxi,zeta, &
+    xi,eta,xmesh,ymesh,zmesh,hlagrange,hlagrange_xi,hlagrange_eta, &
     sumshape,sumdershapexi,sumdershapeeta,unx,uny,unz,jacobian,jacobian_inv
-  double precision,dimension(NGLLA)::hxir,hpxir
-  double precision,dimension(NGLLB)::hetar,hpetar
+  double precision,dimension(NGLLA) :: hxir,hpxir
+  double precision,dimension(NGLLB) :: hetar,hpetar
 
   do j = 1,NGLLB
      do i = 1,NGLLA
@@ -332,13 +332,13 @@
            call exit_MPI(myrank,'new boundary mesh is wrong in recalc_jacobian_gll2D')
         endif
 
-        if (abs(sumshape-one) >  TINYVAL) then
+        if (abs(sumshape-one) > TINYVAL) then
            call exit_MPI(myrank,'Error shape functions in recalc_jacobian_gll2D')
         endif
-        if (abs(sumdershapexi) >  TINYVAL) then
+        if (abs(sumdershapexi) > TINYVAL) then
            call exit_MPI(myrank,'Error derivative xi in recalc_jacobian_gll2D')
         endif
-        if (abs(sumdershapeeta) >  TINYVAL) then
+        if (abs(sumdershapeeta) > TINYVAL) then
            call exit_MPI(myrank,'Error derivative eta in recalc_jacobian_gll2D')
         endif
 

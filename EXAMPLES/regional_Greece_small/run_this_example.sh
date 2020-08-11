@@ -35,7 +35,10 @@ cd ../../
 # compiles for a forward simulation
 cp $currentdir/DATA/Par_file DATA/Par_file
 make clean
-make all
+make -j4 all
+
+# checks exit code
+if [[ $? -ne 0 ]]; then exit 1; fi
 
 # backup of constants setup
 cp setup/* $currentdir/OUTPUT_FILES/
@@ -66,6 +69,8 @@ echo "  running script..."
 echo
 ./run_mesher_solver.bash
 
+# checks exit code
+if [[ $? -ne 0 ]]; then exit 1; fi
 
 echo `date`
 

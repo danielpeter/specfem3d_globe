@@ -11,7 +11,7 @@
 !
 ! This program is free software; you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by
-! the Free Software Foundation; either version 2 of the License, or
+! the Free Software Foundation; either version 3 of the License, or
 ! (at your option) any later version.
 !
 ! This program is distributed in the hope that it will be useful,
@@ -32,15 +32,15 @@
 ! input:  myrank, xelm, yelm, zelm
 ! Dec, 30, 2009
 
-  use constants,only: &
+  use constants, only: &
     NGNOD,R_EARTH_KM,R_EARTH,R_UNIT_SPHERE, &
     PI_OVER_TWO,RADIANS_TO_DEGREES,TINYVAL,SMALLVAL,ONE,USE_OLD_VERSION_5_1_5_FORMAT, &
-    SUPPRESS_MOHO_STRETCHING
+    SUPPRESS_MOHO_STRETCHING,ICRUST_CRUST_SH
 
-  use meshfem3D_par,only: &
-    RMOHO_FICTITIOUS_IN_MESHER,R220,RMIDDLE_CRUST
+  use meshfem3D_par, only: &
+    RMOHO_FICTITIOUS_IN_MESHER,R220,RMIDDLE_CRUST,REFERENCE_CRUSTAL_MODEL
 
-  use meshfem3D_par,only: &
+  use meshfem3D_par, only: &
     TOPOGRAPHY
 
   implicit none
@@ -51,15 +51,26 @@
 
   ! local parameters
   double precision :: r,theta,phi,lat,lon
-  double precision :: vpc,vsc,rhoc,moho,elevation,gamma
+  double precision :: vpvc,vphc,vsvc,vshc,etac,rhoc
+  double precision :: moho,elevation,gamma
   double precision :: x,y,z
   double precision :: R_moho,R_middlecrust
   integer :: ia,count_crust,count_mantle
   logical :: found_crust
 
   ! minimum/maximum allowed moho depths (5km/90km non-dimensionalized)
-  double precision,parameter :: MOHO_MINIMUM = 5.0 / R_EARTH_KM
-  double precision,parameter :: MOHO_MAXIMUM = 90.0 / R_EARTH_KM
+  double precision,parameter :: MOHO_MINIMUM_DEFAULT = 5.0 / R_EARTH_KM
+  double precision,parameter :: MOHO_MAXIMUM_DEFAULT = 90.0 / R_EARTH_KM
+
+  double precision :: MOHO_MINIMUM,MOHO_MAXIMUM
+
+  ! sets min/max allowed moho depth
+  MOHO_MINIMUM = MOHO_MINIMUM_DEFAULT
+  MOHO_MAXIMUM = MOHO_MAXIMUM_DEFAULT
+  if (REFERENCE_CRUSTAL_MODEL == ICRUST_CRUST_SH) then
+    ! minimum moho < 3.9km
+    MOHO_MINIMUM = 3.5d0 / R_EARTH_KM
+  endif
 
   ! radii for stretching criteria
   R_moho = RMOHO_FICTITIOUS_IN_MESHER/R_EARTH
@@ -98,7 +109,7 @@
     moho = 0.d0
 
     ! gets smoothed moho depth
-    call meshfem3D_model_crust(lat,lon,r,vpc,vsc,rhoc,moho,found_crust,elem_in_crust)
+    call meshfem3D_model_crust(lat,lon,r,vpvc,vphc,vsvc,vshc,etac,rhoc,moho,found_crust,elem_in_crust)
 
     ! checks non-dimensionalized moho depth
     !
@@ -158,7 +169,7 @@
 
           call move_point(ia,xelm,yelm,zelm,x,y,z,gamma,elevation,r)
 
-        else  if (moho > R_middlecrust) then
+        else if (moho > R_middlecrust) then
           ! moho above middle crust
           ! elements in first layer will squeeze into crust above moho
 
@@ -234,12 +245,12 @@
 ! input:  myrank, xelm, yelm, zelm
 ! Dec, 30, 2009
 
-  use constants,only: &
+  use constants, only: &
     NGNOD,R_EARTH_KM,R_EARTH,R_UNIT_SPHERE, &
     PI_OVER_TWO,RADIANS_TO_DEGREES,TINYVAL,SMALLVAL,ONE,HONOR_DEEP_MOHO,USE_OLD_VERSION_5_1_5_FORMAT, &
     SUPPRESS_MOHO_STRETCHING
 
-  use meshfem3D_par,only: &
+  use meshfem3D_par, only: &
     R220
 
   implicit none
@@ -251,10 +262,11 @@
   logical :: elem_in_crust,elem_in_mantle
 
   ! local parameters
-  integer:: ia,count_crust,count_mantle
-  double precision:: r,theta,phi,lat,lon
-  double precision:: vpc,vsc,rhoc,moho
-  logical:: found_crust
+  integer :: ia,count_crust,count_mantle
+  double precision :: r,theta,phi,lat,lon
+  double precision :: vpvc,vphc,vsvc,vshc,etac,rhoc
+  double precision :: moho
+  logical :: found_crust
   double precision :: x,y,z
 
   ! loops over element's anchor points
@@ -291,10 +303,10 @@
     moho = 0.d0
 
     ! gets smoothed moho depth
-    call meshfem3D_model_crust(lat,lon,r,vpc,vsc,rhoc,moho,found_crust,elem_in_crust)
+    call meshfem3D_model_crust(lat,lon,r,vpvc,vphc,vsvc,vshc,etac,rhoc,moho,found_crust,elem_in_crust)
 
     ! checks moho depth
-    if (abs(moho) < TINYVAL ) call exit_mpi(myrank,'Error moho depth to honor')
+    if (abs(moho) < TINYVAL ) call exit_mpi(myrank,'Error moho depth in crust_reg to honor')
 
     moho = ONE - moho
 
@@ -353,15 +365,15 @@
 ! honors deep moho (below 60 km), otherwise keeps the mesh boundary at r60 fixed
 
   use constants
-  use meshfem3D_par,only: RMOHO_FICTITIOUS_IN_MESHER,R220,RMIDDLE_CRUST
+  use meshfem3D_par, only: RMOHO_FICTITIOUS_IN_MESHER,R220,RMIDDLE_CRUST
 
   implicit none
 
-  integer ia
+  integer :: ia
 
-  double precision xelm(NGNOD)
-  double precision yelm(NGNOD)
-  double precision zelm(NGNOD)
+  double precision :: xelm(NGNOD)
+  double precision :: yelm(NGNOD)
+  double precision :: zelm(NGNOD)
 
   double precision :: x,y,z
 
@@ -395,11 +407,11 @@
 
     ! stretches mesh at r35 to moho depth
     elevation = moho - R35
-    if (r >=R35.and.r<R15) then
+    if (r >= R35 .and. r < R15) then
       gamma=((R15-r)/(R15-R35))
     else if (r < R35 .and. r > R60) then
       gamma = (( r - R60)/( R35 - R60)) ! keeps r60 fixed
-      if (abs(gamma)<SMALLVAL) then
+      if (abs(gamma) < SMALLVAL) then
         gamma=0.0d0
       endif
     else
@@ -415,11 +427,11 @@
 
     ! moves mesh at r35 down to r45
     elevation = R45 - R35
-    if (r>= R35.and.r<R15) then
+    if (r >= R35 .and. r < R15) then
       gamma=((R15-r)/(R15-R35)) ! moves r35 down to r45
-    else if (r<R35 .and. r>R60) then
+    else if (r < R35 .and. r > R60) then
       gamma=((r-R60)/(R35-R60)) ! keeps r60 fixed
-      if (abs(gamma)<SMALLVAL) then
+      if (abs(gamma) < SMALLVAL) then
         gamma=0.0d0
       endif
     else
@@ -436,11 +448,11 @@
 
       ! stretches mesh at r60 to moho
       elevation = moho - R60
-      if (r <R45.and. r >= R60) then
+      if (r < R45 .and. r >= R60) then
         gamma=(R45-r)/(R45-R60)
-      else if (r<R60) then
+      else if (r < R60) then
         gamma=(r-R220/R_EARTH)/(R60-R220/R_EARTH)
-        if (abs(gamma)<SMALLVAL) then
+        if (abs(gamma) < SMALLVAL) then
           gamma=0.0d0
         endif
       else
@@ -455,11 +467,11 @@
 
     ! moves mesh at r35 up to r25
     elevation = R25-R35
-    if (r>=R35.and.r<R15) then
+    if (r >= R35 .and. r < R15) then
       gamma=((R15-r)/(R15-R35)) ! stretches r35 up to r25
-    else if (r<R35 .and. r>R60) then
+    else if (r < R35 .and. r > R60) then
       gamma=(r-R60)/(R35-R60) ! keeps r60 fixed
-      if (abs(gamma)<SMALLVAL) then
+      if (abs(gamma) < SMALLVAL) then
         gamma=0.0d0
       endif
     else
@@ -476,11 +488,11 @@
 
       ! stretches mesh at r15 to moho depth
       elevation = moho-R15
-      if (r>=R15) then
+      if (r >= R15) then
         gamma=(R_UNIT_SPHERE-r)/(R_UNIT_SPHERE-R15)
-      else if (r<R15.and.R>R25) then
+      else if (r < R15 .and. R > R25) then
         gamma=(r-R25)/(R15-R25) ! keeps mesh at r25 fixed
-        if (abs(gamma)<SMALLVAL) then
+        if (abs(gamma) < SMALLVAL) then
           gamma=0.0d0
         endif
       else
@@ -503,15 +515,15 @@
 ! mesh will get stretched down to r220
 
   use constants
-  use meshfem3D_par,only: RMOHO_FICTITIOUS_IN_MESHER,R220,RMIDDLE_CRUST
+  use meshfem3D_par, only: RMOHO_FICTITIOUS_IN_MESHER,R220,RMIDDLE_CRUST
 
   implicit none
 
-  integer ia
+  integer :: ia
 
-  double precision xelm(NGNOD)
-  double precision yelm(NGNOD)
-  double precision zelm(NGNOD)
+  double precision :: xelm(NGNOD)
+  double precision :: yelm(NGNOD)
+  double precision :: zelm(NGNOD)
 
   double precision :: r,moho
   double precision :: x,y,z
@@ -542,11 +554,11 @@
   if (moho < R25 .and. moho > R45) then
 
     elevation = moho - R35
-    if (r >=R35.and.r<R15) then
+    if (r >= R35 .and. r < R15) then
       gamma=((R15-r)/(R15-R35))
-    else if (r<R35.and.r>R220/R_EARTH) then
+    else if (r < R35 .and. r > R220/R_EARTH) then
       gamma = ((r-R220/R_EARTH)/(R35-R220/R_EARTH))
-      if (abs(gamma)<SMALLVAL) then
+      if (abs(gamma) < SMALLVAL) then
         gamma=0.0d0
       endif
     else
@@ -562,11 +574,11 @@
 
     ! moves mesh at r35 down to r45
     elevation = R45 - R35
-    if (r>= R35.and.r<R15) then
+    if (r >= R35 .and. r < R15) then
       gamma=((R15-r)/(R15-R35))
-    else if (r<R35.and.r>R220/R_EARTH) then
+    else if (r < R35 .and. r > R220/R_EARTH) then
       gamma=((r-R220/R_EARTH)/(R35-R220/R_EARTH))
-      if (abs(gamma)<SMALLVAL) then
+      if (abs(gamma) < SMALLVAL) then
         gamma=0.0d0
       endif
     else
@@ -582,11 +594,11 @@
 
     ! moves mesh at r35 up to r25
     elevation = R25-R35
-    if (r>=R35.and.r<R15) then
+    if (r >= R35 .and. r < R15) then
       gamma=((R15-r)/(R15-R35))
-    else if (r<R35.and.r>R220/R_EARTH) then
+    else if (r < R35 .and. r > R220/R_EARTH) then
       gamma=(r-R220/R_EARTH)/(R35-R220/R_EARTH)
-      if (abs(gamma)<SMALLVAL) then
+      if (abs(gamma) < SMALLVAL) then
         gamma=0.0d0
       endif
     else
@@ -598,13 +610,13 @@
     call move_point(ia,xelm,yelm,zelm,x,y,z,gamma,elevation,r)
 
     ! add shallow moho here
-    if (moho >R15) then
+    if (moho > R15) then
       elevation = moho-R15
-      if (r>=R15) then
+      if (r >= R15) then
         gamma=(R_UNIT_SPHERE-r)/(R_UNIT_SPHERE-R15)
-      else if (r<R15.and.R>R25) then
+      else if (r < R15 .and. R > R25) then
         gamma=(r-R25)/(R15-R25)
-        if (abs(gamma)<SMALLVAL) then
+        if (abs(gamma) < SMALLVAL) then
           gamma=0.0d0
         endif
       else
@@ -625,15 +637,15 @@
 
 ! moves a point to a new location defined by gamma,elevation and r
 
-  use constants,only: NGNOD,ONE
+  use constants, only: NGNOD,ONE
 
   implicit none
 
-  integer ia
+  integer :: ia
 
-  double precision xelm(NGNOD)
-  double precision yelm(NGNOD)
-  double precision zelm(NGNOD)
+  double precision :: xelm(NGNOD)
+  double precision :: yelm(NGNOD)
+  double precision :: zelm(NGNOD)
 
   double precision :: x,y,z
 

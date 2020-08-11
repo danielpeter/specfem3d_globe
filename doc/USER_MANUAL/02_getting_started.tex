@@ -1,6 +1,13 @@
+%-----------------------------------------------------------------------------------------------------------------------------------%
+
 \chapter{Getting Started}\label{cha:Getting-Started}
 
+%-----------------------------------------------------------------------------------------------------------------------------------%
+
+
+%-----------------------------------------------------------------------------------------------------------------------------------%
 \section{Configuring and compiling the source code}
+%-----------------------------------------------------------------------------------------------------------------------------------%
 
 To get the SPECFEM3D\_GLOBE software package, type this:
 \begin{verbatim}
@@ -9,20 +16,26 @@ git clone --recursive --branch devel https://github.com/geodynamics/specfem3d_gl
 
 We recommend that you add {\texttt{ulimit -S -s unlimited}} to your {\texttt{.bash\_profile}} file and/or {\texttt{limit stacksize unlimited }} to your {\texttt{.cshrc}} file to suppress any potential limit to the size of the Unix stack.\\
 
-Then, to configure the software for your system, run the \texttt{configure}
-shell script. This script will attempt to guess the appropriate configuration
-values for your system. However, at a minimum, it is recommended that
-you explicitly specify the appropriate command names for your Fortran
-compiler and MPI package (another option is to define FC, CC and MPIF90 in your .bash\_profile
+Then, to configure the software for your system, run the
+\texttt{configure} shell script. This script will attempt to guess
+the appropriate configuration values for your system. However, at
+a minimum, it is recommended that you explicitly specify the appropriate
+command names for your Fortran compiler (another option is to define FC, CC and MPIF90 in your .bash\_profile
 or your .cshrc file):
+%
 \begin{verbatim}
-./configure FC=ifort MPIFC=mpif90
+    ./configure FC=gfortran CC=gcc MPIFC=mpif90
 \end{verbatim}
+
+You can replace the GNU compilers above (gfortran and gcc) with other compilers if you want to; for instance for Intel ifort and icc use FC=ifort CC=icc instead.
 
 Before running the \texttt{configure} script, you should probably edit file \texttt{flags.guess} to make sure that it contains the best compiler options for your system. Known issues or things to check are:
 
 \begin{description}
-\item [{\texttt{Intel ifort compiler}}] See if you need to add \texttt{-assume byterecl} for your machine. \textbf{In the case of that compiler, we have noticed that versions dot zero sometimes have bugs or issues that can lead to wrong results when running the code, thus we \emph{strongly} recommend using versions dot one or above (for instance version 13.1 instead of 13.0, version 14.1 instead of 14.0 and so on)}.
+\item [{\texttt{GCC gfortran compiler}}] The code makes use of Fortran 2008 features, e.g., the \texttt{contiguous} array attribute. We thus recommend using a gfortran version 4.6.0 or higher.
+\item [{\texttt{Intel ifort compiler}}] See if you need to add \texttt{-assume byterecl} for your machine. \textbf{In the case of that compiler, we have noticed that initial release versions sometimes have bugs or issues that can lead to wrong results when running the code, thus we \emph{strongly} recommend using a version for which at least one service pack or update has been installed.}
+\red{In particular, for version 17 of that compiler, users have reported problems (making the code crash at run time) with the \texttt{-assume buffered\_io} option; if you notice problems,
+remove that option from file \texttt{flags.guess} or change it to \texttt{-assume nobuffered\_io} and try again.}
 \item [{\texttt{IBM compiler}}] See if you need to add \texttt{-qsave} or \texttt{-qnosave} for your machine.
 \item [{\texttt{Mac OS}}] You will probably need to install \texttt{XCODE}.
 \end{description}
@@ -32,6 +45,10 @@ with the following options:
 \begin{verbatim}
 ./configure FC=xlf90_r MPIFC=mpif90 CC=xlc_r CFLAGS="-O3 -q64" FCFLAGS="-O3 -q64"
 \end{verbatim}
+
+If you have problems configuring the code on a Cray machine, i.e. for instance if you get an error message from the \texttt{configure} script, try exporting these two variables:
+\texttt{MPI\_INC=\${CRAY\_MPICH2\_DIR}/include and FCLIBS=" "}, and for more details if needed you can refer to the \texttt{utils/Cray\_compiler\_information} directory.
+You can also have a look at the configure script called \texttt{utils/Cray\_compiler\_information/configure\_SPECFEM\_for\_Piz\_Daint.bash}.
 
 On SGI systems, \texttt{flags.guess} automatically informs \texttt{configure}
 to insert ``\texttt{TRAP\_FPE=OFF}'' into the generated \texttt{Makefile}
@@ -144,17 +161,19 @@ when undoing attenuation using the UNDO\_ATTENUATION option in DATA/Par\_file.
 To do so, ask your system administrator for the option to add to your batch submission script; it is for instance
 \texttt{\#BSUB -x} with SLURM and \texttt{\#\$ -l exclusive=TRUE} with Sun Grid Engine (SGE).
 
+%-----------------------------------------------------------------------------------------------------------------------------------%
 \section{Using the GPU version of the code}
+%-----------------------------------------------------------------------------------------------------------------------------------%
 
 SPECFEM3D\_GLOBE now supports OpenCL and NVIDIA CUDA GPU acceleration.
-OpenCL can be enabled with the \texttt{--with-opencl} flag, and the
+OpenCL can be enabled with the \texttt{-{}-with-opencl} flag, and the
 compilation can be controlled through three variables: \texttt{OCL\_LIB=},
 \texttt{OCL\_INC=} and \texttt{OCL\_GPU\_FLAGS=}.
 \begin{verbatim}
 ./configure --with-opencl OCL_LIB= OCL_INC= OCL_GPU_FLAGS=..
 \end{verbatim}
 
-CUDA configuration can be enabled with \texttt{--with-cuda} flag and
+CUDA configuration can be enabled with \texttt{-{}-with-cuda} flag and
 \texttt{CUDA\_FLAGS=}, \texttt{CUDA\_LIB=}, \texttt{CUDA\_INC=}
 and \texttt{ MPI\_INC=} variables.
 \begin{verbatim}
@@ -174,7 +193,7 @@ GPU_DEVICE = filter|*
 \begin{description}
 \item[\texttt{GPU\_RUNTIME}] sets the runtime environments: $2$ for OpenCL,
 $1$ for CUDA and 0 for compile-time decision (hence, SPECFEM should
-have been compiled with only one of \texttt{--with-opencl} or \texttt{--with-cuda}).
+have been compiled with only one of \texttt{-{}-with-opencl} or \texttt{-{}-with-cuda}).
 
 \item[\texttt{GPU\_PLATFORM} and \texttt{GPU\_DEVICE}] are both (case-insensitive)
 filters on the platform and device name in OpenCL, device name only in
@@ -188,8 +207,8 @@ are not read if \texttt{GPU\_MODE} is not activated.
 %Regarding the filesystem structure, directory \texttt{src/cuda}  is now called
 %\texttt{src/gpu} and, likewise, Fortran/C wrappers are now suffixed
 %with \texttt{\_gpu} instead of \texttt{\_cuda}.
-Regarding the code, \texttt{--with-opencl} defines the
-macro-processor flag \texttt{USE\_OPENCL} and \texttt{--with-cuda}
+Regarding the code, \texttt{-{}-with-opencl} defines the
+macro-processor flag \texttt{USE\_OPENCL} and \texttt{-{}-with-cuda}
 defines \texttt{USE\_CUDA}; and \texttt{GPU\_RUNTIME} set the global
 variable \texttt{run\_opencl} or \texttt{run\_cuda}.
 Texture support has not been validated in OpenCL, but works as
@@ -208,7 +227,9 @@ their software package called BOAST \citep{Videau2013}.
 
 
 
+%-----------------------------------------------------------------------------------------------------------------------------------%
 \section{Compiling on an IBM BlueGene}
+%-----------------------------------------------------------------------------------------------------------------------------------%
 
 \underline{More recent installation instruction for IBM BlueGene, from October 2012:}\\
 
@@ -271,7 +292,9 @@ On BlueGene, one also needs to run the \texttt{xcreate\_header\_file} binary fil
 bgrun -np 1 -mode VN -exe ./bin/xcreate_header_file
 \end{verbatim}
 
+%-----------------------------------------------------------------------------------------------------------------------------------%
 \section{Using a cross compiler}
+%-----------------------------------------------------------------------------------------------------------------------------------%
 
 The \texttt{``configure''} script assumes that you will compile the code on the same kind of hardware
 as the machine on which you will run it. On some systems (for instance IBM BlueGene, see also the previous section) this might not be the case
@@ -333,15 +356,20 @@ Then:
 \noindent
 should work.
 
+%-----------------------------------------------------------------------------------------------------------------------------------%
 \section{Adding OpenMP support in addition to MPI}
+%-----------------------------------------------------------------------------------------------------------------------------------%
 
 OpenMP support can be enabled in addition to MPI. However, in many cases performance will not improve
 because our pure MPI implementation is already heavily optimized and thus the resulting code will in fact
-be slightly slower. A possible exception could be IBM BlueGene-type architectures.
+be slightly slower. A possible exception could be IBM BlueGene-type architectures.\\
 
-To enable OpenMP, uncomment the OpenMP compiler option in two lines in file \texttt{src/specfem3D/Makefile.in}
-(before running \texttt{configure}) and also uncomment the \texttt{\#define USE\_OPENMP} statement in file\\
-\texttt{src/specfem3D/specfem3D.F90}.
+\noindent
+To enable OpenMP,  add the flag {\texttt -{}-enable-openmp} to the configuration:
+\begin{verbatim}
+./configure --enable-openmp ..
+\end{verbatim}
+This will add the corresponding OpenMP flag for the chosen Fortran compiler.
 
 The DO-loop using OpenMP threads has a SCHEDULE property. The OMP\_SCHEDULE
 environment variable can set the scheduling policy of that DO-loop.
@@ -352,13 +380,53 @@ OpenMP threads (thus chunk size = 8 for 4 OpenMP threads etc).
 If OMP\_SCHEDULE is not set or is empty, the DO-loop will assume generic
 scheduling policy, which will slow down the job quite a bit.
 
+%-----------------------------------------------------------------------------------------------------------------------------------%
+\section{Compiling on an Intel Xeon Phi (Knights Landing KNL)}
+%-----------------------------------------------------------------------------------------------------------------------------------%
+
+In case you want to run simulations on a KNL chip, the compilation doesn't require much more effort than with any other CPU system.
+All you could add is the flag \texttt{-xMIC-AVX512} to your Fortran flags in the \texttt{Makefile} and use \texttt{-{}-enable-openmp} for configuration.
+
+Since there are different memory types available with a KNL, make sure to use fast memory allocations, i.e. MCDRAM, which has a higher memory bandwidth.
+Assuming you use a flat mode setup of the KNL chip, you could use the Linux tool \texttt{numactl} to specify which memory node to bind to.
+For example, check with
+\begin{verbatim}
+numactl --hardware
+\end{verbatim}
+which node contains CPU cores and which one only binds to MCDRAM ($\sim$16GB). In flat mode setup, most likely node~1 does.
+For a small example on a single KNL with 4~MPI processes and 16~OpenMP threads each, you would run the solver with a command like
+\begin{verbatim}
+OMP_NUM_THREADS=16 mpirun -np 4 numactl --membind=1 ./bin/xspecfem3D
+\end{verbatim}
+The ideal setup of MPI processes and OpenMP threads per KNL depends on your specific hardware and simulation setup. We see good results when using a combination of both, with a total number of threads slightly less than the total count of cores on the chip.
+
+As a side remark for developers, another possibility would be to add following compiler directives in the source code
+(in file \texttt{src/specfem3D/specfem3D\_par.F90}):
+{\small
+\begin{verbatim}
+  real(kind=CUSTOM_REAL), dimension(:,:), allocatable :: &
+     displ_crust_mantle,veloc_crust_mantle,accel_crust_mantle
+! FASTMEM attribute: note this attribute needs compiler flag -lmemkind to work...
+!DEC$ ATTRIBUTES FASTMEM :: displ_crust_mantle,veloc_crust_mantle,accel_crust_mantle
+\end{verbatim}
+}
+These directives will work with Intel ifort compilers and will need the additional linker/compiler flag \texttt{-lmemkind} to work properly.
+We omitted these directives for now to avoid confusion with other possible simulation setups.
+
+
+%-----------------------------------------------------------------------------------------------------------------------------------%
 \section{Visualizing the subroutine calling tree of the source code}
+%-----------------------------------------------------------------------------------------------------------------------------------%
 
 Packages such as \texttt{doxywizard} can be used to visualize the subroutine calling tree of the source code.
 \texttt{Doxywizard} is a GUI front-end for configuring and running \texttt{doxygen}.
 
+
+%-----------------------------------------------------------------------------------------------------------------------------------%
 \section{Becoming a developer of the code, or making small modifications in the source code}
+%-----------------------------------------------------------------------------------------------------------------------------------%
 
 If you want to develop new features in the code, and/or if you want to make small changes, improvements, or bug fixes, you are very welcome to contribute. To do so, i.e. to access the development branch of the source code with read/write access (in a safe way, no need to worry too much about breaking the package, there is a robot called BuildBot that is in charge of checking and validating all new contributions and changes), please visit this Web page: \url{https://github.com/geodynamics/specfem3d/wiki}.
 
+To visualize the call tree (calling tree) of the source code, you can see the Doxygen tool available in directory \texttt{doc/call\_trees\_of\_the\_source\_code}.
 

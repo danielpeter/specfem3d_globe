@@ -12,7 +12,7 @@
 !
 ! This program is free software; you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by
-! the Free Software Foundation; either version 2 of the License, or
+! the Free Software Foundation; either version 3 of the License, or
 ! (at your option) any later version.
 !
 ! This program is distributed in the hope that it will be useful,
@@ -30,7 +30,7 @@
 #include "mesh_constants_gpu.h"
 
 /* ----------------------------------------------------------------------------------------------- */
-
+// attention: compute anisotropic kernels , d_b_displ_crust_mantle
 extern EXTERN_LANG
 void FC_FUNC_ (compute_kernels_cm_gpu,
                COMPUTE_KERNELS_CM_GPU) (long *Mesh_pointer_f, realw *deltat_f) {
@@ -696,4 +696,54 @@ void FC_FUNC_ (compute_kernels_hess_gpu,
 #endif
 
   GPU_ERROR_CHECKING ("compute_hess_kernel_gpu");
+}
+
+/* ----------------------------------------------------------------------------------------------- */
+
+extern EXTERN_LANG
+void FC_FUNC_ (resort_array,
+               RESORT_ARRAY) (long *Mesh_pointer_f) {
+
+  TRACE ("resort d_cijkl_kl_crust_mantle array");
+  // debug
+
+  //get mesh pointer out of Fortran integer container
+  Mesh *mp = (Mesh *) *Mesh_pointer_f;
+
+  if(!(mp->anisotropic_kl))
+    return;
+
+  int blocksize = NGLL3;
+
+  // blocks
+  int num_blocks_x, num_blocks_y;
+  get_blocks_xy (mp->NSPEC_CRUST_MANTLE, &num_blocks_x, &num_blocks_y);
+#ifdef USE_OPENCL
+  if (run_opencl) {
+    size_t global_work_size[2];
+    size_t local_work_size[2];
+    cl_uint idx = 0;
+
+    // dimensions
+    local_work_size[0] = blocksize;
+    local_work_size[1] = 1;
+    global_work_size[0] = num_blocks_x * blocksize;
+    global_work_size[1] = num_blocks_y;
+
+    clCheck (clSetKernelArg (mocl.kernels.resort_array, idx++, sizeof (cl_mem), (void *) &mp->d_cijkl_kl_crust_mantle.ocl));
+    clCheck (clSetKernelArg (mocl.kernels.resort_array, idx++, sizeof (int), (void *) &mp->NSPEC_CRUST_MANTLE));
+
+    clCheck (clEnqueueNDRangeKernel (mocl.command_queue, mocl.kernels.resort_array, 2, NULL,
+                                     global_work_size, local_work_size, 0, NULL, NULL));
+  }
+#endif
+#ifdef USE_CUDA
+  if (run_cuda) {
+      dim3 grid(num_blocks_x,num_blocks_y);
+      dim3 threads(blocksize,1,1);
+      resort_array<<<grid,threads,0,mp->compute_stream>>>(mp->d_cijkl_kl_crust_mantle.cuda, mp->NSPEC_CRUST_MANTLE);
+  }
+#endif
+
+  GPU_ERROR_CHECKING ("resort d_cijkl_kl_crust_mantle array");
 }

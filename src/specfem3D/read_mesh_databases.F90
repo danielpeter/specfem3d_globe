@@ -11,7 +11,7 @@
 !
 ! This program is free software; you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by
-! the Free Software Foundation; either version 2 of the License, or
+! the Free Software Foundation; either version 3 of the License, or
 ! (at your option) any later version.
 !
 ! This program is distributed in the hope that it will be useful,
@@ -104,9 +104,6 @@
   endif
   allocate(addressing(NCHUNKS_VAL,0:NPROC_XI_VAL-1,0:NPROC_ETA_VAL-1))
   call read_mesh_databases_addressing()
-  if (.not.SAVE_REGULAR_KL) then
-    deallocate(addressing)
-  endif
 
   ! sets up MPI interfaces, inner/outer elements and mesh coloring
   if (SYNC_READING ) call synchronize_all()
@@ -128,14 +125,13 @@
   endif
 
   ! kernels on regular grids
-  if (SAVE_REGULAR_KL) then
+  if (SAVE_REGULAR_KL .and. SIMULATION_TYPE == 3) then
     if (SYNC_READING ) call synchronize_all()
     if (myrank == 0) then
       write(IMAIN,*) '  reading in regular kernel databases...'
       call flush_IMAIN()
     endif
     call read_mesh_databases_regular_kl()
-    deallocate(addressing)
   endif
 
 #ifdef USE_SERIAL_CASCADE_FOR_IOs
@@ -143,6 +139,9 @@
   you_can_start_doing_IOs = .true.
   if (myrank < NPROC_XI_VAL*NPROC_ETA_VAL-1) call send_singlel(you_can_start_doing_IOs,myrank+1,itag)
 #endif
+
+  ! frees arrays
+  deallocate(addressing)
 
   ! user output
   call synchronize_all()
@@ -212,6 +211,9 @@
   ! if absorbing_conditions are not set or if NCHUNKS=6, only one mass matrix is needed
   ! for the sake of performance, only "rmassz" array will be filled and "rmassx" & "rmassy" will be obsolete
 
+  allocate(rmassz_crust_mantle(NGLOB_CRUST_MANTLE),stat=ier)
+  if (ier /= 0) stop 'Error allocating rmassz in crust_mantle'
+
   ! allocates mass matrices
   allocate(rmassx_crust_mantle(NGLOB_XY_CM), &
            rmassy_crust_mantle(NGLOB_XY_CM),stat=ier)
@@ -223,10 +225,98 @@
            b_rmassy_crust_mantle(NGLOB_XY_CM),stat=ier)
   if (ier /= 0) stop 'Error allocating b_rmassx, b_rmassy in crust_mantle'
 
+  ! x/y/z locations
+  allocate(xstore_crust_mantle(NGLOB_CRUST_MANTLE), &
+           ystore_crust_mantle(NGLOB_CRUST_MANTLE), &
+           zstore_crust_mantle(NGLOB_CRUST_MANTLE),stat=ier)
+  if (ier /= 0) stop 'Error allocating x/y/zstore in crust_mantle'
+
+  allocate(rmass_ocean_load(NGLOB_CRUST_MANTLE_OCEANS),stat=ier)
+  if (ier /= 0) stop 'Error allocating arrays rmass_ocean_load,..'
+
+  allocate(ibool_crust_mantle(NGLLX,NGLLY,NGLLZ,NSPEC_CRUST_MANTLE), &
+           xix_crust_mantle(NGLLX,NGLLY,NGLLZ,NSPEC_CRUST_MANTLE), &
+           xiy_crust_mantle(NGLLX,NGLLY,NGLLZ,NSPEC_CRUST_MANTLE), &
+           xiz_crust_mantle(NGLLX,NGLLY,NGLLZ,NSPEC_CRUST_MANTLE), &
+           etax_crust_mantle(NGLLX,NGLLY,NGLLZ,NSPEC_CRUST_MANTLE), &
+           etay_crust_mantle(NGLLX,NGLLY,NGLLZ,NSPEC_CRUST_MANTLE), &
+           etaz_crust_mantle(NGLLX,NGLLY,NGLLZ,NSPEC_CRUST_MANTLE), &
+           gammax_crust_mantle(NGLLX,NGLLY,NGLLZ,NSPEC_CRUST_MANTLE), &
+           gammay_crust_mantle(NGLLX,NGLLY,NGLLZ,NSPEC_CRUST_MANTLE), &
+           gammaz_crust_mantle(NGLLX,NGLLY,NGLLZ,NSPEC_CRUST_MANTLE),stat=ier)
+  if (ier /= 0) stop 'Error allocating arrays ibool_crust_mantle,..'
+
+  allocate(rhostore_crust_mantle(NGLLX,NGLLY,NGLLZ,NSPECMAX_ISO_MANTLE), &
+           kappavstore_crust_mantle(NGLLX,NGLLY,NGLLZ,NSPECMAX_ISO_MANTLE), &
+           muvstore_crust_mantle(NGLLX,NGLLY,NGLLZ,NSPECMAX_ISO_MANTLE),stat=ier)
+  if (ier /= 0) stop 'Error allocating arrays rhostore_crust_mantle,..'
+
+  allocate(kappahstore_crust_mantle(NGLLX,NGLLY,NGLLZ,NSPECMAX_TISO_MANTLE), &
+           muhstore_crust_mantle(NGLLX,NGLLY,NGLLZ,NSPECMAX_TISO_MANTLE), &
+           eta_anisostore_crust_mantle(NGLLX,NGLLY,NGLLZ,NSPECMAX_TISO_MANTLE),stat=ier)
+  if (ier /= 0) stop 'Error allocating arrays kappahstore_crust_mantle,..'
+
+  if (.not. ANISOTROPIC_3D_MANTLE_VAL) then
+    ! allocates c11stores,.. for tiso elements
+    allocate(c11store_crust_mantle(NGLLX,NGLLY,NGLLZ,NSPECMAX_TISO_MANTLE), &
+             c12store_crust_mantle(NGLLX,NGLLY,NGLLZ,NSPECMAX_TISO_MANTLE), &
+             c13store_crust_mantle(NGLLX,NGLLY,NGLLZ,NSPECMAX_TISO_MANTLE), &
+             c14store_crust_mantle(NGLLX,NGLLY,NGLLZ,NSPECMAX_TISO_MANTLE), &
+             c15store_crust_mantle(NGLLX,NGLLY,NGLLZ,NSPECMAX_TISO_MANTLE), &
+             c16store_crust_mantle(NGLLX,NGLLY,NGLLZ,NSPECMAX_TISO_MANTLE), &
+             c22store_crust_mantle(NGLLX,NGLLY,NGLLZ,NSPECMAX_TISO_MANTLE), &
+             c23store_crust_mantle(NGLLX,NGLLY,NGLLZ,NSPECMAX_TISO_MANTLE), &
+             c24store_crust_mantle(NGLLX,NGLLY,NGLLZ,NSPECMAX_TISO_MANTLE), &
+             c25store_crust_mantle(NGLLX,NGLLY,NGLLZ,NSPECMAX_TISO_MANTLE), &
+             c26store_crust_mantle(NGLLX,NGLLY,NGLLZ,NSPECMAX_TISO_MANTLE), &
+             c33store_crust_mantle(NGLLX,NGLLY,NGLLZ,NSPECMAX_TISO_MANTLE), &
+             c34store_crust_mantle(NGLLX,NGLLY,NGLLZ,NSPECMAX_TISO_MANTLE), &
+             c35store_crust_mantle(NGLLX,NGLLY,NGLLZ,NSPECMAX_TISO_MANTLE), &
+             c36store_crust_mantle(NGLLX,NGLLY,NGLLZ,NSPECMAX_TISO_MANTLE), &
+             c44store_crust_mantle(NGLLX,NGLLY,NGLLZ,NSPECMAX_TISO_MANTLE), &
+             c45store_crust_mantle(NGLLX,NGLLY,NGLLZ,NSPECMAX_TISO_MANTLE), &
+             c46store_crust_mantle(NGLLX,NGLLY,NGLLZ,NSPECMAX_TISO_MANTLE), &
+             c55store_crust_mantle(NGLLX,NGLLY,NGLLZ,NSPECMAX_TISO_MANTLE), &
+             c56store_crust_mantle(NGLLX,NGLLY,NGLLZ,NSPECMAX_TISO_MANTLE), &
+             c66store_crust_mantle(NGLLX,NGLLY,NGLLZ,NSPECMAX_TISO_MANTLE),stat=ier)
+    if (ier /= 0) stop 'Error allocating arrays c11store_crust_mantle,..'
+  else
+    ! allocates c11stores,.. for aniso elements
+    allocate(c11store_crust_mantle(NGLLX,NGLLY,NGLLZ,NSPECMAX_ANISO_MANTLE), &
+             c12store_crust_mantle(NGLLX,NGLLY,NGLLZ,NSPECMAX_ANISO_MANTLE), &
+             c13store_crust_mantle(NGLLX,NGLLY,NGLLZ,NSPECMAX_ANISO_MANTLE), &
+             c14store_crust_mantle(NGLLX,NGLLY,NGLLZ,NSPECMAX_ANISO_MANTLE), &
+             c15store_crust_mantle(NGLLX,NGLLY,NGLLZ,NSPECMAX_ANISO_MANTLE), &
+             c16store_crust_mantle(NGLLX,NGLLY,NGLLZ,NSPECMAX_ANISO_MANTLE), &
+             c22store_crust_mantle(NGLLX,NGLLY,NGLLZ,NSPECMAX_ANISO_MANTLE), &
+             c23store_crust_mantle(NGLLX,NGLLY,NGLLZ,NSPECMAX_ANISO_MANTLE), &
+             c24store_crust_mantle(NGLLX,NGLLY,NGLLZ,NSPECMAX_ANISO_MANTLE), &
+             c25store_crust_mantle(NGLLX,NGLLY,NGLLZ,NSPECMAX_ANISO_MANTLE), &
+             c26store_crust_mantle(NGLLX,NGLLY,NGLLZ,NSPECMAX_ANISO_MANTLE), &
+             c33store_crust_mantle(NGLLX,NGLLY,NGLLZ,NSPECMAX_ANISO_MANTLE), &
+             c34store_crust_mantle(NGLLX,NGLLY,NGLLZ,NSPECMAX_ANISO_MANTLE), &
+             c35store_crust_mantle(NGLLX,NGLLY,NGLLZ,NSPECMAX_ANISO_MANTLE), &
+             c36store_crust_mantle(NGLLX,NGLLY,NGLLZ,NSPECMAX_ANISO_MANTLE), &
+             c44store_crust_mantle(NGLLX,NGLLY,NGLLZ,NSPECMAX_ANISO_MANTLE), &
+             c45store_crust_mantle(NGLLX,NGLLY,NGLLZ,NSPECMAX_ANISO_MANTLE), &
+             c46store_crust_mantle(NGLLX,NGLLY,NGLLZ,NSPECMAX_ANISO_MANTLE), &
+             c55store_crust_mantle(NGLLX,NGLLY,NGLLZ,NSPECMAX_ANISO_MANTLE), &
+             c56store_crust_mantle(NGLLX,NGLLY,NGLLZ,NSPECMAX_ANISO_MANTLE), &
+             c66store_crust_mantle(NGLLX,NGLLY,NGLLZ,NSPECMAX_ANISO_MANTLE),stat=ier)
+    if (ier /= 0) stop 'Error allocating arrays c11store_crust_mantle,..'
+  endif
+
+  allocate(ispec_is_tiso_crust_mantle(NSPEC_CRUST_MANTLE),stat=ier)
+  if (ier /= 0) stop 'Error allocating array ispec_is_tiso_crust_mantle'
+
+  allocate(rho_vp_crust_mantle(NGLLX,NGLLY,NGLLZ,NSPEC_CRUST_MANTLE_STACEY), &
+           rho_vs_crust_mantle(NGLLX,NGLLY,NGLLZ,NSPEC_CRUST_MANTLE_STACEY),stat=ier)
+  if (ier /= 0) stop 'Error allocating arrays rho_vp_crust_mantle,..'
+
   ! reads databases file
   if (I_should_read_the_database) then
     if (ADIOS_FOR_ARRAYS_SOLVER) then
-      call read_arrays_solver_adios(IREGION_CRUST_MANTLE,myrank, &
+      call read_arrays_solver_adios(IREGION_CRUST_MANTLE, &
                                     NSPEC_CRUST_MANTLE,NGLOB_CRUST_MANTLE,NGLOB_XY_CM, &
                                     nspec_iso,nspec_tiso,nspec_ani, &
                                     rho_vp_crust_mantle,rho_vs_crust_mantle, &
@@ -249,7 +339,7 @@
                                     READ_KAPPA_MU,READ_TISO, &
                                     b_rmassx_crust_mantle,b_rmassy_crust_mantle)
     else
-      call read_arrays_solver(IREGION_CRUST_MANTLE,myrank, &
+      call read_arrays_solver(IREGION_CRUST_MANTLE, &
                               NSPEC_CRUST_MANTLE,NGLOB_CRUST_MANTLE,NGLOB_XY_CM, &
                               nspec_iso,nspec_tiso,nspec_ani, &
                               rho_vp_crust_mantle,rho_vs_crust_mantle, &
@@ -285,9 +375,16 @@
 
   ! mass matrix corrections
   if ((NCHUNKS_VAL /= 6 .and. ABSORBING_CONDITIONS) .or. &
-      (ROTATION_VAL .and. EXACT_MASS_MATRIX_FOR_ROTATION)) then
-    ! mass matrices differ for rmassx,rmassy
-    ! continue
+      (ROTATION_VAL .and. EXACT_MASS_MATRIX_FOR_ROTATION_VAL)) then
+    ! mass matrices differ for rmassx,rmassy in case Newmark time scheme is used
+    if (USE_LDDRK) then
+      ! uses single mass matrix without correction in case LDDRK time scheme is used
+      ! frees pointer memory
+      deallocate(rmassx_crust_mantle,rmassy_crust_mantle)
+      ! re-associates with corresponding rmassz
+      rmassx_crust_mantle => rmassz_crust_mantle(:)
+      rmassy_crust_mantle => rmassz_crust_mantle(:)
+    endif
   else
     ! uses single mass matrix without correction
     ! frees pointer memory
@@ -302,9 +399,16 @@
     ! associates mass matrix used for backward/reconstructed wavefields
     b_rmassz_crust_mantle => rmassz_crust_mantle
     ! checks if we can take rmassx and rmassy (only differs for rotation correction)
-    if (ROTATION_VAL .and. EXACT_MASS_MATRIX_FOR_ROTATION) then
-      ! mass matrices differ for b_rmassx,b_rmassy
-      ! continue
+    if (ROTATION_VAL .and. EXACT_MASS_MATRIX_FOR_ROTATION_VAL) then
+      ! mass matrices differ for b_rmassx,b_rmassy in case Newmark time scheme is used
+      if (USE_LDDRK) then
+        ! mass matrices correction is not needed in case LDDRK time scheme is used
+        ! frees pointer memory
+        deallocate(b_rmassx_crust_mantle,b_rmassy_crust_mantle)
+        ! re-associates with corresponding rmassx,rmassy
+        b_rmassx_crust_mantle => rmassx_crust_mantle(:)
+        b_rmassy_crust_mantle => rmassy_crust_mantle(:)
+      endif
     else
       ! frees pointer memory
       deallocate(b_rmassx_crust_mantle,b_rmassy_crust_mantle)
@@ -358,15 +462,43 @@
   NGLOB_XY_dummy = 1
 
   allocate(dummy_rmass(NGLOB_XY_dummy), &
-          dummy_ispec_is_tiso(NSPEC_OUTER_CORE), &
-          dummy_idoubling_outer_core(NSPEC_OUTER_CORE), &
-          stat=ier)
+           dummy_ispec_is_tiso(NSPEC_OUTER_CORE), &
+           dummy_idoubling_outer_core(NSPEC_OUTER_CORE), &
+           stat=ier)
   if (ier /= 0) stop 'Error allocating dummy rmass and dummy ispec/idoubling in outer core'
+
+  ! x/y/z locations
+  allocate(xstore_outer_core(NGLOB_OUTER_CORE), &
+           ystore_outer_core(NGLOB_OUTER_CORE), &
+           zstore_outer_core(NGLOB_OUTER_CORE),stat=ier)
+  if (ier /= 0) stop 'Error allocating x/y/zstore in outer core'
+
+  allocate(ibool_outer_core(NGLLX,NGLLY,NGLLZ,NSPEC_OUTER_CORE), &
+           xix_outer_core(NGLLX,NGLLY,NGLLZ,NSPEC_OUTER_CORE), &
+           xiy_outer_core(NGLLX,NGLLY,NGLLZ,NSPEC_OUTER_CORE), &
+           xiz_outer_core(NGLLX,NGLLY,NGLLZ,NSPEC_OUTER_CORE), &
+           etax_outer_core(NGLLX,NGLLY,NGLLZ,NSPEC_OUTER_CORE), &
+           etay_outer_core(NGLLX,NGLLY,NGLLZ,NSPEC_OUTER_CORE), &
+           etaz_outer_core(NGLLX,NGLLY,NGLLZ,NSPEC_OUTER_CORE), &
+           gammax_outer_core(NGLLX,NGLLY,NGLLZ,NSPEC_OUTER_CORE), &
+           gammay_outer_core(NGLLX,NGLLY,NGLLZ,NSPEC_OUTER_CORE), &
+           gammaz_outer_core(NGLLX,NGLLY,NGLLZ,NSPEC_OUTER_CORE),stat=ier)
+  if (ier /= 0) stop 'Error allocating arrays ibool_outer_core,..'
+
+  allocate(rhostore_outer_core(NGLLX,NGLLY,NGLLZ,NSPEC_OUTER_CORE), &
+           kappavstore_outer_core(NGLLX,NGLLY,NGLLZ,NSPEC_OUTER_CORE),stat=ier)
+  if (ier /= 0) stop 'Error allocating arrays rhostore_outer_core,..'
+
+  allocate(rmass_outer_core(NGLOB_OUTER_CORE),stat=ier)
+  if (ier /= 0) stop 'Error allocating array rmass_outer_core'
+
+  allocate(vp_outer_core(NGLLX,NGLLY,NGLLZ,NSPEC_OUTER_CORE_STACEY),stat=ier)
+  if (ier /= 0) stop 'Error allocating array vp_outer_core'
 
   ! reads in mesh arrays
   if (I_should_read_the_database) then
     if (ADIOS_FOR_ARRAYS_SOLVER) then
-      call read_arrays_solver_adios(IREGION_OUTER_CORE,myrank, &
+      call read_arrays_solver_adios(IREGION_OUTER_CORE, &
                                     NSPEC_OUTER_CORE,NGLOB_OUTER_CORE,NGLOB_XY_dummy, &
                                     nspec_iso,nspec_tiso,nspec_ani, &
                                     vp_outer_core,dummy_array, &
@@ -389,7 +521,7 @@
                                     READ_KAPPA_MU,READ_TISO, &
                                     dummy_rmass,dummy_rmass)
     else
-      call read_arrays_solver(IREGION_OUTER_CORE,myrank, &
+      call read_arrays_solver(IREGION_OUTER_CORE, &
                               NSPEC_OUTER_CORE,NGLOB_OUTER_CORE,NGLOB_XY_dummy, &
                               nspec_iso,nspec_tiso,nspec_ani, &
                               vp_outer_core,dummy_array, &
@@ -480,6 +612,9 @@
   !
   ! if absorbing_conditions are not set or if NCHUNKS=6, only one mass matrix is needed
   ! for the sake of performance, only "rmassz" array will be filled and "rmassx" & "rmassy" will be obsolete
+  allocate(rmassz_inner_core(NGLOB_INNER_CORE),stat=ier)
+  if (ier /= 0) stop 'Error allocating rmassz in inner_core'
+
   allocate(rmassx_inner_core(NGLOB_XY_IC), &
            rmassy_inner_core(NGLOB_XY_IC),stat=ier)
   if (ier /= 0) stop 'Error allocating rmassx, rmassy in inner_core'
@@ -489,10 +624,43 @@
            b_rmassy_inner_core(NGLOB_XY_IC),stat=ier)
   if (ier /= 0) stop 'Error allocating b_rmassx, b_rmassy in inner_core'
 
+  ! x/y/z locations
+  allocate(xstore_inner_core(NGLOB_INNER_CORE), &
+           ystore_inner_core(NGLOB_INNER_CORE), &
+           zstore_inner_core(NGLOB_INNER_CORE),stat=ier)
+  if (ier /= 0) stop 'Error allocating x/y/zstore in inner core'
+
+  allocate(ibool_inner_core(NGLLX,NGLLY,NGLLZ,NSPEC_INNER_CORE), &
+           xix_inner_core(NGLLX,NGLLY,NGLLZ,NSPEC_INNER_CORE), &
+           xiy_inner_core(NGLLX,NGLLY,NGLLZ,NSPEC_INNER_CORE), &
+           xiz_inner_core(NGLLX,NGLLY,NGLLZ,NSPEC_INNER_CORE), &
+           etax_inner_core(NGLLX,NGLLY,NGLLZ,NSPEC_INNER_CORE), &
+           etay_inner_core(NGLLX,NGLLY,NGLLZ,NSPEC_INNER_CORE), &
+           etaz_inner_core(NGLLX,NGLLY,NGLLZ,NSPEC_INNER_CORE), &
+           gammax_inner_core(NGLLX,NGLLY,NGLLZ,NSPEC_INNER_CORE), &
+           gammay_inner_core(NGLLX,NGLLY,NGLLZ,NSPEC_INNER_CORE), &
+           gammaz_inner_core(NGLLX,NGLLY,NGLLZ,NSPEC_INNER_CORE),stat=ier)
+  if (ier /= 0) stop 'Error allocating arrays ibool_inner_core,..'
+
+  allocate(rhostore_inner_core(NGLLX,NGLLY,NGLLZ,NSPEC_INNER_CORE), &
+           kappavstore_inner_core(NGLLX,NGLLY,NGLLZ,NSPEC_INNER_CORE), &
+           muvstore_inner_core(NGLLX,NGLLY,NGLLZ,NSPEC_INNER_CORE),stat=ier)
+  if (ier /= 0) stop 'Error allocating arrays rhostore_inner_core,..'
+
+  allocate(c11store_inner_core(NGLLX,NGLLY,NGLLZ,NSPECMAX_ANISO_IC), &
+           c33store_inner_core(NGLLX,NGLLY,NGLLZ,NSPECMAX_ANISO_IC), &
+           c12store_inner_core(NGLLX,NGLLY,NGLLZ,NSPECMAX_ANISO_IC), &
+           c13store_inner_core(NGLLX,NGLLY,NGLLZ,NSPECMAX_ANISO_IC), &
+           c44store_inner_core(NGLLX,NGLLY,NGLLZ,NSPECMAX_ANISO_IC),stat=ier)
+  if (ier /= 0) stop 'Error allocating arrays c11store_inner_core,..'
+
+  allocate(idoubling_inner_core(NSPEC_INNER_CORE),stat=ier)
+  if (ier /= 0) stop 'Error allocating array idoubling_inner_core'
+
   ! reads in arrays
   if (I_should_read_the_database) then
     if (ADIOS_FOR_ARRAYS_SOLVER) then
-      call read_arrays_solver_adios(IREGION_INNER_CORE,myrank, &
+      call read_arrays_solver_adios(IREGION_INNER_CORE, &
                                     NSPEC_INNER_CORE,NGLOB_INNER_CORE,NGLOB_XY_IC, &
                                     nspec_iso,nspec_tiso,nspec_ani, &
                                     dummy_array,dummy_array, &
@@ -515,7 +683,7 @@
                                     READ_KAPPA_MU,READ_TISO, &
                                     b_rmassx_inner_core,b_rmassy_inner_core)
     else
-      call read_arrays_solver(IREGION_INNER_CORE,myrank, &
+      call read_arrays_solver(IREGION_INNER_CORE, &
                               NSPEC_INNER_CORE,NGLOB_INNER_CORE,NGLOB_XY_IC, &
                               nspec_iso,nspec_tiso,nspec_ani, &
                               dummy_array,dummy_array, &
@@ -548,9 +716,16 @@
     call exit_MPI(myrank,'incorrect global numbering: iboolmax does not equal nglob in inner core')
 
   ! mass matrix corrections
-  if (ROTATION_VAL .and. EXACT_MASS_MATRIX_FOR_ROTATION) then
-    ! uses corrected mass matrices
-    ! continue
+  if (ROTATION_VAL .and. EXACT_MASS_MATRIX_FOR_ROTATION_VAL) then
+    ! uses corrected mass matrices in case Newmark time scheme is used
+    if (USE_LDDRK) then
+      ! uses single mass matrix without correction in case LDDRK time scheme is used
+      ! frees pointer memory
+      deallocate(rmassx_inner_core,rmassy_inner_core)
+      ! re-associates with corresponding rmassz
+      rmassx_inner_core => rmassz_inner_core(:)
+      rmassy_inner_core => rmassz_inner_core(:)
+    endif
   else
     ! uses single mass matrix without correction
     ! frees pointer memory
@@ -565,9 +740,16 @@
     ! associates mass matrix used for backward/reconstructed wavefields
     b_rmassz_inner_core => rmassz_inner_core
     ! checks if we can take rmassx and rmassy (only differs for rotation correction)
-    if (ROTATION_VAL .and. EXACT_MASS_MATRIX_FOR_ROTATION) then
-      ! uses corrected mass matrices
-      ! continue
+    if (ROTATION_VAL .and. EXACT_MASS_MATRIX_FOR_ROTATION_VAL) then
+      ! uses corrected mass matrices in case Newmark time scheme is used
+      if (USE_LDDRK) then
+        ! uses single mass matrix without correction in case LDDRK time scheme is used
+        ! frees pointer memory
+        deallocate(b_rmassx_inner_core,b_rmassy_inner_core)
+        ! re-associates with corresponding rmassx,rmassy
+        b_rmassx_inner_core => rmassx_inner_core
+        b_rmassy_inner_core => rmassy_inner_core
+      endif
     else
       ! frees pointer memory
       deallocate(b_rmassx_inner_core,b_rmassy_inner_core)
@@ -608,6 +790,54 @@
   integer :: njunk1,njunk2,njunk3
   integer :: ier
 
+  ! allocate arrays
+  allocate(ibelm_moho_top(NSPEC2D_MOHO),ibelm_moho_bot(NSPEC2D_MOHO), &
+           ibelm_400_top(NSPEC2D_400),ibelm_400_bot(NSPEC2D_400), &
+           ibelm_670_top(NSPEC2D_670),ibelm_670_bot(NSPEC2D_670), &
+           normal_moho(NDIM,NGLLX,NGLLY,NSPEC2D_MOHO), &
+           normal_400(NDIM,NGLLX,NGLLY,NSPEC2D_400), &
+           normal_670(NDIM,NGLLX,NGLLY,NSPEC2D_670),stat=ier)
+  if (ier /= 0) stop 'Error allocating arrays ibelm_moho_top,..'
+
+  allocate(ibelm_xmin_crust_mantle(NSPEC2DMAX_XMIN_XMAX_CM),ibelm_xmax_crust_mantle(NSPEC2DMAX_XMIN_XMAX_CM), &
+           ibelm_ymin_crust_mantle(NSPEC2DMAX_YMIN_YMAX_CM),ibelm_ymax_crust_mantle(NSPEC2DMAX_YMIN_YMAX_CM), &
+           ibelm_bottom_crust_mantle(NSPEC2D_BOTTOM_CM),ibelm_top_crust_mantle(NSPEC2D_TOP_CM), &
+           normal_xmin_crust_mantle(NDIM,NGLLY,NGLLZ,NSPEC2DMAX_XMIN_XMAX_CM), &
+           normal_xmax_crust_mantle(NDIM,NGLLY,NGLLZ,NSPEC2DMAX_XMIN_XMAX_CM), &
+           normal_ymin_crust_mantle(NDIM,NGLLX,NGLLY,NSPEC2DMAX_YMIN_YMAX_CM), &
+           normal_ymax_crust_mantle(NDIM,NGLLX,NGLLY,NSPEC2DMAX_YMIN_YMAX_CM), &
+           normal_bottom_crust_mantle(NDIM,NGLLX,NGLLY,NSPEC2D_BOTTOM_CM), &
+           normal_top_crust_mantle(NDIM,NGLLX,NGLLY,NSPEC2D_TOP_CM), &
+           jacobian2D_bottom_crust_mantle(NGLLX,NGLLY,NSPEC2D_BOTTOM_CM), &
+           jacobian2D_top_crust_mantle(NGLLX,NGLLY,NSPEC2D_TOP_CM), &
+           jacobian2D_xmin_crust_mantle(NGLLY,NGLLZ,NSPEC2DMAX_XMIN_XMAX_CM), &
+           jacobian2D_xmax_crust_mantle(NGLLY,NGLLZ,NSPEC2DMAX_XMIN_XMAX_CM), &
+           jacobian2D_ymin_crust_mantle(NGLLX,NGLLZ,NSPEC2DMAX_YMIN_YMAX_CM), &
+           jacobian2D_ymax_crust_mantle(NGLLX,NGLLZ,NSPEC2DMAX_YMIN_YMAX_CM),stat=ier)
+  if (ier /= 0) stop 'Error allocating arrays ibelm_xmin_crust_mantle,..'
+
+  allocate(ibelm_xmin_outer_core(NSPEC2DMAX_XMIN_XMAX_OC),ibelm_xmax_outer_core(NSPEC2DMAX_XMIN_XMAX_OC), &
+           ibelm_ymin_outer_core(NSPEC2DMAX_YMIN_YMAX_OC),ibelm_ymax_outer_core(NSPEC2DMAX_YMIN_YMAX_OC), &
+           ibelm_bottom_outer_core(NSPEC2D_BOTTOM_OC),ibelm_top_outer_core(NSPEC2D_TOP_OC), &
+           normal_xmin_outer_core(NDIM,NGLLY,NGLLZ,NSPEC2DMAX_XMIN_XMAX_OC), &
+           normal_xmax_outer_core(NDIM,NGLLY,NGLLZ,NSPEC2DMAX_XMIN_XMAX_OC), &
+           normal_ymin_outer_core(NDIM,NGLLX,NGLLZ,NSPEC2DMAX_YMIN_YMAX_OC), &
+           normal_ymax_outer_core(NDIM,NGLLX,NGLLZ,NSPEC2DMAX_YMIN_YMAX_OC), &
+           normal_bottom_outer_core(NDIM,NGLLX,NGLLY,NSPEC2D_BOTTOM_OC), &
+           normal_top_outer_core(NDIM,NGLLX,NGLLY,NSPEC2D_TOP_OC), &
+           jacobian2D_bottom_outer_core(NGLLX,NGLLY,NSPEC2D_BOTTOM_OC), &
+           jacobian2D_top_outer_core(NGLLX,NGLLY,NSPEC2D_TOP_OC), &
+           jacobian2D_xmin_outer_core(NGLLY,NGLLZ,NSPEC2DMAX_XMIN_XMAX_OC), &
+           jacobian2D_xmax_outer_core(NGLLY,NGLLZ,NSPEC2DMAX_XMIN_XMAX_OC), &
+           jacobian2D_ymin_outer_core(NGLLX,NGLLZ,NSPEC2DMAX_YMIN_YMAX_OC), &
+           jacobian2D_ymax_outer_core(NGLLX,NGLLZ,NSPEC2DMAX_YMIN_YMAX_OC),stat=ier)
+  if (ier /= 0) stop 'Error allocating arrays ibelm_xmin_outer_core,..'
+
+  allocate(ibelm_xmin_inner_core(NSPEC2DMAX_XMIN_XMAX_IC),ibelm_xmax_inner_core(NSPEC2DMAX_XMIN_XMAX_IC), &
+           ibelm_ymin_inner_core(NSPEC2DMAX_YMIN_YMAX_IC),ibelm_ymax_inner_core(NSPEC2DMAX_YMIN_YMAX_IC), &
+           ibelm_bottom_inner_core(NSPEC2D_BOTTOM_IC),ibelm_top_inner_core(NSPEC2D_TOP_IC),stat=ier)
+  if (ier /= 0) stop 'Error allocating arrays ibelm_xmin_inner_core,..'
+
   ! reads in arrays
   if (I_should_read_the_database) then
     if (ADIOS_FOR_ARRAYS_SOLVER) then
@@ -629,7 +859,7 @@
       read(IIN) njunk1
       read(IIN) njunk2
 
-    ! boundary parameters
+      ! boundary parameters
       read(IIN) ibelm_xmin_crust_mantle
       read(IIN) ibelm_xmax_crust_mantle
       read(IIN) ibelm_ymin_crust_mantle
@@ -777,10 +1007,32 @@
 
   ! Boundary Mesh for crust and mantle
   if (SAVE_BOUNDARY_MESH .and. SIMULATION_TYPE == 3) then
+    allocate(moho_kl(NGLLX,NGLLY,NSPEC2D_MOHO), &
+             moho_kl_top(NGLLX,NGLLY,NSPEC2D_MOHO), &
+             moho_kl_bot(NGLLX,NGLLY,NSPEC2D_MOHO), &
+             d400_kl(NGLLX,NGLLY,NSPEC2D_400), &
+             d400_kl_top(NGLLX,NGLLY,NSPEC2D_400), &
+             d400_kl_bot(NGLLX,NGLLY,NSPEC2D_400), &
+             d670_kl(NGLLX,NGLLY,NSPEC2D_670), &
+             d670_kl_top(NGLLX,NGLLY,NSPEC2D_670), &
+             d670_kl_bot(NGLLX,NGLLY,NSPEC2D_670), &
+             cmb_kl(NGLLX,NGLLY,NSPEC2D_CMB), &
+             cmb_kl_top(NGLLX,NGLLY,NSPEC2D_CMB), &
+             cmb_kl_bot(NGLLX,NGLLY,NSPEC2D_CMB), &
+             icb_kl(NGLLX,NGLLY,NSPEC2D_ICB), &
+             icb_kl_top(NGLLX,NGLLY,NSPEC2D_ICB), &
+             icb_kl_bot(NGLLX,NGLLY,NSPEC2D_ICB),stat=ier)
+    if (ier /= 0) stop 'Error allocating arrays moho_kl,.. '
+
     k_top = 1
     k_bot = NGLLZ
+
     ! initialization
-    moho_kl = 0.; d400_kl = 0.; d670_kl = 0.; cmb_kl = 0.; icb_kl = 0.
+    moho_kl(:,:,:) = 0._CUSTOM_REAL
+    d400_kl(:,:,:) = 0._CUSTOM_REAL
+    d670_kl(:,:,:) = 0._CUSTOM_REAL
+    cmb_kl(:,:,:) = 0._CUSTOM_REAL
+    icb_kl(:,:,:) = 0._CUSTOM_REAL
   endif
 
   end subroutine read_mesh_databases_coupling
@@ -918,9 +1170,6 @@
     else
       call read_mesh_databases_MPI_CM()
     endif
-    !call synchronize_all()
-    !print *, "read_mesh_databases_MPI_CM done"
-    !call flush()
   endif
   call bcast_mesh_databases_MPI_CM()
 
@@ -1042,11 +1291,11 @@
 
   ! MPI interfaces
   read(IIN) num_interfaces_crust_mantle
-  allocate(my_neighbours_crust_mantle(num_interfaces_crust_mantle), &
+  allocate(my_neighbors_crust_mantle(num_interfaces_crust_mantle), &
           nibool_interfaces_crust_mantle(num_interfaces_crust_mantle), &
           stat=ier)
   if (ier /= 0 ) &
-    call exit_mpi(myrank,'Error allocating array my_neighbours_crust_mantle etc.')
+    call exit_mpi(myrank,'Error allocating array my_neighbors_crust_mantle etc.')
 
   if (num_interfaces_crust_mantle > 0) then
     read(IIN) max_nibool_interfaces_cm
@@ -1054,7 +1303,7 @@
             stat=ier)
     if (ier /= 0 ) call exit_mpi(myrank,'Error allocating array ibool_interfaces_crust_mantle')
 
-    read(IIN) my_neighbours_crust_mantle
+    read(IIN) my_neighbors_crust_mantle
     read(IIN) nibool_interfaces_crust_mantle
     read(IIN) ibool_interfaces_crust_mantle
   else
@@ -1070,7 +1319,7 @@
   if (num_phase_ispec_crust_mantle < 0 ) &
     call exit_mpi(myrank,'Error num_phase_ispec_crust_mantle is < zero')
 
-  allocate(phase_ispec_inner_crust_mantle(num_phase_ispec_crust_mantle,2),&
+  allocate(phase_ispec_inner_crust_mantle(num_phase_ispec_crust_mantle,2), &
           stat=ier)
   if (ier /= 0 ) &
     call exit_mpi(myrank,'Error allocating array phase_ispec_inner_crust_mantle')
@@ -1127,11 +1376,11 @@
 
   ! MPI interfaces
   read(IIN) num_interfaces_outer_core
-  allocate(my_neighbours_outer_core(num_interfaces_outer_core), &
+  allocate(my_neighbors_outer_core(num_interfaces_outer_core), &
           nibool_interfaces_outer_core(num_interfaces_outer_core), &
           stat=ier)
   if (ier /= 0 ) &
-    call exit_mpi(myrank,'Error allocating array my_neighbours_outer_core etc.')
+    call exit_mpi(myrank,'Error allocating array my_neighbors_outer_core etc.')
 
   if (num_interfaces_outer_core > 0) then
     read(IIN) max_nibool_interfaces_oc
@@ -1139,7 +1388,7 @@
             stat=ier)
     if (ier /= 0 ) call exit_mpi(myrank,'Error allocating array ibool_interfaces_outer_core')
 
-    read(IIN) my_neighbours_outer_core
+    read(IIN) my_neighbors_outer_core
     read(IIN) nibool_interfaces_outer_core
     read(IIN) ibool_interfaces_outer_core
   else
@@ -1155,7 +1404,7 @@
   if (num_phase_ispec_outer_core < 0 ) &
     call exit_mpi(myrank,'Error num_phase_ispec_outer_core is < zero')
 
-  allocate(phase_ispec_inner_outer_core(num_phase_ispec_outer_core,2),&
+  allocate(phase_ispec_inner_outer_core(num_phase_ispec_outer_core,2), &
           stat=ier)
   if (ier /= 0 ) &
     call exit_mpi(myrank,'Error allocating array phase_ispec_inner_outer_core')
@@ -1211,11 +1460,11 @@
 
   ! MPI interfaces
   read(IIN) num_interfaces_inner_core
-  allocate(my_neighbours_inner_core(num_interfaces_inner_core), &
+  allocate(my_neighbors_inner_core(num_interfaces_inner_core), &
           nibool_interfaces_inner_core(num_interfaces_inner_core), &
           stat=ier)
   if (ier /= 0 ) &
-    call exit_mpi(myrank,'Error allocating array my_neighbours_inner_core etc.')
+    call exit_mpi(myrank,'Error allocating array my_neighbors_inner_core etc.')
 
   if (num_interfaces_inner_core > 0) then
     read(IIN) max_nibool_interfaces_ic
@@ -1223,7 +1472,7 @@
             stat=ier)
     if (ier /= 0 ) call exit_mpi(myrank,'Error allocating array ibool_interfaces_inner_core')
 
-    read(IIN) my_neighbours_inner_core
+    read(IIN) my_neighbors_inner_core
     read(IIN) nibool_interfaces_inner_core
     read(IIN) ibool_interfaces_inner_core
   else
@@ -1239,7 +1488,7 @@
   if (num_phase_ispec_inner_core < 0 ) &
     call exit_mpi(myrank,'Error num_phase_ispec_inner_core is < zero')
 
-  allocate(phase_ispec_inner_inner_core(num_phase_ispec_inner_core,2),&
+  allocate(phase_ispec_inner_inner_core(num_phase_ispec_inner_core,2), &
           stat=ier)
   if (ier /= 0 ) &
     call exit_mpi(myrank,'Error allocating array phase_ispec_inner_inner_core')
@@ -1287,6 +1536,23 @@
 
   ! local parameters
   integer :: ier
+
+  ! allocates arrays
+  allocate(nimin_crust_mantle(2,NSPEC2DMAX_YMIN_YMAX_CM), &
+           nimax_crust_mantle(2,NSPEC2DMAX_YMIN_YMAX_CM), &
+           nkmin_eta_crust_mantle(2,NSPEC2DMAX_YMIN_YMAX_CM), &
+           njmin_crust_mantle(2,NSPEC2DMAX_XMIN_XMAX_CM), &
+           njmax_crust_mantle(2,NSPEC2DMAX_XMIN_XMAX_CM), &
+           nkmin_xi_crust_mantle(2,NSPEC2DMAX_XMIN_XMAX_CM),stat=ier)
+  if (ier /= 0) stop 'Error allocating arrays nimin_crust_mantle,..'
+
+  allocate(nimin_outer_core(2,NSPEC2DMAX_YMIN_YMAX_OC), &
+           nimax_outer_core(2,NSPEC2DMAX_YMIN_YMAX_OC), &
+           nkmin_eta_outer_core(2,NSPEC2DMAX_YMIN_YMAX_OC), &
+           njmin_outer_core(2,NSPEC2DMAX_XMIN_XMAX_OC), &
+           njmax_outer_core(2,NSPEC2DMAX_XMIN_XMAX_OC), &
+           nkmin_xi_outer_core(2,NSPEC2DMAX_XMIN_XMAX_OC),stat=ier)
+  if (ier /= 0) stop 'Error allocating arrays nimin_outer_core,..'
 
   ! reads in arrays
   if (I_should_read_the_database) then
@@ -1348,67 +1614,86 @@
   ! local parameters
   integer, dimension(:), allocatable :: slice_number
   integer :: i,isp,ier
-  ! grid parameters
-  type kl_reg_grid_variables
-    sequence
-    real dlat
-    real dlon
-    integer nlayer
-    real rlayer(NM_KL_REG_LAYER)
-    integer ndoubling(NM_KL_REG_LAYER)
-    integer nlat(NM_KL_REG_LAYER)
-    integer nlon(NM_KL_REG_LAYER)
-    integer npts_total
-    integer npts_before_layer(NM_KL_REG_LAYER+1)
-  end type kl_reg_grid_variables
-  type (kl_reg_grid_variables) KL_REG_GRID
 
-  call read_kl_regular_grid(KL_REG_GRID)
+  ! checks if anything to do; setup only needed for kernel simulations
+  if (SIMULATION_TYPE /= 3) return
+
+  ! checks setup
+  if (ADIOS_FOR_KERNELS) &
+    call exit_mpi(myrank,'saving regular kernels in ADIOS file format is not supported yet')
+  ! assuming 6 chunks full global simulations right now
+  if (NCHUNKS_VAL /= 6 .or. NPROC_XI_VAL /= NPROC_ETA_VAL) &
+    call exit_MPI(myrank, 'Only deal with 6 chunks at this moment')
+
+  ! allocates arrays
+  allocate(points_slice_reg(NM_KL_REG_PTS), &
+           ispec_reg(NM_KL_REG_PTS), &
+           hxir_reg(NGLLX, NM_KL_REG_PTS), &
+           hetar_reg(NGLLY, NM_KL_REG_PTS), &
+           hgammar_reg(NGLLZ, NM_KL_REG_PTS),stat=ier)
+  if (ier /= 0) stop 'Error allocating arrays points_slice_reg,..'
+
+  allocate(kl_reg_grid%rlayer(NM_KL_REG_LAYER), &
+           kl_reg_grid%ndoubling(NM_KL_REG_LAYER), &
+           kl_reg_grid%nlat(NM_KL_REG_LAYER), &
+           kl_reg_grid%nlon(NM_KL_REG_LAYER), &
+           kl_reg_grid%npts_before_layer(NM_KL_REG_LAYER+1),stat=ier)
+  if (ier /= 0) stop 'Error allocating kl_reg_grid arrays'
+
+  ! reads in mesh inputs from file (see: PATHNAME_KL_REG = 'DATA/kl_reg_grid.txt' in constants.h)
+  call read_kl_regular_grid(kl_reg_grid)
+
+  ! user output
+  if (myrank == 0) then
+    write(IMAIN,*) '  locating regular kernel grid points...'
+    call flush_IMAIN()
+  endif
 
   if (myrank == 0) then
     ! master process
-    allocate(slice_number(KL_REG_GRID%npts_total),stat=ier)
+    allocate(slice_number(kl_reg_grid%npts_total),stat=ier)
     if (ier /= 0 ) call exit_MPI(myrank,'Error allocating slice_number array')
 
-    ! print *, 'slice npts =', KL_REG_GRID%npts_total
-    call find_regular_grid_slice_number(slice_number, KL_REG_GRID)
+    ! print *, 'slice npts =', kl_reg_grid%npts_total
+    call find_regular_grid_slice_number(slice_number, kl_reg_grid)
 
     do i = NPROCTOT_VAL-1,0,-1
-      npoints_slice = 0
-      do isp = 1,KL_REG_GRID%npts_total
+      npoints_slice_reg = 0
+      do isp = 1,kl_reg_grid%npts_total
         if (slice_number(isp) == i) then
-          npoints_slice = npoints_slice + 1
-          if (npoints_slice > NM_KL_REG_PTS) stop 'Exceeding NM_KL_REG_PTS limit'
-          points_slice(npoints_slice) = isp
+          npoints_slice_reg = npoints_slice_reg + 1
+          if (npoints_slice_reg > NM_KL_REG_PTS) stop 'Exceeding NM_KL_REG_PTS limit'
+          points_slice_reg(npoints_slice_reg) = isp
         endif
       enddo
 
       if (i /= 0) then
-        call send_singlei(npoints_slice,i,i)
-        if (npoints_slice > 0) then
-          call send_i(points_slice,npoints_slice,i,2*i)
+        call send_singlei(npoints_slice_reg,i,i)
+        if (npoints_slice_reg > 0) then
+          call send_i(points_slice_reg,npoints_slice_reg,i,2*i)
         endif
       endif
     enddo
 
     open(unit=IOUT,file=trim(OUTPUT_FILES)//'/kl_grid_slice.txt',status='unknown',action='write',iostat=ier)
     if (ier /= 0 ) call exit_MPI(myrank,'Error opening file kl_grid_slice.txt for writing')
-    write(IOUT,*) slice_number
+    write(IOUT,*) kl_reg_grid%npts_total
+    write(IOUT,*) slice_number(:)
     close(IOUT)
 
     deallocate(slice_number)
   else
     ! slave processes
-    call recv_singlei(npoints_slice,0,myrank)
-    if (npoints_slice > 0) then
-      call recv_i(points_slice,npoints_slice,0,2*myrank)
+    call recv_singlei(npoints_slice_reg,0,myrank)
+    if (npoints_slice_reg > 0) then
+      call recv_i(points_slice_reg,npoints_slice_reg,0,2*myrank)
     endif
   endif
 
   ! this is the core part that takes up most of the computation time,
   ! and presumably the more processors involved the faster.
-  if (npoints_slice > 0) then
-    call locate_regular_points(npoints_slice, points_slice, KL_REG_GRID, &
+  if (npoints_slice_reg > 0) then
+    call locate_regular_points(npoints_slice_reg, points_slice_reg, kl_reg_grid, &
                                NSPEC_CRUST_MANTLE, &
                                xstore_crust_mantle, ystore_crust_mantle, zstore_crust_mantle, &
                                ibool_crust_mantle, &
@@ -1418,8 +1703,7 @@
 
   ! user output
   if (myrank == 0) then
-    write(IMAIN,*) ' '
-    write(IMAIN,*) 'Finished locating kernel output regular grid'
+    write(IMAIN,*) '  Finished locating kernel output regular grid'
     write(IMAIN,*) ' '
     call flush_IMAIN()
   endif
@@ -1681,11 +1965,11 @@
   ! could also test for not allocated, only reader processes have
   ! allocated these arrays.
   if (.not. I_should_read_the_database) then
-    allocate(my_neighbours_crust_mantle(num_interfaces_crust_mantle), &
+    allocate(my_neighbors_crust_mantle(num_interfaces_crust_mantle), &
             nibool_interfaces_crust_mantle(num_interfaces_crust_mantle), &
             stat=ier)
     if (ier /= 0 ) &
-      call exit_mpi(myrank,'Error allocating array my_neighbours_crust_mantle etc.')
+      call exit_mpi(myrank,'Error allocating array my_neighbors_crust_mantle etc.')
   endif
   if (num_interfaces_crust_mantle > 0) then
     call bcast_all_i_for_database(max_nibool_interfaces_cm, 1)
@@ -1695,7 +1979,7 @@
       if (ier /= 0 ) call exit_mpi(myrank,'Error allocating array ibool_interfaces_crust_mantle')
     endif
 
-    call bcast_all_i_for_database(my_neighbours_crust_mantle(1), size(my_neighbours_crust_mantle))
+    call bcast_all_i_for_database(my_neighbors_crust_mantle(1), size(my_neighbors_crust_mantle))
     call bcast_all_i_for_database(nibool_interfaces_crust_mantle(1), size(nibool_interfaces_crust_mantle))
     call bcast_all_i_for_database(ibool_interfaces_crust_mantle(1,1), size(ibool_interfaces_crust_mantle))
   else
@@ -1715,7 +1999,7 @@
     call exit_mpi(myrank,'Error num_phase_ispec_crust_mantle is < zero')
 
   if (.not. I_should_read_the_database) then
-    allocate(phase_ispec_inner_crust_mantle(num_phase_ispec_crust_mantle,2),&
+    allocate(phase_ispec_inner_crust_mantle(num_phase_ispec_crust_mantle,2), &
             stat=ier)
     if (ier /= 0 ) &
       call exit_mpi(myrank,'Error allocating array phase_ispec_inner_crust_mantle')
@@ -1769,11 +2053,11 @@
   ! MPI interfaces
   call bcast_all_i_for_database(num_interfaces_outer_core, 1)
   if (.not. I_should_read_the_database) then
-    allocate(my_neighbours_outer_core(num_interfaces_outer_core), &
+    allocate(my_neighbors_outer_core(num_interfaces_outer_core), &
             nibool_interfaces_outer_core(num_interfaces_outer_core), &
             stat=ier)
     if (ier /= 0 ) &
-      call exit_mpi(myrank,'Error allocating array my_neighbours_outer_core etc.')
+      call exit_mpi(myrank,'Error allocating array my_neighbors_outer_core etc.')
   endif
 
   if (num_interfaces_outer_core > 0) then
@@ -1786,7 +2070,7 @@
   endif
 
   if (num_interfaces_outer_core > 0) then
-    call bcast_all_i_for_database(my_neighbours_outer_core(1), size(my_neighbours_outer_core))
+    call bcast_all_i_for_database(my_neighbors_outer_core(1), size(my_neighbors_outer_core))
     call bcast_all_i_for_database(nibool_interfaces_outer_core(1), size(nibool_interfaces_outer_core))
     call bcast_all_i_for_database(ibool_interfaces_outer_core(1,1), size(ibool_interfaces_outer_core))
   else
@@ -1806,7 +2090,7 @@
     call exit_mpi(myrank,'Error num_phase_ispec_outer_core is < zero')
 
   if (.not. I_should_read_the_database) then
-    allocate(phase_ispec_inner_outer_core(num_phase_ispec_outer_core,2),&
+    allocate(phase_ispec_inner_outer_core(num_phase_ispec_outer_core,2), &
             stat=ier)
     if (ier /= 0 ) &
       call exit_mpi(myrank,'Error allocating array phase_ispec_inner_outer_core')
@@ -1860,11 +2144,11 @@
   ! MPI interfaces
   call bcast_all_i_for_database(num_interfaces_inner_core, 1)
   if (.not. I_should_read_the_database) then
-    allocate(my_neighbours_inner_core(num_interfaces_inner_core), &
+    allocate(my_neighbors_inner_core(num_interfaces_inner_core), &
             nibool_interfaces_inner_core(num_interfaces_inner_core), &
             stat=ier)
     if (ier /= 0 ) &
-      call exit_mpi(myrank,'Error allocating array my_neighbours_inner_core etc.')
+      call exit_mpi(myrank,'Error allocating array my_neighbors_inner_core etc.')
   endif
 
   if (num_interfaces_inner_core > 0) then
@@ -1875,7 +2159,7 @@
       if (ier /= 0 ) call exit_mpi(myrank,'Error allocating array ibool_interfaces_inner_core')
     endif
 
-    call bcast_all_i_for_database(my_neighbours_inner_core(1), size(my_neighbours_inner_core))
+    call bcast_all_i_for_database(my_neighbors_inner_core(1), size(my_neighbors_inner_core))
     call bcast_all_i_for_database(nibool_interfaces_inner_core(1), size(nibool_interfaces_inner_core))
     call bcast_all_i_for_database(ibool_interfaces_inner_core(1,1), size(ibool_interfaces_inner_core))
   else
@@ -1895,7 +2179,7 @@
     call exit_mpi(myrank,'Error num_phase_ispec_inner_core is < zero')
 
   if (.not. I_should_read_the_database) then
-    allocate(phase_ispec_inner_inner_core(num_phase_ispec_inner_core,2),&
+    allocate(phase_ispec_inner_inner_core(num_phase_ispec_inner_core,2), &
             stat=ier)
     if (ier /= 0 ) &
       call exit_mpi(myrank,'Error allocating array phase_ispec_inner_inner_core')

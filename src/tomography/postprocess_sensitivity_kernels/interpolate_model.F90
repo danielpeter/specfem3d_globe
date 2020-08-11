@@ -11,7 +11,7 @@
 !
 ! This program is free software; you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by
-! the Free Software Foundation; either version 2 of the License, or
+! the Free Software Foundation; either version 3 of the License, or
 ! (at your option) any later version.
 !
 ! This program is distributed in the hope that it will be useful,
@@ -43,13 +43,13 @@
 !   - topo files from target mesh           e.g. topo_2/proc000001_reg1_solver_data.bin
 !
 !
-! usage: ./xinterpolate_model vsv MODEL_M10/
+! usage: xinterpolate_model old-topo-dir/ old-model-dir/ new-topo-dir/ model-output-dir/ (midpoint-search)
 !
 ! note on mid-point search option:
 !  - mid-point-search == 1: looking for mid-points only is a good approach when changing number of processes (NPROC) only,
 !                           while keeping the mesh resolution (NEX) the same
 !                           (by default set to .true.)
-!  - mid-point-search == 0: searching for each single gll point is a good approach when changing resolution (NEX) of meshes;
+!  - mid-point-search == 0: searching for each single GLL point is a good approach when changing resolution (NEX) of meshes;
 !                           in general, interpolation suffers and might lead to differences at internal interfaces (e.g. 410)
 !
 !------------------------------------------------------------------------------
@@ -57,12 +57,12 @@
 
   program interpolate_model
 
-  use constants,only: SIZE_INTEGER, &
+  use constants, only: SIZE_INTEGER, &
     TWO_PI,R_UNIT_SPHERE, &
     NGNOD,MIDX,MIDY,MIDZ,R_EARTH_KM, &
     IFLAG_CRUST,IFLAG_80_MOHO,IFLAG_220_80,IFLAG_670_220,IFLAG_MANTLE_NORMAL
 
-  use postprocess_par,only: &
+  use postprocess_par, only: &
     CUSTOM_REAL,NGLLX,NGLLY,NGLLZ, &
     GAUSSALPHA,GAUSSBETA,R_EARTH_KM, &
     IIN,IOUT,MAX_STRING_LEN, &
@@ -71,6 +71,11 @@
 
   use kdtree_search, only: kdtree_setup,kdtree_set_verbose,kdtree_delete,kdtree_find_nearest_neighbor, &
     kdtree_num_nodes,kdtree_nodes_location,kdtree_nodes_index
+
+#ifdef ADIOS_INPUT
+  use manager_adios
+  use adios_helpers_mod, only: define_adios_scalar,define_adios_global_array1D
+#endif
 
   implicit none
 
@@ -91,7 +96,7 @@
   logical,parameter :: DO_BRUTE_FORCE_SEARCH = .false.
 
   ! kd-tree setup
-  ! uses all internal gll points for search tree
+  ! uses all internal GLL points for search tree
   ! or only element mid-points (only one option must be true)
   logical,parameter :: TREE_INTERNAL_GLL_POINTS = .true.
   logical,parameter :: TREE_MID_POINTS = .false.
@@ -167,14 +172,18 @@
 
   ! model
   integer :: nparams
-  character(len=16) :: fname(7)
-#ifdef ADIOS_INPUT
-  character(len=16) :: model_name(7)
-#endif
+  character(len=16),dimension(7) :: fname
   character(len=MAX_STRING_LEN) :: m_file
   character(len=MAX_STRING_LEN) :: solver_file
 
-  ! mpi parameters
+  ! ADIOS
+#ifdef ADIOS_INPUT
+  integer :: local_dim,global_dim
+  character(len=MAX_STRING_LEN) :: group_name
+  integer(kind=8) :: group,group_size_inc
+#endif
+
+  ! MPI parameters
   integer :: sizeprocs,myrank
 
   ! nodes search
@@ -207,20 +216,23 @@
       call get_command_argument(i,arg)
       ! usage info
       if (len_trim(arg) == 0) then
-        if (myrank == 0) then
-          print *,' '
-          print *,' Usage: xinterpolate_model old-topo-dir/ old-model-dir/ new-topo-dir/ model-output-dir/ (midpoint-search)'
-          print *,' '
-          print *,' with'
-          print *,'   old-topo-dir/     - old mesh directory with topology files (e.g. proc***_solver_data.bin)'
-          print *,'   old-model-dir/    - directoy which holds old model files (e.g. proc***_vpv.bin)'
-          print *,'   new-topo-dir/     - new mesh directory with topology files (e.g. proc***_solver_data.bin)'
-          print *,'   model-output-dir/ - output directory for interpolated model on new mesh'
-          print *,'   (optional) midpoint-search = 0  - uses every single gll point for search of closest element'
-          print *,'                              = 1  - uses midpoints for search of closest element (default)'
-          print *,' '
-        endif
-        call synchronize_all()
+        print *,' '
+        print *,' Usage: xinterpolate_model old-topo-dir/ old-model-dir/ new-topo-dir/ model-output-dir/ (midpoint-search)'
+        print *,' '
+        print *,' with'
+#ifdef ADIOS_INPUT
+        print *,'   old-topo-dir/     - old mesh directory with topology files (e.g. solver_data.bp)'
+        print *,'   old-model-dir/    - directoy which holds old model files (e.g. model_gll.bp)'
+        print *,'   new-topo-dir/     - new mesh directory with topology files (e.g. solver_data.bp)'
+#else
+        print *,'   old-topo-dir/     - old mesh directory with topology files (e.g. proc***_solver_data.bin)'
+        print *,'   old-model-dir/    - directoy which holds old model files (e.g. proc***_vpv.bin)'
+        print *,'   new-topo-dir/     - new mesh directory with topology files (e.g. proc***_solver_data.bin)'
+#endif
+        print *,'   model-output-dir/ - output directory for interpolated model on new mesh'
+        print *,'   (optional) midpoint-search = 0  - uses every single GLL point for search of closest element'
+        print *,'                              = 1  - uses midpoints for search of closest element (default)'
+        print *,' '
         stop ' Reenter command line options'
       endif
     enddo
@@ -254,10 +266,10 @@
   enddo
 
   ! kdtree search:
-  ! searches closest element using mid-points only, rather than for every single gll point
+  ! searches closest element using mid-points only, rather than for every single GLL point
   ! note: looking for mid-points only is a good approach when changing number of processes (NPROC)
   !       while keeping the mesh resolution (NEX) the same;
-  !       searching for each single gll point is a good approach when changing resolution (NEX) of meshes;
+  !       searching for each single GLL point is a good approach when changing resolution (NEX) of meshes;
   !       in general, interpolation suffers and might lead to differences at internal interfaces (e.g. 410);
   if (want_midpoint == 1) then
     USE_MIDPOINT_SEARCH = .true.
@@ -273,47 +285,53 @@
   endif
 
 #ifdef ADIOS_INPUT
-  stop 'safety stop: ADIOS support not fully implemented yet...'
-
+  call synchronize_all()
   ! initializes ADIOS
   if (myrank == 0) then
     print *, 'initializing ADIOS...'
     print *, ' '
   endif
-  call adios_setup()
+  call initialize_adios()
 #endif
 
-  ! defines model parameters
-  if (USE_TRANSVERSE_ISOTROPY) then
-    ! transversly isotropic (TI) model
-    nparams = 6
-#ifdef ADIOS_INPUT
-    model_name(1:6) = (/character(len=16) :: "reg1/vpv","reg1/vph","reg1/vsv","reg1/vsh","reg1/eta","reg1/rho"/)
-#endif
-    fname(1:6) = (/character(len=16) :: "vpv","vph","vsv","vsh","eta","rho"/)
-  else
-    ! isotropic model
-    nparams = 3
-    ! note: adds space at endings to equal number of characters
-    !       to avoid compiler error: "Different shape for array assignment.."
-#ifdef ADIOS_INPUT
-    model_name(1:3) = (/character(len=16) :: "reg1/vp ","reg1/vs ","reg1/rho"/)
-#endif
-    fname(1:3) = (/character(len=16) :: "vp ","vs ","rho"/)
-  endif
-  ! adds shear attenuation
-  if (USE_ATTENUATION_Q) then
-    nparams = nparams + 1
-#ifdef ADIOS_INPUT
-    model_name(nparams) = "reg1/qmu"
-#endif
-    fname(nparams) = "qmu"
-  endif
-
-  ! master process gets old, source mesh dimension
+  !  master process gets old, source mesh dimension
   if (myrank == 0) then
+
+#ifdef ADIOS_INPUT
+    ! user output
+    print *, 'reading in ADIOS solver file: ',trim(dir_topo1)//'/solver_data.bp'
+
+    ! opens adios file
+    write(solver_file,'(a,a)') trim(dir_topo1)//'/solver_data.bp'
+    call open_file_adios_read_only_rank(myrank,solver_file)
+
+    ! reads in scalars
+    print *,'rank ',myrank,'reading scalar'
+    call read_adios_scalar_int_only_rank(myrank,"reg1/nspec",nspec_max_old)
+    call read_adios_scalar_int_only_rank(myrank,"reg1/nglob",nglob_max_old)
+
+    ! determines total number of processes
+    rank = 0
+    call read_adios_scalar_int_only_rank(myrank,"reg1/ibool/local_dim",local_dim)
+    call read_adios_scalar_int_only_rank(myrank,"reg1/ibool/global_dim",global_dim)
+    if (mod(global_dim,local_dim) == 0) then
+      ! sizeprocs
+      rank = global_dim/local_dim
+    else
+      print *,'Error invalid local_dim/global_dim ratio in file: ',trim(solver_file)
+      stop 'Error adios array has invalid local_dim/global_dim ratio'
+    endif
+
+    ! closes file
+    call close_file_adios_read()
+
+#else
+    ! user output
+    print *, 'reading in binary solver files: ',trim(dir_topo1)//'/proc***_reg1_solver_data.bin'
+
     ! gets nspec/nglob
-    write(solver_file,'(a,i6.6,a)') trim(dir_topo1)//'proc',myrank,'_reg1_'//'solver_data.bin'
+    ! opens file
+    write(solver_file,'(a,i6.6,a)') trim(dir_topo1)//'/proc',myrank,'_reg1_'//'solver_data.bin'
     open(IIN,file=trim(solver_file),status='old',action='read',form='unformatted',iostat=ier)
     if (ier /= 0) then
       print *,'Error opening file: ',trim(solver_file)
@@ -326,18 +344,28 @@
     ! gets number of processes from old mesh (1 file per process)
     rank = 0
     do while (ier == 0)
-      write(solver_file,'(a,i6.6,a)') trim(dir_topo1)//'proc',rank,'_reg1_'//'solver_data.bin'
+      write(solver_file,'(a,i6.6,a)') trim(dir_topo1)//'/proc',rank,'_reg1_'//'solver_data.bin'
       open(IIN,file=trim(solver_file),status='old',action='read',form='unformatted',iostat=ier)
       if (ier == 0) then
         rank = rank + 1
         close(IIN)
       endif
     enddo
+#endif
+
+    ! checks
+    if (rank == 0) then
+      print *,'Error invalid number of processes found for old setup'
+      stop 'Error invalid number of processes for old setup'
+    endif
+
     ! assumes same number of chunks and nproc_eta = nproc_xi
     nproc_eta_old = int (sqrt ( dble(rank) / NCHUNKS_VAL ))
     nproc_xi_old = int (sqrt ( dble(rank) / NCHUNKS_VAL ))
-  endif
-  ! broadcasts to all other processes (assumes all slices have equal nspec/nglob values)
+
+  endif ! master
+
+  ! master broadcasts to all other processes (assumes all slices have equal nspec/nglob values)
   call bcast_all_singlei(nspec_max_old)
   call bcast_all_singlei(nglob_max_old)
   call bcast_all_singlei(nproc_eta_old)
@@ -345,6 +373,38 @@
 
   ! sets old nproc_xi (assumes equal nproc_xi/nproc_eta)
   nproc_xi_old = nproc_eta_old
+
+  ! defines model parameters
+  ! note: the fname setup is done here now to avoid corruption by the above adios routines. the adios calls above
+  !       for some reason corrupt the fname list if this setup is done before...
+  if (USE_TRANSVERSE_ISOTROPY) then
+    ! transversly isotropic (TI) model
+    nparams = 6
+#ifdef ADIOS_INPUT
+    fname(1:6) = (/character(len=16) :: "reg1/vpv","reg1/vph","reg1/vsv","reg1/vsh","reg1/eta","reg1/rho"/)
+#else
+    fname(1:6) = (/character(len=16) :: "vpv","vph","vsv","vsh","eta","rho"/)
+#endif
+
+  else
+    ! isotropic model
+    nparams = 3
+    ! note: adds space at endings to equal number of characters
+    !       to avoid compiler error: "Different shape for array assignment.."
+    fname(1:3) = (/character(len=16) :: "vp ","vs ","rho"/)
+  endif
+
+  ! adds shear attenuation
+  if (USE_ATTENUATION_Q) then
+    nparams = nparams + 1
+    fname(nparams) = "qmu"
+  endif
+
+#ifdef ADIOS_INPUT
+  ! adios only for model_gll.bp implemented which uses vpv,vph,..,rho
+  if (nparams /= 6) &
+    stop 'ADIOS version only works for purely transversely isotropic model file model_gll.bp so far...'
+#endif
 
   ! console output
   if (myrank == 0) then
@@ -369,7 +429,7 @@
     if (USE_ATTENUATION_Q) then
       print *,'  includes qmu model parameter'
     endif
-    print *,'  ( ',(trim(fname(i))//" ",i=1,nparams),')'
+    print *,'  ( ',(trim(fname(iker))//" ",iker = 1,nparams),')'
     print *
     print *,'input model  directory: ',trim(input_model_dir)
     print *,'output model directory: ',trim(output_model_dir)
@@ -381,16 +441,16 @@
     print *,'  model1   = ',NGLLX*NGLLY*NGLLZ*nspec_max_old*nparams*nproc_eta_old*nproc_xi_old*dble(CUSTOM_REAL)/1024./1024.,'MB'
     print *,'  model2   = ',NGLLX*NGLLY*NGLLZ*NSPEC_CRUST_MANTLE*nparams*dble(CUSTOM_REAL)/1024./1024.,'MB'
     print *
-    print *,'total mpi processes: ',sizeprocs
+    print *,'total MPI processes: ',sizeprocs
     print *
     if (DO_BRUTE_FORCE_SEARCH) then
       print *,'location search by : brute-force approach'
     else
       print *,'location search by : kd-tree search'
       if (USE_MIDPOINT_SEARCH) then
-        print *,'location search by : uses midpoints of elements only'
+        print *,'  uses midpoints of elements only'
       else
-        print *,'  uses internal gll points'
+        print *,'  uses internal GLL points'
       endif
       if (DO_SEPARATION_410_650) then
         print *,'  uses element separation for 410-km/650-km discontinuity'
@@ -403,15 +463,19 @@
       endif
     endif
     print *
+#ifdef ADIOS_INPUT
+    print *,'file format: ADIOS files'
+    print *
+#endif
   endif
   call synchronize_all()
 
   ! checks
-  if (sizeprocs /= NPROCTOT_VAL) stop 'Error target mesh processors not equal to current total mpi processes'
+  if (sizeprocs /= NPROCTOT_VAL) stop 'Error target mesh processors not equal to current total MPI processes'
 
   ! checks temporary file creation, to see if we could write out new model
   if (myrank == 0) then
-    write(m_file,'(a,i6.6,a)') trim(output_model_dir)// '/proc',myrank,'_reg1_'//trim(fname(1))//'.tmp'
+    write(m_file,'(a,i6.6,a)') trim(output_model_dir)// '/tmp_proc',myrank,'.tmp'
     open(IOUT,file=trim(m_file),status='unknown',form='unformatted',action='write',iostat=ier)
     if (ier /= 0) then
       print *,'Error opening file: ',trim(m_file)
@@ -493,7 +557,7 @@
         ! gets slice number
         rank = addressing2(ichunk,iproc_xi,iproc_eta)
 
-        ! only associated mpi process continues
+        ! only associated MPI process continues
         if (myrank == rank) then
           ichunk_selected = ichunk
           iproc_eta_selected = iproc_eta
@@ -520,6 +584,13 @@
   z1(:,:) = 0.0_CUSTOM_REAL
   ibool1(:,:,:,:,:) = 0
 
+#ifdef ADIOS_INPUT
+  ! single adios file for all old process slices
+  ! opens adios file
+  write(solver_file,'(a,a)') trim(dir_topo1)//'/solver_data.bp'
+  call open_file_adios_read(solver_file)
+#endif
+
   iprocnum = 0
   do iproc_eta = 0, nproc_eta_old - 1
     do iproc_xi = 0, nproc_xi_old - 1
@@ -534,8 +605,30 @@
         print *,'  slice number: ',iprocnum,' out of ',nproc_chunk1
       endif
 
+      ! reads in old arrays
+#ifdef ADIOS_INPUT
+print *,myrank,'adios file rank',rank
+      ! reads in scalars for rank
+      call read_adios_scalar_int(rank,"reg1/nspec",nspec)
+      call read_adios_scalar_int(rank,"reg1/nglob",nglob)
+
+      ! checks dimensions
+      if (nspec /= nspec_max_old .or. nglob /= nglob_max_old) then
+        print *,'Error dimension of old, source mesh: solver_data nspec/nglob = ',nspec,nglob
+        stop 'Error new mesh dimensions'
+      endif
+
+      ! reads in arrays
+      call read_adios_array_1d(rank,nglob,"reg1/x_global",x1(:,iprocnum-1))
+      call read_adios_array_1d(rank,nglob,"reg1/y_global",y1(:,iprocnum-1))
+      call read_adios_array_1d(rank,nglob,"reg1/z_global",z1(:,iprocnum-1))
+
+      call read_adios_array_gll_int(rank,nspec,"reg1/ibool",ibool1(:,:,:,:,iprocnum-1))
+      call read_adios_array_1d_int(rank,nspec,"reg1/idoubling",idoubling1(:,iprocnum-1))
+
+#else
       ! old, source mesh locations
-      write(solver_file,'(a,i6.6,a)') trim(dir_topo1)//'proc',rank,'_reg1_'//'solver_data.bin'
+      write(solver_file,'(a,i6.6,a)') trim(dir_topo1)//'/proc',rank,'_reg1_'//'solver_data.bin'
       open(IIN,file=solver_file,status='old',form='unformatted',action='read',iostat=ier)
       if (ier /= 0) then
         print *,'Error opening file: ',trim(solver_file)
@@ -556,8 +649,15 @@
       read(IIN) ibool1(:,:,:,:,iprocnum-1)
       read(IIN) idoubling1(:,iprocnum-1)
       close(IIN)
+#endif
     enddo
   enddo
+
+#ifdef ADIOS_INPUT
+  ! closes file
+  call close_file_adios_read()
+#endif
+
   ! user output
   if (myrank == 0) then
     print *
@@ -577,6 +677,14 @@
 
   ! reads in old model files
   model1(:,:,:,:,:,:) = 0.0_CUSTOM_REAL
+
+#ifdef ADIOS_INPUT
+  ! single adios file for all old model arrays
+  ! opens adios file
+  write(solver_file,'(a,a)') trim(dir_topo1)//'/model_gll.bp'
+  call open_file_adios_read(solver_file)
+#endif
+
   iprocnum = 0
   do iproc_eta = 0, nproc_eta_old - 1
     do iproc_xi = 0, nproc_xi_old - 1
@@ -594,7 +702,12 @@
       ! reads in model slices
       do iker = 1,nparams
         ! debug user output
-        !if (myrank == 0) print *, '  for parameter: ',trim(fname(iker))
+        if (myrank == 0) print *, '  for parameter: ',trim(fname(iker))
+
+#ifdef ADIOS_INPUT
+        ! reads in array
+        call read_adios_array_gll(rank,nspec,fname(iker),model1(:,:,:,:,iker,iprocnum-1))
+#else
         ! opens model file
         write(m_file,'(a,i6.6,a)') trim(input_model_dir)//'proc',rank,'_reg1_'//trim(fname(iker))//'.bin'
         open(IIN,file=trim(m_file),status='old',form='unformatted',action='read',iostat=ier)
@@ -604,9 +717,16 @@
         endif
         read(IIN) model1(:,:,:,:,iker,iprocnum-1)
         close(IIN)
+#endif
       enddo
     enddo
   enddo
+
+#ifdef ADIOS_INPUT
+  ! closes file
+  call close_file_adios_read()
+#endif
+
   ! user output
   if (myrank == 0) then
     print *
@@ -619,7 +739,7 @@
   ! gets slice number
   rank = addressing2(ichunk_selected,iproc_xi_selected,iproc_eta_selected)
 
-  ! only associated mpi process continues
+  ! only associated MPI process continues
   if (myrank /= rank) stop 'Error selected addressing rank'
 
   ! user output
@@ -630,6 +750,34 @@
   endif
 
   ! checks new mesh locations
+#ifdef ADIOS_INPUT
+  ! single adios file for all process slices
+  ! opens adios file
+  write(solver_file,'(a,a)') trim(dir_topo2)//'/solver_data.bp'
+  call open_file_adios_read(solver_file)
+  ! reads in scalars for rank
+  call read_adios_scalar_int(rank,"reg1/nspec",nspec)
+  call read_adios_scalar_int(rank,"reg1/nglob",nglob)
+
+  ! checks dimensions
+  if (nspec /= NSPEC_CRUST_MANTLE .or. nglob /= NGLOB_CRUST_MANTLE) then
+    print *,'Error dimension of new mesh: solver_data nspec/nglob = ',nspec,nglob
+    stop 'Error new mesh dimensions'
+  endif
+  call synchronize_all()
+
+  ! reads in arrays
+  call read_adios_array_1d(rank,nglob,"reg1/x_global",x2(:))
+  call read_adios_array_1d(rank,nglob,"reg1/y_global",y2(:))
+  call read_adios_array_1d(rank,nglob,"reg1/z_global",z2(:))
+  call read_adios_array_gll_int(rank,nspec,"reg1/ibool",ibool2(:,:,:,:))
+  call read_adios_array_1d_int(rank,nspec,"reg1/idoubling",idoubling2(:))
+
+  ! closes file
+  call close_file_adios_read()
+
+#else
+  ! opens binary file
   write(solver_file,'(a,i6.6,a)') trim(dir_topo2)//'proc',rank,'_reg1_'//'solver_data.bin'
   open(IIN,file=solver_file,status='old',form='unformatted',action='read',iostat=ier)
   if (ier /= 0) then
@@ -652,6 +800,7 @@
   read(IIN) ibool2(:,:,:,:)
   read(IIN) idoubling2(:)
   close(IIN)
+#endif
 
   ! checks that layers match
   if (minval(idoubling1) /= minval(idoubling2) .or. maxval(idoubling1) /= maxval(idoubling2)) then
@@ -708,7 +857,7 @@
           do ispec = 1, nspec_max_old
             if (idoubling1(ispec,iprocnum-1) == ilayer) then
               if (TREE_INTERNAL_GLL_POINTS) then
-                ! all internal gll points ( 2 to NGLLX-1 )
+                ! all internal GLL points ( 2 to NGLLX-1 )
                 inodes = inodes + (NGLLX-2)*(NGLLY-2)*(NGLLZ-2)
               endif
               if (TREE_MID_POINTS) then
@@ -762,7 +911,7 @@
             if (idoubling1(ispec,iprocnum-1) /= ilayer ) cycle
 
             ! sets up tree nodes
-            ! all internal gll points
+            ! all internal GLL points
             if (TREE_INTERNAL_GLL_POINTS) then
               do k = 2,NGLLZ-1
                 do j = 2,NGLLY-1
@@ -773,7 +922,7 @@
                     inodes = inodes + 1
                     if (inodes > kdtree_num_nodes ) stop 'Error index inodes bigger than kdtree_num_nodes'
 
-                    ! adds node index ( index points to same ispec for all internal gll points)
+                    ! adds node index ( index points to same ispec for all internal GLL points)
                     kdtree_nodes_index(inodes) = ispec + (iprocnum - 1) * nspec_max_old
 
                     ! adds node location
@@ -793,7 +942,7 @@
               inodes = inodes + 1
               if (inodes > kdtree_num_nodes ) stop 'Error index inodes bigger than kdtree_num_nodes'
 
-              ! adds node index ( index points to same ispec for all internal gll points)
+              ! adds node index ( index points to same ispec for all internal GLL points)
               kdtree_nodes_index(inodes) = ispec + (iprocnum - 1) * nspec_max_old
 
               ! adds node location
@@ -844,7 +993,7 @@
 
       ! gets model values
       if (DO_BRUTE_FORCE_SEARCH) then
-        ! brute-force search over all gll points
+        ! brute-force search over all GLL points
         call get_model_values_bruteforce(ispec,nspec,nglob,ibool2,x2,y2,z2,nparams,model2, &
                                          nspec_max_old,nglob_max_old,nproc_chunk1,ibool1,x1,y1,z1,model1, &
                                          iaddx,iaddy,iaddr,xigll,yigll,zigll,typical_size,myrank,model_maxdiff)
@@ -896,6 +1045,28 @@
     print *, 'writing out new model files'
   endif
 
+#ifdef ADIOS_INPUT
+  ! sets up adios group
+  group_name = "MODELS_GROUP"
+  group_size_inc = 0
+  call init_adios_group(group,group_name)
+
+  ! defines group size
+  call define_adios_scalar(group, group_size_inc, '', "NSPEC", nspec)
+  local_dim = size(model2(:,:,:,:,iker))
+  do iker = 1,nparams
+    call define_adios_global_array1D(group, group_size_inc,local_dim,'',trim(fname(iker)),model2(:,:,:,:,iker))
+  enddo
+
+  ! opens new adios model file
+  write(solver_file,'(a,a)') trim(output_model_dir) //'/model_gll_interpolated.bp'
+  call open_file_adios_write(solver_file,group_name)
+  call set_adios_group_size(group_size_inc)
+
+  ! writes nspec
+  call write_adios_scalar_int("NSPEC",nspec)
+#endif
+
   ! writes out new model
   do iker = 1,nparams
     ! user output
@@ -903,6 +1074,12 @@
       print *, '  for parameter: ',trim(fname(iker))
     endif
 
+#ifdef ADIOS_INPUT
+!  call finalize_adios()
+!  stop 'safety stop: ADIOS support not fully implemented yet...'
+    ! writes previously defined ADIOS variables
+    call write_adios_array_gll(myrank,nspec,trim(fname(iker)),model2(:,:,:,:,iker))
+#else
     write(m_file,'(a,i6.6,a)') trim(output_model_dir) // '/proc',rank,'_reg1_'//trim(fname(iker))//'.bin'
     open(IOUT,file=trim(m_file),status='unknown',form='unformatted',action='write',iostat=ier)
     if (ier /= 0) then
@@ -911,7 +1088,14 @@
     endif
     write(IOUT) model2(:,:,:,:,iker)
     close(IOUT)
+#endif
+
   enddo
+
+#ifdef ADIOS_INPUT
+  ! closing performs actual write
+  call close_file_adios()
+#endif
 
   ! frees memory
   deallocate(model2)
@@ -923,12 +1107,18 @@
   if (myrank == 0) then
     print *
     print *, 'check new model files in directory: ',trim(output_model_dir)
+#ifdef ADIOS_INPUT
+    print *, 'see file: ',trim(solver_file)
+#else
+    print *, 'see files: ',trim(output_model_dir) // '/proc***_reg1_**.bin'
+#endif
     print *, 'done successfully'
     print *
   endif
 
 #ifdef ADIOS_INPUT
-  call adios_finalize (myrank, ier)
+  ! finalizes adios
+  call finalize_adios()
 #endif
 
   ! exiting MPI processes
@@ -995,7 +1185,7 @@
   endif
 
   ! brute-force search over all points
-  ! loops over all gll points
+  ! loops over all GLL points
   do k = 1, NGLLZ
     do j = 1, NGLLY
       do i = 1, NGLLX
@@ -1007,7 +1197,7 @@
 
         ! gets interpolated position
         call locate(x_target,y_target,z_target, &
-                    xi,eta,gamma,&
+                    xi,eta,gamma, &
                     ispec_selected,rank_selected, &
                     nspec_max_old,nglob_max_old,nproc_chunk1, &
                     ibool1,x1,y1,z1, &
@@ -1214,7 +1404,7 @@
 
   endif
 
-  ! loops over all element gll points
+  ! loops over all element GLL points
   do k = 1, NGLLZ
     do j = 1, NGLLY
       do i = 1, NGLLX
@@ -1233,10 +1423,10 @@
           ! avoids getting values from "wrong" side on 410-km discontinuity,etc.
           if (DO_SEPARATION_410_650) then
             if (is_critical) then
-              ! gll point radius
+              ! GLL point radius
               r = sqrt(x_target*x_target + y_target*y_target + z_target*z_target)
 
-              ! takes corresponding internal gll point for element search
+              ! takes corresponding internal GLL point for element search
               ! 410-km discontinuity
               if (r >= (R410 - R410_MARGIN)/R_EARTH .and. r <= (R410 + R410_MARGIN)/R_EARTH) search_internal = .true.
               ! 650-km discontinuity
@@ -1246,10 +1436,10 @@
 
           if (DO_SEPARATION_TOPO) then
             if (is_critical) then
-              ! gll point radius
+              ! GLL point radius
               r = sqrt(x_target*x_target + y_target*y_target + z_target*z_target)
 
-              ! takes corresponding internal gll point for element search
+              ! takes corresponding internal GLL point for element search
               ! surface elements
               if (r >= (RTOP - RTOP_MARGIN)/R_EARTH) search_internal = .true.
             endif
@@ -1315,14 +1505,14 @@
 
         ! gets interpolated position within selected element
         call locate_single(x_target,y_target,z_target, &
-                           xi,eta,gamma,&
+                           xi,eta,gamma, &
                            ispec_selected,rank_selected, &
                            nspec_max_old,nglob_max_old,nproc_chunk1, &
                            ibool1,x1,y1,z1, &
                            iaddx,iaddy,iaddr,xigll,yigll,zigll,typical_size, &
                            i_selected,j_selected,k_selected)
 
-        ! checks closest gll point
+        ! checks closest GLL point
         iglob = ibool1(i_selected,j_selected,k_selected,ispec_selected,rank_selected)
         x_found = x1(iglob,rank_selected)
         y_found = y1(iglob,rank_selected)
@@ -1339,11 +1529,11 @@
           print *,'gll radius     :',sqrt(x_found**2 + y_found**2 + z_found**2) * R_EARTH_KM,'(km)'
           print *,'distance gll:',dist_min * R_EARTH_KM,'(km)'
           ! debug
-          !stop 'Error gll model value invalid'
+          !stop 'Error GLL model value invalid'
         endif
         ! debug
         !if (myrank == 0 .and. iglob < 100) &
-        !  print *,'dist_min gll point: ',dist_min * R_EARTH_KM,'(km)',typical_size * R_EARTH_KM
+        !  print *,'dist_min GLL point: ',dist_min * R_EARTH_KM,'(km)',typical_size * R_EARTH_KM
 
         ! interpolate model values
         do iker = 1,nparams
@@ -1382,8 +1572,8 @@
               print *,'  interpolation       :',xi,eta,gamma
               print *,'  target location:',xyz_target(:)
               print *,'  target radius  :',sqrt(xyz_target(1)**2 + xyz_target(2)**2 + xyz_target(3)**2) * R_EARTH_KM,'(km)'
-              print *,'  gll location   :',x_found,y_found,z_found
-              print *,'  gll radius     :',sqrt(x_found**2 + y_found**2 + z_found**2) * R_EARTH_KM,'(km)'
+              print *,'  GLL location   :',x_found,y_found,z_found
+              print *,'  GLL radius     :',sqrt(x_found**2 + y_found**2 + z_found**2) * R_EARTH_KM,'(km)'
               print *,'  distance gll:',dist_min * R_EARTH_KM,'(km)'
               !stop 'Error model value invalid'
             endif
@@ -1570,7 +1760,7 @@
                            xigll,yigll,zigll,typical_size, &
                            i_selected,j_selected,k_selected)
 
-  use constants,only: CUSTOM_REAL,NGLLX,NGLLY,NGLLZ,NGNOD,HUGEVAL,NUM_ITER,R_EARTH_KM
+  use constants, only: CUSTOM_REAL,NGLLX,NGLLY,NGLLZ,NGNOD,HUGEVAL,NUM_ITER,R_EARTH_KM
 
   implicit none
 
@@ -1641,7 +1831,7 @@
   iy_initial_guess = 0
   iz_initial_guess = 0
 
-  ! finds closest interior gll point
+  ! finds closest interior GLL point
   do k=1,NGLLZ
     do j=1,NGLLY
       do i=1,NGLLX
@@ -1722,7 +1912,7 @@
     deta = 0.d0
     dgamma = 0.d0
 
-    ! loop leads to invalid jacobian... probably some gll points are too far outside of the selected element
+    ! loop leads to invalid jacobian... probably some GLL points are too far outside of the selected element
     do iter_loop = 1,2*NUM_ITER
 
       ! recompute jacobian for the new point
@@ -1782,13 +1972,6 @@
       ! we can go slightly outside the [1,1] segment since with finite elements
       ! the polynomial solution is defined everywhere
       ! can be useful for convergence of iterative scheme with distorted elements
-      !if (xi > 1.10d0) xi = 1.10d0
-      !if (xi < -1.10d0) xi = -1.10d0
-      !if (eta > 1.10d0) eta = 1.10d0
-      !if (eta < -1.10d0) eta = -1.10d0
-      !if (gamma > 1.10d0) gamma = 1.10d0
-      !if (gamma < -1.10d0) gamma = -1.10d0
-
       ! point leaves element, stay to closest guess
       if (xi > 1.10d0 .or. xi < -1.10d0 .or. eta > 1.10d0 .or. eta < -1.10d0 .or. gamma > 1.10d0 .or. gamma < -1.10d0) then
         ! uses previous guess
@@ -1853,131 +2036,4 @@
   k_selected = iz_initial_guess
 
   end subroutine locate_single
-
-
-!
-!------------------------------------------------------------------------------
-!
-
-  subroutine interpolate(xi,eta,gamma,ielem, &
-                         nspec,model, &
-                         val,xigll,yigll,zigll)
-
-
-  use constants, only: CUSTOM_REAL,NGLLX,NGLLY,NGLLZ
-
-  implicit none
-
-  double precision,intent(in):: xi,eta,gamma
-  integer,intent(in):: ielem
-
-  integer,intent(in):: nspec
-  real(kind=CUSTOM_REAL),dimension(NGLLX,NGLLY,NGLLZ,nspec),intent(in) :: model
-
-  real(kind=CUSTOM_REAL),intent(out) :: val
-
-  ! Gauss-Lobatto-Legendre points of integration and weights
-  double precision, dimension(NGLLX),intent(in) :: xigll
-  double precision, dimension(NGLLY),intent(in) :: yigll
-  double precision, dimension(NGLLZ),intent(in) :: zigll
-
-  ! local parameters
-  double precision :: hxir(NGLLX), hpxir(NGLLX), hetar(NGLLY), hpetar(NGLLY), &
-                      hgammar(NGLLZ), hpgammar(NGLLZ)
-  integer:: i,j,k
-
-  ! interpolation weights
-  call lagrange_any(xi,NGLLX,xigll,hxir,hpxir)
-  call lagrange_any(eta,NGLLY,yigll,hetar,hpetar)
-  call lagrange_any(gamma,NGLLZ,zigll,hgammar,hpgammar)
-
-  ! interpolates value
-  val = 0.0
-  do k = 1, NGLLZ
-    do j = 1, NGLLY
-      do i = 1, NGLLX
-          val = val +  hxir(i) * hetar(j) * hgammar(k) * model(i,j,k,ielem)
-      enddo
-    enddo
-  enddo
-
-  end subroutine interpolate
-
-!
-!------------------------------------------------------------------------------
-!
-
-  subroutine interpolate_limited(xi,eta,gamma,ielem, &
-                                 nspec,model, &
-                                 val,xigll,yigll,zigll, &
-                                 i_selected,j_selected,k_selected)
-
-
-  use constants, only: CUSTOM_REAL,NGLLX,NGLLY,NGLLZ
-
-  implicit none
-
-  double precision,intent(in):: xi,eta,gamma
-  integer,intent(in):: ielem
-
-  integer,intent(in):: nspec
-  real(kind=CUSTOM_REAL),dimension(NGLLX,NGLLY,NGLLZ,nspec),intent(in) :: model
-
-  real(kind=CUSTOM_REAL),intent(out) :: val
-
-  ! Gauss-Lobatto-Legendre points of integration and weights
-  double precision, dimension(NGLLX),intent(in) :: xigll
-  double precision, dimension(NGLLY),intent(in) :: yigll
-  double precision, dimension(NGLLZ),intent(in) :: zigll
-
-  integer,intent(in):: i_selected,j_selected,k_selected
-
-  ! local parameters
-  double precision :: hxir(NGLLX), hpxir(NGLLX), hetar(NGLLY), hpetar(NGLLY), &
-                      hgammar(NGLLZ), hpgammar(NGLLZ)
-  integer:: i,j,k
-  real(kind=CUSTOM_REAL) :: val_initial,val_avg,pert,pert_limit
-
-  ! percentage
-  real(kind=CUSTOM_REAL), parameter :: PERCENTAGE_LIMIT = 0.01
-
-  ! interpolation weights
-  call lagrange_any(xi,NGLLX,xigll,hxir,hpxir)
-  call lagrange_any(eta,NGLLY,yigll,hetar,hpetar)
-  call lagrange_any(gamma,NGLLZ,zigll,hgammar,hpgammar)
-
-  ! interpolates value
-  val = 0.0_CUSTOM_REAL
-  do k = 1, NGLLZ
-    do j = 1, NGLLY
-      do i = 1, NGLLX
-        val = val + hxir(i) * hetar(j) * hgammar(k) * model(i,j,k,ielem)
-      enddo
-    enddo
-  enddo
-
-  ! note: interpolation of values close to the surface or 3D moho encounters problems;
-  !       this is a fall-back to the closest point value
-  !
-  ! uses average/closest point value if too far off
-
-  ! closest point value
-  val_initial = model(i_selected,j_selected,k_selected,ielem)
-
-  ! average value
-  val_avg = sum(model(:,:,:,ielem)) / NGLLX / NGLLY / NGLLZ
-
-  ! initial difference
-  pert = abs(val_initial - val_avg)
-
-  ! upper/lower perturbation bound
-  pert_limit = PERCENTAGE_LIMIT * abs(val_avg)
-  if (pert > pert_limit) pert_limit = pert
-
-  ! within a certain percentage range
-  if (abs(val - val_avg ) > pert_limit) then
-    val = val_initial
-  endif
-
-  end subroutine interpolate_limited
 

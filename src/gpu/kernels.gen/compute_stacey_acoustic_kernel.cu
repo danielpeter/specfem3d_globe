@@ -1,5 +1,5 @@
 //note: please do not modify this file manually!
-//      this file has been generated automatically by BOAST version 1.0.3
+//      this file has been generated automatically by BOAST version 2.1.0
 //      by: make boast_kernels
 
 /*
@@ -16,7 +16,7 @@
 !
 ! This program is free software; you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by
-! the Free Software Foundation; either version 2 of the License, or
+! the Free Software Foundation; either version 3 of the License, or
 ! (at your option) any later version.
 !
 ! This program is distributed in the hope that it will be useful,
@@ -84,7 +84,7 @@
 #define BLOCKSIZE_TRANSFER 256
 #endif
 
-__global__ void compute_stacey_acoustic_kernel(const float * potential_dot_acoustic, float * potential_dot_dot_acoustic, const int interface_type, const int num_abs_boundary_faces, const int * abs_boundary_ispec, const int * nkmin_xi, const int * nkmin_eta, const int * njmin, const int * njmax, const int * nimin, const int * nimax, const float * abs_boundary_jacobian2D, const float * wgllwgll, const int * ibool, const float * vpstore, const int SAVE_FORWARD, float * b_absorb_potential){
+__global__ void compute_stacey_acoustic_kernel(const float * potential_dot_acoustic, float * potential_dot_dot_acoustic, const int interface_type, const int num_abs_boundary_faces, const int * abs_boundary_ispec, const int * nkmin_xi, const int * nkmin_eta, const int * njmin, const int * njmax, const int * nimin, const int * nimax, const float * abs_boundary_jacobian2D, const float * wgllwgll, const int * ibool, const float * vpstore, const int SAVE_STACEY, float * b_absorb_potential){
   int igll;
   int iface;
   int i;
@@ -172,12 +172,12 @@ __global__ void compute_stacey_acoustic_kernel(const float * potential_dot_acous
         }
         fac1 = wgllwgll[(j) * (NGLLX) + i];
         break;
-      }
+    }
     iglob = ibool[INDEX4(NGLLX, NGLLX, NGLLX, i, j, k, ispec)] - (1);
     sn = (potential_dot_acoustic[iglob]) / (vpstore[INDEX4(NGLLX, NGLLX, NGLLX, i, j, k, ispec)]);
     jacobianw = (abs_boundary_jacobian2D[INDEX2(NGLL2, igll, iface)]) * (fac1);
     atomicAdd(potential_dot_dot_acoustic + iglob, ( -(sn)) * (jacobianw));
-    if (SAVE_FORWARD) {
+    if (SAVE_STACEY) {
       b_absorb_potential[INDEX2(NGLL2, igll, iface)] = (sn) * (jacobianw);
     }
   }

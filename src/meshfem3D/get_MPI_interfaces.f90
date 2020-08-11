@@ -11,7 +11,7 @@
 !
 ! This program is free software; you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by
-! the Free Software Foundation; either version 2 of the License, or
+! the Free Software Foundation; either version 3 of the License, or
 ! (at your option) any later version.
 !
 ! This program is distributed in the hope that it will be useful,
@@ -26,25 +26,24 @@
 !=====================================================================
 
   subroutine get_MPI_interfaces(myrank,NGLOB,NSPEC, &
-                                    test_flag,my_neighbours,nibool_neighbours,ibool_neighbours, &
+                                    test_flag,my_neighbors,nibool_neighbors,ibool_neighbors, &
                                     num_interfaces,max_nibool_interfaces, &
-                                    max_nibool,MAX_NEIGHBOURS, &
-                                    ibool,&
+                                    max_nibool,MAX_NEIGHBORS, &
+                                    ibool, &
                                     is_on_a_slice_edge, &
                                     IREGION,add_central_cube,idoubling,INCLUDE_CENTRAL_CUBE, &
                                     xstore,ystore,zstore,NPROCTOT)
 
-  use constants,only: CUSTOM_REAL,NGLLX,NGLLY,NGLLZ,IREGION_INNER_CORE,IFLAG_IN_FICTITIOUS_CUBE
+  use constants, only: CUSTOM_REAL,NGLLX,NGLLY,NGLLZ,IREGION_INNER_CORE,IFLAG_IN_FICTITIOUS_CUBE
   implicit none
 
   integer,intent(in) :: myrank,NGLOB,NSPEC
 
   real(kind=CUSTOM_REAL),dimension(NGLOB),intent(in) :: test_flag
 
-  integer,intent(in) :: max_nibool
-  integer,intent(in) :: MAX_NEIGHBOURS
-  integer, dimension(MAX_NEIGHBOURS),intent(inout) :: my_neighbours,nibool_neighbours
-  integer, dimension(max_nibool,MAX_NEIGHBOURS),intent(inout) :: ibool_neighbours
+  integer,intent(in) :: max_nibool,MAX_NEIGHBORS
+  integer, dimension(MAX_NEIGHBORS),intent(inout) :: my_neighbors,nibool_neighbors
+  integer, dimension(max_nibool,MAX_NEIGHBORS),intent(inout) :: ibool_neighbors
 
   integer,intent(inout) :: num_interfaces,max_nibool_interfaces
 
@@ -83,9 +82,9 @@
     iinterface = 0
     num_interfaces = 0
     max_nibool_interfaces = 0
-    my_neighbours(:) = -1
-    nibool_neighbours(:) = 0
-    ibool_neighbours(:,:) = 0
+    my_neighbors(:) = -1
+    nibool_neighbors(:) = 0
+    ibool_neighbors(:,:) = 0
     work_ispec_is_outer(:) = .false.
   endif
 
@@ -106,8 +105,8 @@
     ! sets flag if element has global points shared with other processes
     ispec_is_outer = .false.
 
-    ! 1. finds neighbours which share a whole face with this process
-    ! (faces are shared only with 1 other neighbour process)
+    ! 1. finds neighbors which share a whole face with this process
+    ! (faces are shared only with 1 other neighbor process)
 
     ! loops over all faces of element
     do iface = 1, 6
@@ -153,7 +152,7 @@
         icurrent = 0
         is_done = .false.
         do ii = 1,iinterface
-          if (rank == my_neighbours(ii)) then
+          if (rank == my_neighbors(ii)) then
             icurrent = ii
             is_done = .true.
             exit
@@ -163,16 +162,16 @@
         ! updates interfaces array
         if (.not. is_done) then
           iinterface = iinterface + 1
-          if (iinterface > MAX_NEIGHBOURS) then
-            print *,'Error interfaces rank:',myrank,'iinterface = ',iinterface,MAX_NEIGHBOURS
-            call exit_mpi(myrank,'interface face exceeds MAX_NEIGHBOURS range')
+          if (iinterface > MAX_NEIGHBORS) then
+            print *,'Error interfaces rank:',myrank,'iinterface = ',iinterface,MAX_NEIGHBORS
+            call exit_mpi(myrank,'interface face exceeds MAX_NEIGHBORS range')
           endif
           ! adds as neighbor new interface
-          my_neighbours(iinterface) = rank
+          my_neighbors(iinterface) = rank
           icurrent = iinterface
         endif
         if (icurrent == 0 ) &
-          call exit_mpi(myrank,'could not find current interface for this neighbor, please check my_neighbours')
+          call exit_mpi(myrank,'could not find current interface for this neighbor, please check my_neighbors')
 
         ! adds interface points and removes neighbor flag from face
         ! assumes NGLLX == NGLLY == NGLLZ
@@ -201,10 +200,10 @@
 
             ! checks that we take each global point (on edges and corners) only once
             call add_interface_point(iglob,rank,icurrent, &
-                                        nibool_neighbours,MAX_NEIGHBOURS, &
-                                        ibool_neighbours,max_nibool, &
-                                        work_test_flag,NGLOB,myrank, &
-                                        .true.,add_central_cube)
+                                     nibool_neighbors,MAX_NEIGHBORS, &
+                                     ibool_neighbors,max_nibool, &
+                                     work_test_flag,NGLOB,myrank, &
+                                     .true.,add_central_cube)
             ! debug
             if (work_test_flag(iglob) < 0) then
               if (IREGION == IREGION_INNER_CORE .and. INCLUDE_CENTRAL_CUBE) then
@@ -224,8 +223,8 @@
       endif
     enddo ! iface
 
-    ! 2. finds neighbours which share a single edge with this process
-    ! note: by now, faces have subtracted their neighbours, edges can hold only one more process info
+    ! 2. finds neighbors which share a single edge with this process
+    ! note: by now, faces have subtracted their neighbors, edges can hold only one more process info
 
     ! loops over all edges of element
     do iedge = 1, 12
@@ -289,7 +288,7 @@
         icurrent = 0
         is_done = .false.
         do ii = 1,iinterface
-          if (rank == my_neighbours(ii)) then
+          if (rank == my_neighbors(ii)) then
             icurrent = ii
             is_done = .true.
             exit
@@ -299,16 +298,16 @@
         ! updates interfaces array
         if (.not. is_done) then
           iinterface = iinterface + 1
-          if (iinterface > MAX_NEIGHBOURS) then
-            print *,'Error interfaces rank:',myrank,'iinterface = ',iinterface,MAX_NEIGHBOURS
-            call exit_mpi(myrank,'interface edge exceeds MAX_NEIGHBOURS range')
+          if (iinterface > MAX_NEIGHBORS) then
+            print *,'Error interfaces rank:',myrank,'iinterface = ',iinterface,MAX_NEIGHBORS
+            call exit_mpi(myrank,'interface edge exceeds MAX_NEIGHBORS range')
           endif
           ! adds as neighbor new interface
-          my_neighbours(iinterface) = rank
+          my_neighbors(iinterface) = rank
           icurrent = iinterface
         endif
         if (icurrent == 0 ) &
-          call exit_mpi(myrank,'could not find current interface for this neighbor, please check my_neighbours')
+          call exit_mpi(myrank,'could not find current interface for this neighbor, please check my_neighbors')
 
         ! adds interface points and removes neighbor flag from edge
         ! assumes NGLLX == NGLLY == NGLLZ
@@ -354,10 +353,10 @@
 
           ! checks that we take each global point (on edges and corners) only once
           call add_interface_point(iglob,rank,icurrent, &
-                                        nibool_neighbours,MAX_NEIGHBOURS, &
-                                        ibool_neighbours,max_nibool, &
-                                        work_test_flag,NGLOB,myrank, &
-                                        .true.,add_central_cube)
+                                   nibool_neighbors,MAX_NEIGHBORS, &
+                                   ibool_neighbors,max_nibool, &
+                                   work_test_flag,NGLOB,myrank, &
+                                   .true.,add_central_cube)
 
           ! debug
           if (work_test_flag(iglob) < 0) then
@@ -378,7 +377,7 @@
     enddo ! iedge
 
 
-    ! 3. finds neighbours which share a single corner with this process
+    ! 3. finds neighbors which share a single corner with this process
     ! note: faces and edges have subtracted their neighbors, only one more process left possible
 
     ! loops over all corners of element
@@ -442,7 +441,7 @@
         icurrent = 0
         is_done = .false.
         do ii = 1,iinterface
-          if (rank == my_neighbours(ii)) then
+          if (rank == my_neighbors(ii)) then
             icurrent = ii
             is_done = .true.
             exit
@@ -452,24 +451,24 @@
         ! updates interfaces array
         if (.not. is_done) then
           iinterface = iinterface + 1
-          if (iinterface > MAX_NEIGHBOURS) then
-            print *,'Error interfaces rank:',myrank,'iinterface = ',iinterface,MAX_NEIGHBOURS
-            call exit_mpi(myrank,'interface corner exceed MAX_NEIGHBOURS range')
+          if (iinterface > MAX_NEIGHBORS) then
+            print *,'Error interfaces rank:',myrank,'iinterface = ',iinterface,MAX_NEIGHBORS
+            call exit_mpi(myrank,'interface corner exceed MAX_NEIGHBORS range')
           endif
           ! adds as neighbor new interface
-          my_neighbours(iinterface) = rank
+          my_neighbors(iinterface) = rank
           icurrent = iinterface
         endif
         if (icurrent == 0 ) &
-          call exit_mpi(myrank,'could not find current interface for this neighbor, please check my_neighbours')
+          call exit_mpi(myrank,'could not find current interface for this neighbor, please check my_neighbors')
 
         ! adds this corner as interface point and removes neighbor flag from face,
         ! checks that we take each global point (on edges and corners) only once
         call add_interface_point(iglob,rank,icurrent, &
-                                    nibool_neighbours,MAX_NEIGHBOURS, &
-                                    ibool_neighbours,max_nibool, &
-                                    work_test_flag,NGLOB,myrank, &
-                                    .false.,add_central_cube)
+                                 nibool_neighbors,MAX_NEIGHBORS, &
+                                 ibool_neighbors,max_nibool, &
+                                 work_test_flag,NGLOB,myrank, &
+                                 .false.,add_central_cube)
 
         ! debug
         if (work_test_flag(iglob) < 0 ) call exit_mpi(myrank,'Error corner flag')
@@ -493,7 +492,7 @@
   if (add_central_cube) then
     print *, 'rank',myrank,'interfaces : ',iinterface
     do j = 1,iinterface
-      print *, '  my_neighbours: ',my_neighbours(j),nibool_neighbours(j)
+      print *, '  my_neighbors: ',my_neighbors(j),nibool_neighbors(j)
     enddo
     print *, '  test flag min/max: ',minval(work_test_flag),maxval(work_test_flag)
     print *, '  outer elements: ',npoin
@@ -509,15 +508,15 @@
 
   ! sets interfaces info
   num_interfaces = iinterface
-  max_nibool_interfaces = maxval( nibool_neighbours(1:num_interfaces) )
+  max_nibool_interfaces = maxval( nibool_neighbors(1:num_interfaces) )
 
-  ! checks if unique set of neighbours
+  ! checks if unique set of neighbors
   do ii = 1,num_interfaces-1
-    rank = my_neighbours(ii)
+    rank = my_neighbors(ii)
     do j = ii+1,num_interfaces
-      if (rank == my_neighbours(j)) then
-        print *,'test MPI: rank ',myrank,'my_neighbours:',rank,my_neighbours(j),'interfaces:',ii,j
-        call exit_mpi(myrank,'Error test my_neighbours not unique')
+      if (rank == my_neighbors(j)) then
+        print *,'test MPI: rank ',myrank,'my_neighbors:',rank,my_neighbors(j),'interfaces:',ii,j
+        call exit_mpi(myrank,'Error test my_neighbors not unique')
       endif
     enddo
   enddo
@@ -526,44 +525,44 @@
   do iinterface = 1,num_interfaces
     ! sorts ibool values in increasing order
     ! used to check if we have duplicates in array
-    npoin = nibool_neighbours(iinterface)
-    call heap_sort( npoin, ibool_neighbours(1:npoin,iinterface) )
+    npoin = nibool_neighbors(iinterface)
+    call heap_sort( npoin, ibool_neighbors(1:npoin,iinterface) )
 
     ! checks if unique set of iglob values
     do j = 1,npoin-1
-      if (ibool_neighbours(j,iinterface) == ibool_neighbours(j+1,iinterface)) then
+      if (ibool_neighbors(j,iinterface) == ibool_neighbors(j+1,iinterface)) then
         if (IREGION == IREGION_INNER_CORE .and. INCLUDE_CENTRAL_CUBE) then
           ! missing points might have been counted more than once
-          if (ibool_neighbours(j,iinterface) > 0) then
+          if (ibool_neighbors(j,iinterface) > 0) then
             print *,'warning MPI interface rank:',myrank
-            print *,'  interface: ',my_neighbours(iinterface),'point: ',j,'of',npoin,'iglob=',ibool_neighbours(j,iinterface)
+            print *,'  interface: ',my_neighbors(iinterface),'point: ',j,'of',npoin,'iglob=',ibool_neighbors(j,iinterface)
             ! decrease number of points
-            nibool_neighbours(iinterface) = nibool_neighbours(iinterface) - 1
-            if (nibool_neighbours(iinterface) <= 0) then
-              print *,'Error zero MPI interface rank:',myrank,'interface=',my_neighbours(iinterface)
+            nibool_neighbors(iinterface) = nibool_neighbors(iinterface) - 1
+            if (nibool_neighbors(iinterface) <= 0) then
+              print *,'Error zero MPI interface rank:',myrank,'interface=',my_neighbors(iinterface)
               call exit_mpi(myrank,'Error: zero MPI points on interface')
             endif
             ! shift values
             do k = j+1,npoin-1
-              ii = ibool_neighbours(k+1,iinterface)
-              ibool_neighbours(k,iinterface) = ii
+              ii = ibool_neighbors(k+1,iinterface)
+              ibool_neighbors(k,iinterface) = ii
             enddo
             ! re-sets values
-            ibool_neighbours(npoin,iinterface) = 0
-            npoin = nibool_neighbours(iinterface)
-            max_nibool_interfaces = maxval( nibool_neighbours(1:num_interfaces) )
+            ibool_neighbors(npoin,iinterface) = 0
+            npoin = nibool_neighbors(iinterface)
+            max_nibool_interfaces = maxval( nibool_neighbors(1:num_interfaces) )
           endif
         else
           print *,'Error MPI interface rank:',myrank
-          print *,'  interface: ',my_neighbours(iinterface),'point: ',j,'of',npoin,'iglob=',ibool_neighbours(j,iinterface)
+          print *,'  interface: ',my_neighbors(iinterface),'point: ',j,'of',npoin,'iglob=',ibool_neighbors(j,iinterface)
           call exit_mpi(myrank,'Error: MPI points not unique on interface')
         endif
       endif
     enddo
 
     ! sort buffer obtained to be conforming with neighbor in other chunk
-    npoin = nibool_neighbours(iinterface)
-    call sort_MPI_interface(myrank,npoin,ibool_neighbours(1:npoin,iinterface), &
+    npoin = nibool_neighbors(iinterface)
+    call sort_MPI_interface(myrank,npoin,ibool_neighbors(1:npoin,iinterface), &
                                 NGLOB,xstore,ystore,zstore)
 
   enddo
@@ -580,7 +579,7 @@
   subroutine sort_MPI_interface(myrank,npoin,ibool_n, &
                                     NGLOB,xstore,ystore,zstore)
 
-  use constants,only: CUSTOM_REAL,SIZE_REAL
+  use constants, only: CUSTOM_REAL,SIZE_REAL
 
   implicit none
 
@@ -643,10 +642,10 @@
 !
 
   subroutine add_interface_point(iglob,rank,icurrent, &
-                                    nibool_neighbours,MAX_NEIGHBOURS, &
-                                    ibool_neighbours,max_nibool, &
-                                    work_test_flag,NGLOB,myrank, &
-                                    is_face_edge,add_central_cube)
+                                 nibool_neighbors,MAX_NEIGHBORS, &
+                                 ibool_neighbors,max_nibool, &
+                                 work_test_flag,NGLOB,myrank, &
+                                 is_face_edge,add_central_cube)
 
 
   implicit none
@@ -654,9 +653,9 @@
   integer,intent(in) :: iglob,rank,icurrent
   integer,intent(in) :: myrank
 
-  integer,intent(in) :: MAX_NEIGHBOURS,max_nibool
-  integer, dimension(MAX_NEIGHBOURS),intent(inout) :: nibool_neighbours
-  integer, dimension(max_nibool,MAX_NEIGHBOURS),intent(inout) :: ibool_neighbours
+  integer,intent(in) :: MAX_NEIGHBORS,max_nibool
+  integer, dimension(MAX_NEIGHBORS),intent(inout) :: nibool_neighbors
+  integer, dimension(max_nibool,MAX_NEIGHBORS),intent(inout) :: ibool_neighbors
 
   integer,intent(in) :: NGLOB
   integer,dimension(NGLOB) :: work_test_flag
@@ -672,8 +671,8 @@
 
   ! checks that we take each global point (on edges and corners) only once
   is_done = .false.
-  do i = 1,nibool_neighbours(icurrent)
-    if (ibool_neighbours(i,icurrent) == iglob) then
+  do i = 1,nibool_neighbors(icurrent)
+    if (ibool_neighbors(i,icurrent) == iglob) then
       is_done = .true.
       exit
     endif
@@ -714,12 +713,12 @@
 
   ! adds point
   ! increases number of total points on this interface
-  nibool_neighbours(icurrent) = nibool_neighbours(icurrent) + 1
-  if (nibool_neighbours(icurrent) > max_nibool) &
+  nibool_neighbors(icurrent) = nibool_neighbors(icurrent) + 1
+  if (nibool_neighbors(icurrent) > max_nibool) &
       call exit_mpi(myrank,'interface face exceeds max_nibool range')
 
   ! stores interface iglob index
-  ibool_neighbours( nibool_neighbours(icurrent),icurrent ) = iglob
+  ibool_neighbors( nibool_neighbors(icurrent),icurrent ) = iglob
 
   ! re-sets flag
   work_test_flag(iglob) = work_test_flag(iglob) - ( rank + 1 )

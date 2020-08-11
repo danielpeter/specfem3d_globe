@@ -11,7 +11,7 @@
 !
 ! This program is free software; you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by
-! the Free Software Foundation; either version 2 of the License, or
+! the Free Software Foundation; either version 3 of the License, or
 ! (at your option) any later version.
 !
 ! This program is distributed in the hope that it will be useful,
@@ -25,20 +25,20 @@
 !
 !=====================================================================
 
-  subroutine get_absorb(myrank,prname,iregion,iboun,nspec, &
+  subroutine get_absorb(prname,iregion,iboun, &
                         nimin,nimax,njmin,njmax,nkmin_xi,nkmin_eta, &
                         NSPEC2DMAX_XMIN_XMAX,NSPEC2DMAX_YMIN_YMAX,NSPEC2D_BOTTOM)
 
 ! Stacey, define flags for absorbing boundaries
 
   use constants
-  use meshfem3D_par, only: ADIOS_FOR_ARRAYS_SOLVER
+  use meshfem3D_par, only: ADIOS_FOR_ARRAYS_SOLVER,nspec
 
   implicit none
 
-  integer :: nspec,myrank,iregion
+  integer,intent(in) :: iregion
 
-  integer :: NSPEC2DMAX_XMIN_XMAX,NSPEC2DMAX_YMIN_YMAX,NSPEC2D_BOTTOM
+  integer,intent(in) :: NSPEC2DMAX_XMIN_XMAX,NSPEC2DMAX_YMIN_YMAX,NSPEC2D_BOTTOM
 
   integer,dimension(2,NSPEC2DMAX_YMIN_YMAX) :: nimin,nimax
   integer,dimension(2,NSPEC2DMAX_XMIN_XMAX) :: njmin,njmax
@@ -138,7 +138,7 @@
   ! This files will be saved with the help of ADIOS if the
   ! ADIOS_FOR_ARRAYS_SOLVER flag is set to true in the Par_file
   if (ADIOS_FOR_ARRAYS_SOLVER) then
-    call get_absorb_adios(myrank, iregion, &
+    call get_absorb_adios(iregion, &
                           nimin, nimax, njmin, njmax, nkmin_xi, nkmin_eta, &
                           NSPEC2DMAX_XMIN_XMAX,NSPEC2DMAX_YMIN_YMAX)
   else

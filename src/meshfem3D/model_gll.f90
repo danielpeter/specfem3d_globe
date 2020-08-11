@@ -11,7 +11,7 @@
 !
 ! This program is free software; you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by
-! the Free Software Foundation; either version 2 of the License, or
+! the Free Software Foundation; either version 3 of the License, or
 ! (at your option) any later version.
 !
 ! This program is distributed in the hope that it will be useful,
@@ -33,33 +33,20 @@
 ! used for iterative inversion procedures
 !--------------------------------------------------------------------------------------------------
 
-  subroutine model_gll_broadcast(myrank,MGLL_V,NSPEC)
+  subroutine model_gll_broadcast(MGLL_V,NSPEC)
 
 ! standard routine to setup model
 
   use constants
-  use meshfem3D_models_par,only: TRANSVERSE_ISOTROPY
+  use meshfem3D_models_par, only: TRANSVERSE_ISOTROPY,model_gll_variables
   use meshfem3D_par, only: ADIOS_FOR_MODELS
 
   implicit none
 
   ! GLL model_variables
-  type model_gll_variables
-    sequence
-    ! tomographic iteration model on GLL points
-    double precision :: scale_velocity,scale_density
-    ! isotropic model
-    real(kind=CUSTOM_REAL),dimension(:,:,:,:),pointer :: vs_new,vp_new,rho_new
-    ! transverse isotropic model
-    real(kind=CUSTOM_REAL),dimension(:,:,:,:),pointer :: vsv_new,vpv_new, &
-      vsh_new,vph_new,eta_new
-    logical :: MODEL_GLL
-    logical,dimension(3) :: dummy_pad ! padding 3 bytes to align the structure
-  end type model_gll_variables
   type (model_gll_variables) MGLL_V
 
   integer, dimension(MAX_NUM_REGIONS) :: NSPEC
-  integer :: myrank
 
   ! local parameters
   double precision :: scaleval
@@ -88,9 +75,9 @@
 
   ! reads in model files for each process
   if (ADIOS_FOR_MODELS) then
-    call read_gll_model_adios(myrank,MGLL_V,NSPEC)
+    call read_gll_model_adios(MGLL_V,NSPEC)
   else
-    call read_gll_model(myrank,MGLL_V,NSPEC)
+    call read_gll_model(MGLL_V,NSPEC)
   endif
 
   ! checks velocity range
@@ -219,30 +206,17 @@
 !
 
 
-  subroutine read_gll_model(myrank,MGLL_V,NSPEC)
+  subroutine read_gll_model(MGLL_V,NSPEC)
 
   use constants
-  use meshfem3D_models_par,only: TRANSVERSE_ISOTROPY
+  use meshfem3D_models_par, only: TRANSVERSE_ISOTROPY,model_gll_variables
 
   implicit none
 
   ! GLL model_variables
-  type model_gll_variables
-    sequence
-    ! tomographic iteration model on GLL points
-    double precision :: scale_velocity,scale_density
-    ! isotropic model
-    real(kind=CUSTOM_REAL),dimension(:,:,:,:),pointer :: vs_new,vp_new,rho_new
-    ! transverse isotropic model
-    real(kind=CUSTOM_REAL),dimension(:,:,:,:),pointer :: vsv_new,vpv_new, &
-      vsh_new,vph_new,eta_new
-    logical :: MODEL_GLL
-    logical,dimension(3) :: dummy_pad ! padding 3 bytes to align the structure
-  end type model_gll_variables
   type (model_gll_variables) MGLL_V
 
   integer, dimension(MAX_NUM_REGIONS) :: NSPEC
-  integer :: myrank
 
   ! local parameters
   integer :: ier
@@ -261,7 +235,7 @@
   if (.not. TRANSVERSE_ISOTROPY) then
     ! isotropic model
     ! vp mesh
-    open(unit=IIN,file=prname(1:len_trim(prname))//'vp.bin',&
+    open(unit=IIN,file=prname(1:len_trim(prname))//'vp.bin', &
           status='old',action='read',form='unformatted',iostat=ier)
     if (ier /= 0) then
       write(IMAIN,*) 'Error opening: ',prname(1:len_trim(prname))//'vp.bin'
@@ -284,7 +258,7 @@
 
     ! transverse isotropic model
     ! vp mesh
-    open(unit=IIN,file=prname(1:len_trim(prname))//'vpv.bin',&
+    open(unit=IIN,file=prname(1:len_trim(prname))//'vpv.bin', &
           status='old',action='read',form='unformatted',iostat=ier)
     if (ier /= 0) then
       write(IMAIN,*) 'Error opening: ',prname(1:len_trim(prname))//'vpv.bin'
@@ -293,7 +267,7 @@
     read(IIN) MGLL_V%vpv_new(:,:,:,1:nspec(IREGION_CRUST_MANTLE))
     close(IIN)
 
-    open(unit=IIN,file=prname(1:len_trim(prname))//'vph.bin',&
+    open(unit=IIN,file=prname(1:len_trim(prname))//'vph.bin', &
           status='old',action='read',form='unformatted',iostat=ier)
     if (ier /= 0) then
       write(IMAIN,*) 'Error opening: ',prname(1:len_trim(prname))//'vph.bin'

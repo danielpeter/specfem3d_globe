@@ -11,7 +11,7 @@
 !
 ! This program is free software; you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by
-! the Free Software Foundation; either version 2 of the License, or
+! the Free Software Foundation; either version 3 of the License, or
 ! (at your option) any later version.
 !
 ! This program is distributed in the hope that it will be useful,
@@ -29,7 +29,7 @@
 !---- assemble the contributions between slices and chunks using MPI
 !----
 
-  subroutine assemble_MPI_scalar_block(myrank,array_val,nglob, &
+  subroutine assemble_MPI_scalar_block(array_val,nglob, &
             iproc_xi,iproc_eta,ichunk,addressing, &
             iboolleft_xi,iboolright_xi,iboolleft_eta,iboolright_eta, &
             npoin2D_faces,npoin2D_xi,npoin2D_eta, &
@@ -48,7 +48,7 @@
 
   implicit none
 
-  integer myrank,nglob,NCHUNKS
+  integer nglob,NCHUNKS
 
 ! array to assemble
   real(kind=CUSTOM_REAL), dimension(nglob) :: array_val
@@ -254,9 +254,9 @@
 
     icount_faces = 0
     do imsg = 1,NUMMSGS_FACES
-      if (myrank==iprocfrom_faces(imsg) .or. &
-           myrank==iprocto_faces(imsg)) icount_faces = icount_faces + 1
-      if (myrank==iprocto_faces(imsg) .and. imsg_type(imsg) == imsg_loop) then
+      if (myrank == iprocfrom_faces(imsg) .or. &
+           myrank == iprocto_faces(imsg)) icount_faces = icount_faces + 1
+      if (myrank == iprocto_faces(imsg) .and. imsg_type(imsg) == imsg_loop) then
         sender = iprocfrom_faces(imsg)
         npoin2D_chunks = npoin2D_faces(icount_faces)
         call recv_cr(buffer_received_faces_scalar,npoin2D_chunks,sender,itag)
@@ -272,9 +272,9 @@
     !---- a given slice can belong to at most two faces
     icount_faces = 0
     do imsg = 1,NUMMSGS_FACES
-      if (myrank==iprocfrom_faces(imsg) .or. &
-           myrank==iprocto_faces(imsg)) icount_faces = icount_faces + 1
-      if (myrank==iprocfrom_faces(imsg) .and. imsg_type(imsg) == imsg_loop) then
+      if (myrank == iprocfrom_faces(imsg) .or. &
+           myrank == iprocto_faces(imsg)) icount_faces = icount_faces + 1
+      if (myrank == iprocfrom_faces(imsg) .and. imsg_type(imsg) == imsg_loop) then
         receiver = iprocto_faces(imsg)
         npoin2D_chunks = npoin2D_faces(icount_faces)
         do ipoin2D = 1,npoin2D_chunks
@@ -293,9 +293,9 @@
 
     icount_faces = 0
     do imsg = 1,NUMMSGS_FACES
-      if (myrank==iprocfrom_faces(imsg) .or. &
-           myrank==iprocto_faces(imsg)) icount_faces = icount_faces + 1
-      if (myrank==iprocfrom_faces(imsg) .and. imsg_type(imsg) == imsg_loop) then
+      if (myrank == iprocfrom_faces(imsg) .or. &
+           myrank == iprocto_faces(imsg)) icount_faces = icount_faces + 1
+      if (myrank == iprocfrom_faces(imsg) .and. imsg_type(imsg) == imsg_loop) then
         sender = iprocto_faces(imsg)
         npoin2D_chunks = npoin2D_faces(icount_faces)
         call recv_cr(buffer_received_faces_scalar,npoin2D_chunks,sender,itag)
@@ -310,9 +310,9 @@
     !---- a given slice can belong to at most two faces
     icount_faces = 0
     do imsg = 1,NUMMSGS_FACES
-      if (myrank==iprocfrom_faces(imsg) .or. &
-           myrank==iprocto_faces(imsg)) icount_faces = icount_faces + 1
-      if (myrank==iprocto_faces(imsg) .and. imsg_type(imsg) == imsg_loop) then
+      if (myrank == iprocfrom_faces(imsg) .or. &
+           myrank == iprocto_faces(imsg)) icount_faces = icount_faces + 1
+      if (myrank == iprocto_faces(imsg) .and. imsg_type(imsg) == imsg_loop) then
         receiver = iprocfrom_faces(imsg)
         npoin2D_chunks = npoin2D_faces(icount_faces)
         do ipoin2D = 1,npoin2D_chunks
@@ -344,7 +344,7 @@
        (NCHUNKS /= 2 .and. myrank == iproc_worker2_corners(imsg))) icount_corners = icount_corners + 1
 
     !---- receive messages from the two workers on the master
-    if (myrank==iproc_master_corners(imsg)) then
+    if (myrank == iproc_master_corners(imsg)) then
 
       ! receive from worker #1 and add to local array
       sender = iproc_worker1_corners(imsg)
@@ -369,8 +369,8 @@
     endif
 
     !---- send messages from the two workers to the master
-    if (myrank==iproc_worker1_corners(imsg) .or. &
-                (NCHUNKS /= 2 .and. myrank==iproc_worker2_corners(imsg))) then
+    if (myrank == iproc_worker1_corners(imsg) .or. &
+                (NCHUNKS /= 2 .and. myrank == iproc_worker2_corners(imsg))) then
 
       receiver = iproc_master_corners(imsg)
       do ipoin1D = 1,NGLOB1D_RADIAL
@@ -385,8 +385,8 @@
     ! *********************************************************************
 
     !---- receive messages from the master on the two workers
-    if (myrank==iproc_worker1_corners(imsg) .or. &
-                (NCHUNKS /= 2 .and. myrank==iproc_worker2_corners(imsg))) then
+    if (myrank == iproc_worker1_corners(imsg) .or. &
+                (NCHUNKS /= 2 .and. myrank == iproc_worker2_corners(imsg))) then
 
       ! receive from master and copy to local array
       sender = iproc_master_corners(imsg)
@@ -399,7 +399,7 @@
     endif
 
     !---- send messages from the master to the two workers
-    if (myrank==iproc_master_corners(imsg)) then
+    if (myrank == iproc_master_corners(imsg)) then
 
       do ipoin1D = 1,NGLOB1D_RADIAL
         buffer_send_chunkcorn_scalar(ipoin1D) = array_val(iboolcorner(ipoin1D,icount_corners))
@@ -428,7 +428,7 @@
   subroutine assemble_MPI_scalar(NPROC,NGLOB_AB,array_val, &
                         num_interfaces,max_nibool_interfaces, &
                         nibool_interfaces,ibool_interfaces, &
-                        my_neighbours)
+                        my_neighbors)
 
 ! blocking send/receive
 
@@ -443,7 +443,7 @@
   real(kind=CUSTOM_REAL), dimension(NGLOB_AB) :: array_val
 
   integer :: num_interfaces,max_nibool_interfaces
-  integer, dimension(num_interfaces) :: nibool_interfaces,my_neighbours
+  integer, dimension(num_interfaces) :: nibool_interfaces,my_neighbors
   integer, dimension(max_nibool_interfaces,num_interfaces) :: ibool_interfaces
 
   ! local parameters
@@ -481,14 +481,14 @@
       ! non-blocking synchronous send request
       call isend_cr(buffer_send_scalar(1:nibool_interfaces(iinterface),iinterface), &
            nibool_interfaces(iinterface), &
-           my_neighbours(iinterface), &
+           my_neighbors(iinterface), &
            itag, &
            request_send_scalar(iinterface) &
            )
       ! receive request
       call irecv_cr(buffer_recv_scalar(1:nibool_interfaces(iinterface),iinterface), &
            nibool_interfaces(iinterface), &
-           my_neighbours(iinterface), &
+           my_neighbors(iinterface), &
            itag, &
            request_recv_scalar(iinterface) &
            )
@@ -499,7 +499,7 @@
       call wait_req(request_recv_scalar(iinterface))
     enddo
 
-    ! adding contributions of neighbours
+    ! adding contributions of neighbors
     do iinterface = 1, num_interfaces
       do ipoin = 1, nibool_interfaces(iinterface)
         array_val(ibool_interfaces(ipoin,iinterface)) = &

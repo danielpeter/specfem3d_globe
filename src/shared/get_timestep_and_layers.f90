@@ -11,7 +11,7 @@
 !
 ! This program is free software; you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by
-! the Free Software Foundation; either version 2 of the License, or
+! the Free Software Foundation; either version 3 of the License, or
 ! (at your option) any later version.
 !
 ! This program is distributed in the hope that it will be useful,
@@ -26,22 +26,24 @@
 !=====================================================================
 
 
-  subroutine get_timestep_and_layers(NEX_MAX)
+  subroutine get_timestep_and_layers()
 
   use constants
   use shared_parameters
 
   implicit none
 
-  integer,intent(in) :: NEX_MAX
-
   ! local variables
+  integer :: NEX_MAX
   integer :: multiplication_factor
   double precision :: min_chunk_width_in_degrees
+  double precision :: dt_auto
 
   !----
   !----  case prem_onecrust by default
   !----
+
+  NEX_MAX = max(NEX_XI,NEX_ETA)
 
   ! to suppress the crustal layers
   ! (replaced by an extension of the mantle: R_EARTH is not modified, but no more crustal doubling)
@@ -51,6 +53,7 @@
     multiplication_factor = 1
   endif
 
+  ! sets empirical values for time step size, attenuation range (for 3 SLS) and number of element layers
   if (NEX_MAX*multiplication_factor <= 80) then
     ! time step
     DT                       = 0.252d0
@@ -328,7 +331,24 @@
     ! 1D models honor 1D spherical moho
     if (.not. ONE_CRUST) then
       ! case 1D + two crustal layers
+      !
+      ! note: we use here 2 element layers for the crust to honor also the middle crust
+      !       for example, PREM distinguishes different constant velocities for upper crust (vp=5.8km/s, depth down to 15km)
+      !       and lower crust (vp=6.8km/s, depth down to 24.4km)
+      !
+      !       be aware that using 2 element layers in the crust will lead to very thin elements for the lower crust
+      !       which decreases significantly the time step size for stability
       if (NER_CRUST < 2 ) NER_CRUST = 2
+    endif
+  else
+    ! 3D models: must have two element layers for crust
+    if (NER_CRUST < 2 ) NER_CRUST = 2
+  endif
+
+  ! time step
+  if (HONOR_1D_SPHERICAL_MOHO) then
+    ! 1D models honor 1D spherical moho
+    if (.not. ONE_CRUST) then
       ! makes time step smaller
       if (NEX_MAX*multiplication_factor <= 160) then
         DT = 0.20d0
@@ -337,8 +357,6 @@
       endif
     endif
   else
-    ! 3D models: must have two element layers for crust
-    if (NER_CRUST < 2 ) NER_CRUST = 2
     ! makes time step smaller
     if (NEX_MAX*multiplication_factor <= 80) then
         DT = 0.125d0
@@ -356,59 +374,38 @@
 
   ! gets attenuation min/max range
   if (.not. ATTENUATION_RANGE_PREDEFINED) then
-     call auto_attenuation_periods(min_chunk_width_in_degrees, NEX_MAX, &
-                                   MIN_ATTENUATION_PERIOD, MAX_ATTENUATION_PERIOD)
+     call auto_attenuation_periods(min_chunk_width_in_degrees, NEX_MAX)
   endif
 
+  ! note: global estimate above for DT is empirical for chunk sizes of 90 degrees.
+  ! if regional chunk size is larger, the time step is still limited by the vertical size of elements,
+  ! which depends only on the number of vertical element layers.
+  ! this however gets estimated above for 90 degrees already, so time stepping remains unchanged.
+
   ! adapts number of layer elements and time step size
-  if (ANGULAR_WIDTH_XI_IN_DEGREES  < 90.0d0 .or. &
-      ANGULAR_WIDTH_ETA_IN_DEGREES < 90.0d0 .or. &
-      NEX_MAX > 1248) then
+  ! (for regional simulations with chunk sizes < 90 degrees)
+  ! (or very, very large meshes)
+  if (min_chunk_width_in_degrees < 90.0d0 .or. NEX_MAX > 1248) then
+    ! adapts number of layer elements and time step size
+
+    ! note: for global simulations, we set
+    !         ANGULAR_WIDTH_XI_IN_DEGREES = 90.0d0 and
+    !         ANGULAR_WIDTH_ETA_IN_DEGREES = 90.0d0 in read_parameter_file.f90
 
     ! gets number of element-layers
-    call auto_ner(min_chunk_width_in_degrees, NEX_MAX, &
-                  NER_CRUST, NER_80_MOHO, NER_220_80, NER_400_220, NER_600_400, &
-                  NER_670_600, NER_771_670, NER_TOPDDOUBLEPRIME_771, &
-                  NER_CMB_TOPDDOUBLEPRIME, NER_OUTER_CORE, NER_TOP_CENTRAL_CUBE_ICB, &
-                  R_CENTRAL_CUBE, CASE_3D, CRUSTAL, &
-                  HONOR_1D_SPHERICAL_MOHO, REFERENCE_1D_MODEL)
+    call auto_ner(min_chunk_width_in_degrees, NEX_MAX)
 
     ! gets attenuation min/max range
-    call auto_attenuation_periods(min_chunk_width_in_degrees, NEX_MAX, &
-                                  MIN_ATTENUATION_PERIOD, MAX_ATTENUATION_PERIOD)
+    call auto_attenuation_periods(min_chunk_width_in_degrees, NEX_MAX)
 
     ! gets time step size
-    call auto_time_stepping(min_chunk_width_in_degrees, NEX_MAX, DT)
+    call auto_time_stepping(min_chunk_width_in_degrees, NEX_MAX, dt_auto)
 
-    !! DK DK suppressed because this routine should not write anything to the screen
-    !    write(*,*)'##############################################################'
-    !    write(*,*)
-    !    write(*,*)' Auto Radial Meshing Code '
-    !    write(*,*)' Consult read_compute_parameters.f90 and auto_ner.f90 '
-    !    write(*,*)' This should only be invoked for chunks less than 90 degrees'
-    !    write(*,*)' and for chunks greater than 1248 elements wide'
-    !    write(*,*)
-    !    write(*,*)'CHUNK WIDTH:              ', min_chunk_width_in_degrees
-    !    write(*,*)'NEX:                      ', NEX_MAX
-    !    write(*,*)'NER_CRUST:                ', NER_CRUST
-    !    write(*,*)'NER_80_MOHO:              ', NER_80_MOHO
-    !    write(*,*)'NER_220_80:               ', NER_220_80
-    !    write(*,*)'NER_400_220:              ', NER_400_220
-    !    write(*,*)'NER_600_400:              ', NER_600_400
-    !    write(*,*)'NER_670_600:              ', NER_670_600
-    !    write(*,*)'NER_771_670:              ', NER_771_670
-    !    write(*,*)'NER_TOPDDOUBLEPRIME_771:  ', NER_TOPDDOUBLEPRIME_771
-    !    write(*,*)'NER_CMB_TOPDDOUBLEPRIME:  ', NER_CMB_TOPDDOUBLEPRIME
-    !    write(*,*)'NER_OUTER_CORE:           ', NER_OUTER_CORE
-    !    write(*,*)'NER_TOP_CENTRAL_CUBE_ICB: ', NER_TOP_CENTRAL_CUBE_ICB
-    !    write(*,*)'R_CENTRAL_CUBE:           ', R_CENTRAL_CUBE
-    !    write(*,*)'multiplication factor:    ', multiplication_factor
-    !    write(*,*)
-    !    write(*,*)'DT:                       ',DT
-    !    write(*,*)'MIN_ATTENUATION_PERIOD    ',MIN_ATTENUATION_PERIOD
-    !    write(*,*)'MAX_ATTENUATION_PERIOD    ',MAX_ATTENUATION_PERIOD
-    !    write(*,*)
-    !    write(*,*)'##############################################################'
+    ! note: automatic time step might overestimate the time step size for chunk sizes larger ~ 40 degrees
+    !       thus we only replace the empirical time step size if the estimate gets smaller
+
+    ! sets new time step size
+    if (dt_auto < DT) DT = dt_auto
 
     ! checks minimum number of element-layers in crust
     if (HONOR_1D_SPHERICAL_MOHO) then
@@ -449,10 +446,10 @@
     ! CASE_3D: indicates element stretching to honor e.g. moho depths and/or upper/lower crusts
     if (CRUSTAL .and. CASE_3D) then
       ! reduces time step size for CRUST1.0 crustal model
-      if (ITYPE_CRUSTAL_MODEL == ICRUST_CRUST1) &
+      if (REFERENCE_CRUSTAL_MODEL == ICRUST_CRUST1) &
         DT = DT*(1.d0 - 0.1d0)
       ! reduces time step size for crustmaps crustal model
-      if (ITYPE_CRUSTAL_MODEL == ICRUST_CRUSTMAPS) &
+      if (REFERENCE_CRUSTAL_MODEL == ICRUST_CRUSTMAPS) &
         DT = DT*(1.d0 - 0.3d0)
     endif
   endif
@@ -481,21 +478,27 @@
 
     ! checks
     if (NCHUNKS > 1 ) stop 'regional moho mesh: NCHUNKS error in rcp_set_timestep_and_layers'
-    if (HONOR_1D_SPHERICAL_MOHO ) return
 
-    ! original values
-    !print *,'NER:',NER_CRUST
-    !print *,'DT:',DT
+    ! increases number of layers due to element deformations when honoring large moho depth variations (7km - 70km).
+    ! this should lead to a better mesh quality.
+    if (HONOR_1D_SPHERICAL_MOHO) then
+      ! spherical moho depth, and nothing to deform, default layering will be sufficient
+      continue
+    else
+      ! original values
+      !print *,'NER:',NER_CRUST
+      !print *,'DT:',DT
 
-    ! enforce 3 element layers
-    NER_CRUST = 3
+      ! enforce 3 element layers
+      NER_CRUST = 3
 
-    ! increased stability, empirical
-    DT = DT*(1.d0 + 0.5d0)
+      ! increased stability, empirical
+      DT = DT*(1.d0 + 0.5d0)
 
-    if (REGIONAL_MOHO_MESH_EUROPE ) DT = 0.17 ! Europe
-    if (REGIONAL_MOHO_MESH_ASIA ) DT = 0.15 ! Asia & Middle East
-
+      ! empirical values for different regions
+      if (REGIONAL_MOHO_MESH_EUROPE ) DT = 0.17 ! Europe
+      if (REGIONAL_MOHO_MESH_ASIA ) DT = 0.15 ! Asia & Middle East
+    endif
   endif
 
 ! the maximum CFL of LDDRK is significantly higher than that of the Newmark scheme,
@@ -508,4 +511,54 @@
   if (USE_LDDRK .and. INCREASE_CFL_FOR_LDDRK) DT = DT * RATIO_BY_WHICH_TO_INCREASE_IT
 
 
+  ! for future usage:
+  ! cut at a significant number of digits (2 digits)
+  ! in steps of 1/2 digits
+  ! example: 0.0734815 -> 0.0730
+  !          0.07371   -> 0.0735
+  !call get_timestep_limit_significant_digit(DT)
+
   end subroutine get_timestep_and_layers
+
+!
+!-------------------------------------------------------------------------------------------------
+!
+
+
+  subroutine get_timestep_limit_significant_digit(time_step)
+
+  ! cut at a significant number of digits (2 digits) using 1/2 rounding
+  ! example: 0.0734815 -> 0.0730
+  !      and 0.0737777 -> 0.0735
+
+  implicit none
+
+  double precision,intent(inout) :: time_step
+
+  ! rounding
+  integer :: lpow,ival
+  double precision :: fac_pow,dt_cut
+
+  ! initializes
+  dt_cut = time_step
+
+  ! cut at a significant number of digits (2 digits)
+  ! example: 0.0734815 -> lpow = (2 - (-1) = 3
+  lpow = int(2.d0 - log10(dt_cut))
+
+  ! example: -> factor 10**3
+  fac_pow = 10.d0**(lpow)
+
+  ! example: -> 73
+  ival = int(fac_pow * dt_cut)
+
+  ! adds .5-digit (in case): 73.0 -> 0.073
+  if ( (fac_pow * dt_cut - ival) >= 0.5 ) then
+    dt_cut = (dble(ival) + 0.5d0) / fac_pow
+  else
+    dt_cut = dble(ival) / fac_pow
+  endif
+
+  time_step = dt_cut
+
+  end subroutine get_timestep_limit_significant_digit

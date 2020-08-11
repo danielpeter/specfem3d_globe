@@ -21,16 +21,16 @@ implicit none
   call MPI_COMM_SIZE(MPI_COMM_WORLD,sizeprocs,ier)
   call MPI_COMM_RANK(MPI_COMM_WORLD,myrank,ier)
 
-  call getarg(1,old_machine_file)
-  call getarg(2,junk)
+  call get_command_argument(1,old_machine_file)
+  call get_command_argument(2,junk)
   if (trim(old_machine_file) == '' .or. trim(junk) == '') call exit_mpi(myrank,'Usage: remap old-mach num-slice [old-jobid new-jobid]')
   read(junk,*) num_slices
 
-  call getarg(3,junk2)
+  call get_command_argument(3,junk2)
   if (trim(junk2) == '') then
      use_jobid=.false.
   else
-     call getarg(4,junk3)
+     call get_command_argument(4,junk3)
      if (trim(junk3) == '') call exit_mpi(myrank,'Usage: remap old-mach num-slice [old-jobid new-jobid]')
      read(junk2,*) old_jobid
      read(junk3,*) new_jobid
@@ -69,9 +69,9 @@ implicit none
   write(command_string,'(a,i4.4,a)') 'scp lqy@'//trim(mymachine)//':'//trim(old_local_data_base)//'/*', &
              myrank, '*  '//trim(new_local_data_base)
 
-!  call system('echo '//trim(command_string)//' > '//trim(scp_outfile))
+!  call system('echo '//trim(command_string)//'>'//trim(scp_outfile))
 
-  call system(trim(command_string)) !//' >> '//trim(scp_outfile))
+  call system(trim(command_string)) !//' >>'//trim(scp_outfile))
 
 ! stop all the MPI processes, and exit
   call MPI_FINALIZE(ier)

@@ -11,7 +11,7 @@
 !
 ! This program is free software; you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by
-! the Free Software Foundation; either version 2 of the License, or
+! the Free Software Foundation; either version 3 of the License, or
 ! (at your option) any later version.
 !
 ! This program is distributed in the hope that it will be useful,
@@ -49,10 +49,12 @@
   integer, dimension(NGLLX,NGLLY,NGLLZ,nspec) :: ibool
 
   ! local parameters
-  logical, dimension(nglob) :: mask_ibool
-  integer :: ipoin,ispec,i,j,k
+  logical, dimension(:),allocatable :: mask_ibool
+  integer :: ipoin,ispec,i,j,k,ier
 
 ! clean the mask
+  allocate(mask_ibool(nglob),stat=ier)
+  if (ier /= 0) stop 'Error allocating mask in fix_non_blocking_slices routine'
   mask_ibool(:) = .false.
 
 ! mark all the points that are in the MPI buffers to assemble inside each chunk
@@ -90,6 +92,8 @@
     enddo
   888 continue
   enddo
+
+  deallocate(mask_ibool)
 
   end subroutine fix_non_blocking_slices
 

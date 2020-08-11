@@ -11,7 +11,7 @@
 !
 ! This program is free software; you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by
-! the Free Software Foundation; either version 2 of the License, or
+! the Free Software Foundation; either version 3 of the License, or
 ! (at your option) any later version.
 !
 ! This program is distributed in the hope that it will be useful,
@@ -25,7 +25,7 @@
 !
 !=====================================================================
 
-  subroutine get_global(npointot,xp,yp,zp,iglob,locval,ifseg,nglob)
+  subroutine get_global(npointot,xp,yp,zp,iglob,locval,ifseg,nglob_new)
 
 ! this routine MUST be in double precision to avoid sensitivity
 ! to roundoff errors in the coordinates of the points
@@ -41,9 +41,9 @@
 
   double precision, dimension(npointot), intent(inout) :: xp,yp,zp
 
-  integer, dimension(npointot), intent(out) :: iglob,locval
-  logical, dimension(npointot), intent(out) :: ifseg
-  integer, intent(out) :: nglob
+  integer, dimension(npointot), intent(inout) :: iglob,locval
+  logical, dimension(npointot), intent(inout) :: ifseg
+  integer, intent(out) :: nglob_new
 
   ! local variables
   integer, dimension(:), allocatable :: ninseg,idummy
@@ -52,12 +52,13 @@
   ! dynamically allocate arrays
   allocate(ninseg(npointot),stat=ier)
   if (ier /= 0) stop 'Error while allocating ninseg'
+  ninseg(:) = 0
 
   allocate(idummy(npointot),stat=ier)
   if (ier /= 0) stop 'Error while allocating idummy'
+  idummy(:) = 0
 
-  call sort_array_coordinates(npointot,xp,yp,zp,idummy,iglob,locval,ifseg, &
-                              nglob,ninseg)
+  call sort_array_coordinates(npointot,xp,yp,zp,idummy,iglob,locval,ifseg,nglob_new,ninseg)
 
   ! deallocate arrays
   deallocate(ninseg,idummy)
@@ -79,7 +80,7 @@
   implicit none
 
   integer,intent(in) :: nspec,nglob
-  integer, dimension(NGLLX,NGLLY,NGLLZ,nspec) :: ibool
+  integer, dimension(NGLLX,NGLLY,NGLLZ,nspec),intent(inout) :: ibool
 
   ! local parameters
   ! mask to sort ibool
@@ -90,8 +91,8 @@
 
   ! copies original array
   allocate(copy_ibool_ori(NGLLX,NGLLY,NGLLZ,nspec), &
-          mask_ibool(nglob), &
-          stat=ier)
+           mask_ibool(nglob), &
+           stat=ier)
   if (ier /= 0) stop 'Error allocating local arrays in get_global_indirect_addressing'
 
   ! initializes arrays

@@ -11,7 +11,7 @@
 !
 ! This program is free software; you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by
-! the Free Software Foundation; either version 2 of the License, or
+! the Free Software Foundation; either version 3 of the License, or
 ! (at your option) any later version.
 !
 ! This program is distributed in the hope that it will be useful,
@@ -27,17 +27,18 @@
 
 ! subroutine to create MPI buffers to assemble between chunks
 
-  subroutine create_chunk_buffers(iregion_code,nspec,ibool,idoubling, &
-                                  xstore,ystore,zstore,nglob_ori, &
+  subroutine create_chunk_buffers(iregion_code,ibool,idoubling, &
+                                  xstore,ystore,zstore, &
                                   NGLOB1D_RADIAL_CORNER,NGLOB1D_RADIAL_MAX, &
                                   NGLOB2DMAX_XMIN_XMAX,NGLOB2DMAX_YMIN_YMAX)
 
-  use meshfem3D_par,only: &
+  use meshfem3D_par, only: &
+    nspec, nglob, &
     myrank,LOCAL_PATH,NCHUNKS,addressing, &
     ichunk_slice,iproc_xi_slice,iproc_eta_slice, &
     NPROC_XI,NPROC_ETA,NPROC,NPROCTOT
 
-  use create_MPI_interfaces_par,only: &
+  use MPI_interfaces_par, only: &
     ibool1D_leftxi_lefteta,ibool1D_rightxi_lefteta, &
     ibool1D_leftxi_righteta,ibool1D_rightxi_righteta, &
     xyz1D_leftxi_lefteta,xyz1D_rightxi_lefteta, &
@@ -47,7 +48,7 @@
     iproc_master_corners,iproc_worker1_corners,iproc_worker2_corners, &
     npoin2D_faces,iboolfaces,iboolcorner
 
-  use create_regions_mesh_par2,only: &
+  use regions_mesh_par2, only: &
     nspec2D_xmin,nspec2D_xmax,nspec2D_ymin,nspec2D_ymax, &
     ibelm_xmin,ibelm_xmax,ibelm_ymin,ibelm_ymax
 
@@ -55,8 +56,7 @@
 
   implicit none
 
-  integer :: iregion_code
-  integer :: nspec
+  integer,intent(in) :: iregion_code
 
   ! array with the local to global mapping per slice
   integer,dimension(NGLLX,NGLLY,NGLLZ,nspec) :: ibool
@@ -65,15 +65,13 @@
   ! arrays with the mesh
   double precision,dimension(NGLLX,NGLLY,NGLLZ,nspec) :: xstore,ystore,zstore
 
-  integer :: nglob_ori
-
   integer, dimension(MAX_NUM_REGIONS,NB_SQUARE_CORNERS) :: NGLOB1D_RADIAL_CORNER
 
   integer :: NGLOB1D_RADIAL_MAX
   integer :: NGLOB2DMAX_XMIN_XMAX,NGLOB2DMAX_YMIN_YMAX
 
   ! local parameters
-  integer :: nglob
+  integer :: nglob_buffer
   integer :: NGLOB1D_RADIAL
   character(len=MAX_STRING_LEN) :: ERR_MSG
 
@@ -246,8 +244,7 @@
   if (ier /= 0 ) call exit_MPI(myrank,'Error allocating temporary arrays in create_chunk_buffers')
 
   ! allocate mask for ibool
-  allocate(mask_ibool(nglob_ori), &
-          stat=ier)
+  allocate(mask_ibool(nglob),stat=ier)
   if (ier /= 0 ) call exit_MPI(myrank,'Error allocating temporary mask in create_chunk_buffers')
 
   ! file output
@@ -519,10 +516,10 @@
               iproc_eta /= 0 .and. iproc_eta /= NPROC_ETA-1) &
               call exit_MPI(myrank,'slice not on any edge')
 
-            nglob=nglob_ori
+            nglob_buffer = nglob
 
-            ! check that iboolmax=nglob
-            if (minval(ibool(:,:,:,1:nspec)) /= 1 .or. maxval(ibool(:,:,:,1:nspec)) /= nglob) &
+            ! check that iboolmax == nglob_buffer
+            if (minval(ibool(:,:,:,1:nspec)) /= 1 .or. maxval(ibool(:,:,:,1:nspec)) /= nglob_buffer) &
               call exit_MPI(myrank,ERR_MSG)
 
             ! erase logical mask
@@ -717,10 +714,10 @@
             ! sort on x, y and z, the other arrays will be swapped as well
 
             call sort_array_coordinates(npoin2D,xstore_selected,ystore_selected,zstore_selected, &
-                                        ibool_selected,iglob,locval,ifseg,nglob,ninseg)
+                                        ibool_selected,iglob,locval,ifseg,nglob_buffer,ninseg)
 
             ! check that no duplicate has been detected
-            if (nglob /= npoin2D) call exit_MPI(myrank,'duplicates detected in buffer')
+            if (nglob_buffer /= npoin2D) call exit_MPI(myrank,'duplicates detected in buffer')
 
             ! write list of selected points to output buffer
 
@@ -1016,11 +1013,11 @@
         ! sort array read based upon the coordinates of the points
         ! to ensure conforming matching with other buffers from neighbors
         call sort_array_coordinates(NGLOB1D_RADIAL,xread1D,yread1D,zread1D, &
-                                    ibool1D,iglob,locval,ifseg,nglob,ninseg)
+                                    ibool1D,iglob,locval,ifseg,nglob_buffer,ninseg)
 
         ! check that no duplicates have been found
-        if (nglob /= NGLOB1D_RADIAL) then
-          print *,'Error ',myrank,' npoin1D_corner: ',nglob,'NGLOB1D_RADIAL:',NGLOB1D_RADIAL
+        if (nglob_buffer /= NGLOB1D_RADIAL) then
+          print *,'Error ',myrank,' npoin1D_corner: ',nglob_buffer,'NGLOB1D_RADIAL:',NGLOB1D_RADIAL
           print *,'iregion_code:',iregion_code
           call exit_MPI(myrank,'duplicates found for corners')
         endif

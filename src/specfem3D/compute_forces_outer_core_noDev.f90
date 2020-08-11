@@ -11,7 +11,7 @@
 !
 ! This program is free software; you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by
-! the Free Software Foundation; either version 2 of the License, or
+! the Free Software Foundation; either version 3 of the License, or
 ! (at your option) any later version.
 !
 ! This program is distributed in the hope that it will be useful,
@@ -25,24 +25,23 @@
 !
 !=====================================================================
 
-  subroutine compute_forces_outer_core(timeval,deltat,two_omega_earth, &
-                                       NSPEC,NGLOB, &
-                                       A_array_rotation,B_array_rotation, &
-                                       A_array_rotation_lddrk,B_array_rotation_lddrk, &
-                                       displfluid,accelfluid, &
-                                       div_displfluid,phase_is_inner)
+  subroutine compute_forces_outer_core_noDev(timeval,deltat,two_omega_earth, &
+                                             NSPEC,NGLOB, &
+                                             A_array_rotation,B_array_rotation, &
+                                             A_array_rotation_lddrk,B_array_rotation_lddrk, &
+                                             displfluid,accelfluid, &
+                                             div_displfluid,iphase)
 
   use constants_solver
 
-  use specfem_par,only: &
+  use specfem_par, only: &
     hprime_xx,hprime_yy,hprime_zz,hprimewgll_xx,hprimewgll_yy,hprimewgll_zz, &
     wgllwgll_xy,wgllwgll_xz,wgllwgll_yz,wgll_cube, &
-    minus_rho_g_over_kappa_fluid,d_ln_density_dr_table, &
+    gravity_pre_store => gravity_pre_store_outer_core, &
     MOVIE_VOLUME, &
     USE_LDDRK,istage
 
-  use specfem_par_outercore,only: &
-    xstore => xstore_outer_core,ystore => ystore_outer_core,zstore => zstore_outer_core, &
+  use specfem_par_outercore, only: &
     xix => xix_outer_core,xiy => xiy_outer_core,xiz => xiz_outer_core, &
     etax => etax_outer_core,etay => etay_outer_core,etaz => etaz_outer_core, &
     gammax => gammax_outer_core,gammay => gammay_outer_core,gammaz => gammaz_outer_core, &
@@ -53,32 +52,30 @@
 
   implicit none
 
-  integer :: NSPEC,NGLOB
+  integer,intent(in) :: NSPEC,NGLOB
 
   ! for the Euler scheme for rotation
-  real(kind=CUSTOM_REAL) timeval,deltat,two_omega_earth
+  real(kind=CUSTOM_REAL),intent(in) :: timeval,deltat,two_omega_earth
 
-  real(kind=CUSTOM_REAL), dimension(NGLLX,NGLLY,NGLLZ,NSPEC) :: &
+  real(kind=CUSTOM_REAL), dimension(NGLLX,NGLLY,NGLLZ,NSPEC),intent(inout) :: &
     A_array_rotation,B_array_rotation
-  real(kind=CUSTOM_REAL), dimension(NGLLX,NGLLY,NGLLZ,NSPEC) :: &
+  real(kind=CUSTOM_REAL), dimension(NGLLX,NGLLY,NGLLZ,NSPEC),intent(inout) :: &
     A_array_rotation_lddrk,B_array_rotation_lddrk
 
   ! displacement and acceleration
-  real(kind=CUSTOM_REAL), dimension(NGLOB) :: displfluid,accelfluid
+  real(kind=CUSTOM_REAL), dimension(NGLOB),intent(in) :: displfluid
+  real(kind=CUSTOM_REAL), dimension(NGLOB),intent(inout) :: accelfluid
 
   ! divergence of displacement
-  real(kind=CUSTOM_REAL), dimension(NGLLX,NGLLY,NGLLZ,NSPEC_OUTER_CORE_3DMOVIE) :: div_displfluid
+  real(kind=CUSTOM_REAL), dimension(NGLLX,NGLLY,NGLLZ,NSPEC_OUTER_CORE_3DMOVIE),intent(out) :: div_displfluid
 
   ! inner/outer element run flag
-  logical :: phase_is_inner
+  integer,intent(in) :: iphase
 
   ! local parameters
-
   real(kind=CUSTOM_REAL), dimension(NGLLX,NGLLY,NGLLZ) :: tempx1,tempx2,tempx3
   ! for gravity
-  integer int_radius
-  double precision radius,theta,phi,gxl,gyl,gzl
-  double precision cos_theta,sin_theta,cos_phi,sin_phi
+  real(kind=CUSTOM_REAL) :: vec_x,vec_y,vec_z
   real(kind=CUSTOM_REAL), dimension(NGLLX,NGLLY,NGLLZ) :: gravity_term
   ! for the Euler scheme for rotation
   real(kind=CUSTOM_REAL) two_omega_deltat,cos_two_omega_t,sin_two_omega_t,A_rotation,B_rotation, &
@@ -92,26 +89,23 @@
   real(kind=CUSTOM_REAL) dpotentialdxl,dpotentialdyl,dpotentialdzl
   real(kind=CUSTOM_REAL) tempx1l,tempx2l,tempx3l,sum_terms
 
-  double precision grad_x_ln_rho,grad_y_ln_rho,grad_z_ln_rho
-
 !  integer :: computed_elements
   integer :: num_elements,ispec_p
-  integer :: iphase
 
 ! ****************************************************
 !   big loop over all spectral elements in the fluid
 ! ****************************************************
 
-  if (MOVIE_VOLUME .and. NSPEC_OUTER_CORE_3DMOVIE /= 1 .and. ( .not. phase_is_inner )) then
+  if (MOVIE_VOLUME .and. NSPEC_OUTER_CORE_3DMOVIE /= 1 .and. (iphase == 1)) then
     div_displfluid(:,:,:,:) = 0._CUSTOM_REAL
   endif
 
 !  computed_elements = 0
-  if (.not. phase_is_inner) then
-    iphase = 1
+  if (iphase == 1) then
+    ! outer elements
     num_elements = nspec_outer
   else
-    iphase = 2
+    ! inner elements
     num_elements = nspec_inner
   endif
 
@@ -224,26 +218,14 @@
             ! x y z contain r theta phi
             iglob = ibool(i,j,k,ispec)
 
-            radius = dble(xstore(iglob))
-            theta = dble(ystore(iglob))
-            phi = dble(zstore(iglob))
-
-            cos_theta = dcos(theta)
-            sin_theta = dsin(theta)
-            cos_phi = dcos(phi)
-            sin_phi = dsin(phi)
-
-            int_radius = nint(radius * R_EARTH_KM * 10.d0)
-
-            ! grad(rho)/rho in Cartesian components
-            grad_x_ln_rho = sin_theta * cos_phi * d_ln_density_dr_table(int_radius)
-            grad_y_ln_rho = sin_theta * sin_phi * d_ln_density_dr_table(int_radius)
-            grad_z_ln_rho = cos_theta * d_ln_density_dr_table(int_radius)
+            vec_x = gravity_pre_store(1,iglob)
+            vec_y = gravity_pre_store(2,iglob)
+            vec_z = gravity_pre_store(3,iglob)
 
             ! adding (chi/rho)grad(rho)
-            dpotentialdx_with_rot = dpotentialdx_with_rot + displfluid(iglob) * grad_x_ln_rho
-            dpotentialdy_with_rot = dpotentialdy_with_rot + displfluid(iglob) * grad_y_ln_rho
-            dpotentialdzl = dpotentialdzl + displfluid(iglob) * grad_z_ln_rho
+            dpotentialdx_with_rot = dpotentialdx_with_rot + displfluid(iglob) * vec_x
+            dpotentialdy_with_rot = dpotentialdy_with_rot + displfluid(iglob) * vec_y
+            dpotentialdzl = dpotentialdzl + displfluid(iglob) * vec_z
 
 
          else
@@ -256,42 +238,26 @@
             ! x y z contain r theta phi
             iglob = ibool(i,j,k,ispec)
 
-            radius = dble(xstore(iglob))
-            theta = dble(ystore(iglob))
-            phi = dble(zstore(iglob))
-
-            cos_theta = dcos(theta)
-            sin_theta = dsin(theta)
-            cos_phi = dcos(phi)
-            sin_phi = dsin(phi)
-
             ! get g, rho and dg/dr=dg
-            ! spherical components of the gravitational acceleration
-            ! for efficiency replace with lookup table every 100 m in radial direction
-            int_radius = nint(radius * R_EARTH_KM * 10.d0)
-
             ! Cartesian components of the gravitational acceleration
             ! integrate and multiply by rho / Kappa
-            gxl = sin_theta*cos_phi
-            gyl = sin_theta*sin_phi
-            gzl = cos_theta
+            vec_x = gravity_pre_store(1,iglob)
+            vec_y = gravity_pre_store(2,iglob)
+            vec_z = gravity_pre_store(3,iglob)
 
-            ! distinguish between single and double precision for reals
-            gravity_term(i,j,k) = &
-              real(minus_rho_g_over_kappa_fluid(int_radius) * dble(jacobianl) * wgll_cube(i,j,k) &
-                   * (dble(dpotentialdx_with_rot) * gxl &
-                    + dble(dpotentialdy_with_rot) * gyl &
-                    + dble(dpotentialdzl)         * gzl), &
-                   kind=CUSTOM_REAL)
+            gravity_term(i,j,k) = jacobianl * wgll_cube(i,j,k) &
+                                  * (dpotentialdx_with_rot * vec_x &
+                                   + dpotentialdy_with_rot * vec_y &
+                                   + dpotentialdzl         * vec_z)
 
             ! divergence of displacement field with gravity on
             ! note: these calculations are only considered for SIMULATION_TYPE == 1 .and. SAVE_FORWARD
             !          and one has set MOVIE_VOLUME_TYPE == 4 when MOVIE_VOLUME is .true.;
             !         in case of SIMULATION_TYPE == 3, it gets overwritten by compute_kernels_outer_core()
             if (MOVIE_VOLUME .and. NSPEC_OUTER_CORE_3DMOVIE /= 1) then
-              div_displfluid(i,j,k,ispec) = &
-                 minus_rho_g_over_kappa_fluid(int_radius) * (dpotentialdx_with_rot * gxl + &
-                 dpotentialdy_with_rot * gyl + dpotentialdzl * gzl)
+              div_displfluid(i,j,k,ispec) = dpotentialdx_with_rot * vec_x &
+                                          + dpotentialdy_with_rot * vec_y &
+                                          + dpotentialdzl * vec_z
             endif
 
           endif
@@ -347,5 +313,5 @@
 
   enddo   ! spectral element loop
 
-  end subroutine compute_forces_outer_core
+  end subroutine compute_forces_outer_core_noDev
 

@@ -11,7 +11,7 @@
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
+# the Free Software Foundation; either version 3 of the License, or
 # (at your option) any later version.
 #
 # This program is distributed in the hope that it will be useful,
@@ -44,6 +44,7 @@ meshfem3D_OBJECTS = \
 	$O/assemble_MPI_scalar_mesh.check.o \
 	$O/assemble_MPI_vector_mesh.check.o \
 	$O/calc_jacobian.check.o \
+	$O/check_mesh_resolution.check.o \
 	$O/compute_coordinates_grid.check.o \
 	$O/compute_element_properties.check.o \
 	$O/compute_volumes_and_areas.check.o \
@@ -56,6 +57,7 @@ meshfem3D_OBJECTS = \
 	$O/create_meshes.check.o \
 	$O/create_MPI_interfaces.check.o \
 	$O/create_regions_mesh.check.o \
+	$O/create_regions_elements.check.o \
 	$O/create_regular_elements.check.o \
 	$O/define_superbrick.check.o \
 	$O/finalize_mesher.check.o \
@@ -72,6 +74,7 @@ meshfem3D_OBJECTS = \
 	$O/get_perm_color.check.o \
 	$O/get_shape2D.check.o \
 	$O/get_shape3D.check.o \
+	$O/gravity_integrals.check.o \
 	$O/initialize_layers.check.o \
 	$O/initialize_mesher.check.o \
 	$O/lgndr.check.o \
@@ -88,6 +91,7 @@ meshfem3D_OBJECTS = \
 	$O/model_crustmaps.check.o \
 	$O/model_eucrust.check.o \
 	$O/model_epcrust.check.o \
+	$O/model_full_sh.check.o \
 	$O/model_gapp2.check.o \
 	$O/model_gll.check.o \
 	$O/model_heterogen_mantle.check.o \
@@ -99,6 +103,7 @@ meshfem3D_OBJECTS = \
 	$O/model_s40rts.check.o \
 	$O/model_s362ani.check.o \
 	$O/model_sea99_s.check.o \
+	$O/model_sglobe.check.o \
 	$O/moho_stretching.check.o \
 	$O/save_arrays_solver.check.o \
 	$O/setup_color_perm.check.o \
@@ -111,14 +116,16 @@ meshfem3D_OBJECTS = \
 	$O/write_AVS_DX_global_chunks_data.check.o \
 	$O/write_AVS_DX_global_data.check.o \
 	$O/write_AVS_DX_global_faces_data.check.o \
+	$O/write_AVS_DX_output.check.o \
 	$O/write_AVS_DX_surface_data.check.o \
 	$(EMPTY_MACRO)
 
 meshfem3D_MODULES = \
-	$(FC_MODDIR)/create_regions_mesh_par.$(FC_MODEXT) \
-	$(FC_MODDIR)/create_regions_mesh_par2.$(FC_MODEXT) \
-	$(FC_MODDIR)/create_mpi_interfaces_par.$(FC_MODEXT) \
+	$(FC_MODDIR)/regions_mesh_par.$(FC_MODEXT) \
+	$(FC_MODDIR)/regions_mesh_par2.$(FC_MODEXT) \
+	$(FC_MODDIR)/mpi_interfaces_par.$(FC_MODEXT) \
 	$(FC_MODDIR)/gapp2_mantle_model_constants.$(FC_MODEXT) \
+	$(FC_MODDIR)/manager_adios_par.$(FC_MODEXT) \
 	$(FC_MODDIR)/meshfem3d_models_par.$(FC_MODEXT) \
 	$(FC_MODDIR)/meshfem3d_par.$(FC_MODEXT) \
 	$(FC_MODDIR)/mpi_crust_mantle_par.$(FC_MODEXT) \
@@ -134,6 +141,8 @@ meshfem3D_MODULES = \
 	$(FC_MODDIR)/model_crustmaps_par.$(FC_MODEXT) \
 	$(FC_MODDIR)/model_epcrust_par.$(FC_MODEXT) \
 	$(FC_MODDIR)/model_eucrust_par.$(FC_MODEXT) \
+	$(FC_MODDIR)/model_full_sh_crust_par.$(FC_MODEXT) \
+	$(FC_MODDIR)/model_full_sh_mantle_par.$(FC_MODEXT) \
 	$(FC_MODDIR)/model_heterogen_mantle_par.$(FC_MODEXT) \
 	$(FC_MODDIR)/model_jp3d_par.$(FC_MODEXT) \
 	$(FC_MODDIR)/model_ppm_par.$(FC_MODEXT) \
@@ -142,6 +151,7 @@ meshfem3D_MODULES = \
 	$(FC_MODDIR)/model_s40rts_par.$(FC_MODEXT) \
 	$(FC_MODDIR)/model_sea1d_par.$(FC_MODEXT) \
 	$(FC_MODDIR)/model_sea99_s_par.$(FC_MODEXT) \
+	$(FC_MODDIR)/model_sglobe_par.$(FC_MODEXT) \
 	$(FC_MODDIR)/avs_dx_global_chunks_mod.$(FC_MODEXT) \
 	$(FC_MODDIR)/avs_dx_global_mod.$(FC_MODEXT) \
 	$(FC_MODDIR)/avs_dx_global_faces_mod.$(FC_MODEXT) \
@@ -151,6 +161,7 @@ meshfem3D_MODULES = \
 # These files come from the shared directory
 meshfem3D_SHARED_OBJECTS = \
 	$O/shared_par.shared_module.o \
+	$O/adios_manager.shared_adios_module.o \
 	$O/auto_ner.shared.o \
 	$O/binary_c_io.cc.o \
 	$O/broadcast_computed_parameters.shared.o \
@@ -169,6 +180,7 @@ meshfem3D_SHARED_OBJECTS = \
 	$O/gll_library.shared.o \
 	$O/heap_sort.shared.o \
 	$O/hex_nodes.shared.o \
+	$O/init_openmp.shared.o \
 	$O/intgrl.shared.o \
 	$O/lagrange_poly.shared.o \
 	$O/make_ellipticity.shared.o \
@@ -187,6 +199,7 @@ meshfem3D_SHARED_OBJECTS = \
 	$O/sort_array_coordinates.shared.o \
 	$O/spline_routines.shared.o \
 	$O/write_VTK_file.shared.o \
+	$O/ylm.shared.o \
 	$(EMPTY_MACRO)
 
 ###
@@ -197,8 +210,8 @@ adios_meshfem3D_OBJECTS = \
 	$O/write_AVS_DX_global_chunks_data_adios.check_adios_module.o \
 	$O/write_AVS_DX_global_data_adios.check_adios_module.o \
 	$O/write_AVS_DX_global_faces_data_adios.check_adios_module.o \
+	$O/write_AVS_DX_output_adios.check_adios.o \
 	$O/write_AVS_DX_surface_data_adios.check_adios_module.o \
-	$O/create_regions_mesh_adios.check_adios.o \
 	$O/get_absorb_adios.check_adios.o \
 	$O/model_gll_adios.check_adios.o \
 	$O/save_arrays_solver_adios.check_adios.o \
@@ -208,10 +221,6 @@ adios_meshfem3D_SHARED_OBJECTS = \
 	$O/adios_helpers_definitions.shared_adios_module.o \
 	$O/adios_helpers_writers.shared_adios_module.o \
 	$O/adios_helpers.shared_adios.o \
-	$O/adios_manager.shared_adios.o \
-	$(EMPTY_MACRO)
-
-adios_meshfem3D_STUBS = \
 	$(EMPTY_MACRO)
 
 adios_meshfem3D_SHARED_STUBS = \
@@ -223,13 +232,13 @@ ifeq ($(ADIOS),yes)
 meshfem3D_OBJECTS += $(adios_meshfem3D_OBJECTS)
 meshfem3D_SHARED_OBJECTS += $(adios_meshfem3D_SHARED_OBJECTS)
 else
-meshfem3D_OBJECTS += $(adios_meshfem3D_STUBS)
 meshfem3D_SHARED_OBJECTS += $(adios_meshfem3D_SHARED_STUBS)
 endif
 
 # conditional CEM model
 ifeq ($(CEM),yes)
 meshfem3D_OBJECTS += $O/model_cem.checknetcdf.o
+meshfem3D_MODULES += $(FC_MODDIR)/cem_par.$(FC_MODEXT)
 endif
 
 
@@ -255,17 +264,25 @@ $(meshfem3D_OBJECTS): S = ${S_TOP}/src/meshfem3D
 
 ## additional module dependencies
 
-$O/create_regions_mesh_adios.check_adios.o: \
+$O/write_AVS_DX_output_adios.check_adios.o: \
 	$O/write_AVS_DX_global_data_adios.check_adios_module.o \
 	$O/write_AVS_DX_global_chunks_data_adios.check_adios_module.o \
 	$O/write_AVS_DX_global_faces_data_adios.check_adios_module.o \
 	$O/write_AVS_DX_surface_data_adios.check_adios_module.o
+
+$O/get_absorb_adios.check_adios.o: $O/adios_manager.shared_adios_module.o
 
 $O/model_attenuation.check.o: \
 	$O/model_1dref.check.o \
 	$O/model_ak135.check.o \
 	$O/model_1066a.check.o \
 	$O/model_sea1d.check.o
+
+$O/meshfem3D_par.check_module.o: $O/adios_manager.shared_adios_module.o
+
+
+# Version file
+$O/initialize_mesher.check.o: ${SETUP}/version.fh
 
 ## general rules
 

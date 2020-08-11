@@ -11,7 +11,7 @@
 !
 ! This program is free software; you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by
-! the Free Software Foundation; either version 2 of the License, or
+! the Free Software Foundation; either version 3 of the License, or
 ! (at your option) any later version.
 !
 ! This program is distributed in the hope that it will be useful,
@@ -27,20 +27,22 @@
 
   double precision function comp_source_time_function(t,hdur)
 
-  use constants
+  use constants, only: EXTERNAL_SOURCE_TIME_FUNCTION
 
   implicit none
 
-  double precision t,hdur
+  double precision,intent(in) :: t,hdur
 
-  double precision, external :: netlib_specfun_erf
+  ! local parameters
+  double precision, external :: comp_source_time_function_heavi
   double precision, external :: comp_source_time_function_ext
 
   if (EXTERNAL_SOURCE_TIME_FUNCTION) then
+    ! external stf
     comp_source_time_function = comp_source_time_function_ext()
   else
     ! quasi Heaviside
-    comp_source_time_function = 0.5d0*(1.0d0 + netlib_specfun_erf(t/hdur))
+    comp_source_time_function = comp_source_time_function_heavi(t,hdur)
   endif
 
   end function comp_source_time_function
@@ -49,17 +51,40 @@
 !-------------------------------------------------------------------------------------------------
 !
 
-  double precision function comp_source_time_function_rickr(t,f0)
-
-  use constants
+  double precision function comp_source_time_function_heavi(t,hdur)
 
   implicit none
 
-  double precision t,f0
+  double precision,intent(in) :: t,hdur
 
-  ! Ricker
-  comp_source_time_function_rickr = (1.d0 - 2.d0*PI*PI*f0*f0*t*t ) &
-                                    * exp( -PI*PI*f0*f0*t*t )
+  double precision, external :: netlib_specfun_erf
+
+  ! quasi Heaviside, small Gaussian moment-rate tensor with hdur
+  comp_source_time_function_heavi = 0.5d0*(1.0d0 + netlib_specfun_erf(t/hdur))
+
+  end function comp_source_time_function_heavi
+
+
+!
+!-------------------------------------------------------------------------------------------------
+!
+
+
+  double precision function comp_source_time_function_rickr(t,f0)
+
+  use constants, only: PI
+
+  implicit none
+
+  double precision,intent(in) :: t,f0
+
+  ! local parameters
+  double precision :: a
+
+  ! Ricker wavelet
+  a = PI*PI * f0*f0
+
+  comp_source_time_function_rickr = (1.d0 - 2.d0 * a * t*t ) * exp( -a * t*t )
 
   !!! another source time function they have called 'Ricker' in some old papers,
   !!! e.g., 'Finite-Frequency Kernels Based on Adjoint Methods' by Liu & Tromp, BSSA (2006)
@@ -72,6 +97,39 @@
 !-------------------------------------------------------------------------------------------------
 !
 
+  double precision function comp_source_time_function_gauss(t,hdur)
+
+  use constants, only: PI
+
+  implicit none
+
+  double precision, intent(in) :: t,hdur
+
+  ! local parameters
+  double precision :: hdur_decay,a
+
+  ! note: hdur given is hdur_Gaussian = hdur/SOURCE_DECAY_MIMIC_TRIANGLE
+  !           and SOURCE_DECAY_MIMIC_TRIANGLE ~ 1.628
+  hdur_decay = hdur
+
+  ! this here uses a stronger Gaussian decay rate (empirical value) to avoid non-zero onset times;
+  ! however, it should mimik a triangle source time function...
+  !hdur_decay = hdur  / SOURCE_DECAY_STRONG
+
+  ! note: a nonzero time to start the simulation with would lead to more high-frequency noise
+  !          due to the (spatial) discretization of the point source on the mesh
+
+  ! Gaussian wavelet
+  a = 1.d0 / (hdur_decay**2)
+
+  comp_source_time_function_gauss = exp(-a * t**2) / (sqrt(PI) * hdur_decay)
+
+  end function comp_source_time_function_gauss
+
+!
+!-------------------------------------------------------------------------------------------------
+!
+
   double precision function comp_source_time_function_ext()
 
   use specfem_par, only: it, stfArray_external
@@ -79,7 +137,7 @@
 
   ! On the first iteration, go get the ASCII file.
   if (.not. allocated (stfArray_external)) then
-    call get_external_stf()
+    call get_EXTERNAL_SOURCE_TIME_FUNCTION()
   endif
 
   comp_source_time_function_ext = stfArray_external(it)
@@ -90,7 +148,7 @@
 !-------------------------------------------------------------------------------------------------
 !
 
-  subroutine get_external_stf()
+  subroutine get_EXTERNAL_SOURCE_TIME_FUNCTION()
 
   use specfem_par, only: NSTEP, stfArray_external, IIN
   implicit none
@@ -113,7 +171,7 @@
     read(IIN, '(A)', iostat = ier) line
 
     if (ier /= 0) then
-      print *, "ERROR IN SOURCE TIME FUNCTION."
+      print *, "Error in external source time function."
       stop 'Error reading external stf file'
     endif
 
@@ -126,4 +184,4 @@
 
   close(IIN)
 
-  end subroutine get_external_stf
+  end subroutine get_EXTERNAL_SOURCE_TIME_FUNCTION

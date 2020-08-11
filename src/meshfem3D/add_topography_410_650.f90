@@ -11,7 +11,7 @@
 !
 ! This program is free software; you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by
-! the Free Software Foundation; either version 2 of the License, or
+! the Free Software Foundation; either version 3 of the License, or
 ! (at your option) any later version.
 !
 ! This program is distributed in the hope that it will be useful,
@@ -25,14 +25,12 @@
 !
 !=====================================================================
 
-  subroutine add_topography_410_650(myrank,xelm,yelm,zelm)
+  subroutine add_topography_410_650(xelm,yelm,zelm)
 
   use constants
-  use meshfem3D_par,only: R220,R400,R670,R771
+  use meshfem3D_par, only: R220,R400,R670,R771
 
   implicit none
-
-  integer :: myrank
 
   double precision :: xelm(NGNOD)
   double precision :: yelm(NGNOD)
@@ -116,7 +114,7 @@
       xelm(ia) = x*(ONE + gamma * topo410 / r)
       yelm(ia) = y*(ONE + gamma * topo410 / r)
       zelm(ia) = z*(ONE + gamma * topo410 / r)
-    else if (r>= R771/R_EARTH .and. r <= R670/R_EARTH) then
+    else if (r >= R771/R_EARTH .and. r <= R670/R_EARTH) then
       ! stretching between R771 and R670
       gamma = (r - R771/R_EARTH) / (R670/R_EARTH - R771/R_EARTH)
       xelm(ia) = x*(ONE + gamma * topo650 / r)
@@ -160,22 +158,21 @@
   !> Hejun
   ! use GLL points to capture 410_650 topography
   ! JAN08, 2010
-  subroutine add_topography_410_650_gll(myrank,xstore,ystore,zstore,ispec,nspec)
+  subroutine add_topography_410_650_gll(xstore,ystore,zstore,ispec,nspec)
 
   use constants
-  use meshfem3D_par,only: R220,R400,R670,R771
+  use meshfem3D_par, only: R220,R400,R670,R771
 
   implicit none
 
-  integer myrank
   integer:: ispec,nspec
   double precision,dimension(NGLLX,NGLLY,NGLLZ,nspec):: xstore,ystore,zstore
 
-  integer i,j,k
+  integer :: i,j,k
 
-  real(kind=4) xcolat,xlon
-  real(kind=4) topo410out,topo650out
-  double precision topo410,topo650
+  real(kind=4) :: xcolat,xlon
+  real(kind=4) :: topo410out,topo650out
+  double precision :: topo410,topo650
 
   double precision :: r,lat,lon,theta,phi
   double precision :: gamma
@@ -227,7 +224,7 @@
                 xstore(i,j,k,ispec) = x*(ONE + gamma * topo410 / r)
                 ystore(i,j,k,ispec) = y*(ONE + gamma * topo410 / r)
                 zstore(i,j,k,ispec) = z*(ONE + gamma * topo410 / r)
-        else if (r>= R771/R_EARTH .and. r <= R670/R_EARTH) then
+        else if (r >= R771/R_EARTH .and. r <= R670/R_EARTH) then
         ! stretching between R771 and R670
                 gamma = (r - R771/R_EARTH) / (R670/R_EARTH - R771/R_EARTH)
                 xstore(i,j,k,ispec) = x*(ONE + gamma * topo650 / r)

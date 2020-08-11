@@ -11,7 +11,7 @@
 !
 ! This program is free software; you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by
-! the Free Software Foundation; either version 2 of the License, or
+! the Free Software Foundation; either version 3 of the License, or
 ! (at your option) any later version.
 !
 ! This program is distributed in the hope that it will be useful,
@@ -27,7 +27,7 @@
 
   subroutine read_compute_parameters()
 
-  use constants,only: &
+  use constants, only: &
     TINYVAL,R_EARTH_KM,DEGREES_TO_RADIANS, &
     SUPPRESS_CRUSTAL_MESH,ADD_4TH_DOUBLING, &
     DO_BENCHMARK_RUN_ONLY,NSTEP_FOR_BENCHMARK, &
@@ -39,7 +39,6 @@
   implicit none
 
   ! local parameters
-  integer :: NEX_MAX
   integer :: nblocks_xi,nblocks_eta
   ! doubling layers
   integer :: ielem,elem_doubling_mantle,elem_doubling_middle_outer_core,elem_doubling_bottom_outer_core
@@ -50,7 +49,7 @@
   integer ::  NUMBER_OF_MESH_LAYERS,layer_offset,nspec2D_xi_sb,nspec2D_eta_sb, &
               nb_lay_sb, nspec_sb, nglob_vol, nglob_surf, nglob_edge
   ! for the cut doublingbrick improvement
-  integer :: last_doubling_layer, cut_doubling, nglob_int_surf_xi, nglob_int_surf_eta,nglob_ext_surf,&
+  integer :: last_doubling_layer, cut_doubling, nglob_int_surf_xi, nglob_int_surf_eta,nglob_ext_surf, &
               normal_doubling, nglob_center_edge, nglob_corner_edge, nglob_border_edge
   integer :: tmp_sum_nglob2D_xi, tmp_sum_nglob2D_eta,divider,nglob_edges_h,nglob_edge_v,to_remove
 
@@ -92,23 +91,14 @@
 
   ! turns on/off corresponding 1-D/3-D model flags
   ! and sets radius for each discontinuity and ocean density values
-  call get_model_parameters(MODEL,REFERENCE_1D_MODEL,THREE_D_MODEL, &
-                            ANISOTROPIC_3D_MANTLE,ANISOTROPIC_INNER_CORE,ATTENUATION_3D, &
-                            CASE_3D,CRUSTAL,HETEROGEN_3D_MANTLE,HONOR_1D_SPHERICAL_MOHO, &
-                            ISOTROPIC_3D_MANTLE,ONE_CRUST,TRANSVERSE_ISOTROPY, &
-                            OCEANS,TOPOGRAPHY, &
-                            ROCEAN,RMIDDLE_CRUST,RMOHO,R80,R120,R220,R400,R600,R670,R771, &
-                            RTOPDDOUBLEPRIME,RCMB,RICB,RMOHO_FICTITIOUS_IN_MESHER, &
-                            R80_FICTITIOUS_IN_MESHER,RHO_TOP_OC,RHO_BOTTOM_OC,RHO_OCEANS, &
-                            CEM_REQUEST,CEM_ACCEPT)
+  call get_model_parameters()
 
   ! checks parameters
   call rcp_check_parameters()
 
   ! sets time step size and number of layers
   ! right distribution is determined based upon maximum value of NEX
-  NEX_MAX = max(NEX_XI,NEX_ETA)
-  call get_timestep_and_layers(NEX_MAX)
+  call get_timestep_and_layers()
 
   ! time steps: this is an initial estimate based on the record length.
   !             we will need to add additional time steps for reaching the start time at -t0,
@@ -116,7 +106,12 @@
   !             (see also routine setup_timesteps() in setup_sources_receivers.f90)
   !
   ! initial guess : compute total number of time steps, rounded to next multiple of 100
-  NSTEP = 100 * (int(RECORD_LENGTH_IN_MINUTES * 60.d0 / (100.d0*DT)) + 1)
+  if (RECORD_LENGTH_IN_MINUTES < TINYVAL) then
+    ! zero length, uses a minimum of 5 steps for testing
+    NSTEP = 5
+  else
+    NSTEP = 100 * (int(RECORD_LENGTH_IN_MINUTES * 60.d0 / (100.d0*DT)) + 1)
+  endif
 
   ! noise simulations
   if (NOISE_TOMOGRAPHY /= 0) then
@@ -186,68 +181,70 @@
   NPROCTOT = NCHUNKS * NPROC
 
   !  definition of general mesh parameters
-  call define_all_layers(NER_CRUST,NER_80_MOHO,NER_220_80,&
+  call define_all_layers(NER_CRUST,NER_80_MOHO,NER_220_80, &
                         NER_400_220,NER_600_400,NER_670_600,NER_771_670, &
                         NER_TOPDDOUBLEPRIME_771,NER_CMB_TOPDDOUBLEPRIME,NER_OUTER_CORE, &
-                        NER_TOP_CENTRAL_CUBE_ICB,&
+                        NER_TOP_CENTRAL_CUBE_ICB, &
                         RMIDDLE_CRUST,R220,R400,R600,R670,R771,RTOPDDOUBLEPRIME,RCMB,RICB, &
-                        R_CENTRAL_CUBE,RMOHO_FICTITIOUS_IN_MESHER,R80_FICTITIOUS_IN_MESHER,&
-                        ONE_CRUST,ner,ratio_sampling_array,&
+                        R_CENTRAL_CUBE,RMOHO_FICTITIOUS_IN_MESHER,R80_FICTITIOUS_IN_MESHER, &
+                        ONE_CRUST,ner,ratio_sampling_array, &
                         NUMBER_OF_MESH_LAYERS,layer_offset,last_doubling_layer, &
-                        r_bottom,r_top,this_region_has_a_doubling,&
-                        ielem,elem_doubling_mantle,elem_doubling_middle_outer_core,&
-                        elem_doubling_bottom_outer_core,&
+                        r_bottom,r_top,this_region_has_a_doubling, &
+                        ielem,elem_doubling_mantle,elem_doubling_middle_outer_core, &
+                        elem_doubling_bottom_outer_core, &
                         DEPTH_SECOND_DOUBLING_REAL,DEPTH_THIRD_DOUBLING_REAL, &
-                        DEPTH_FOURTH_DOUBLING_REAL,distance,distance_min,zval,&
+                        DEPTH_FOURTH_DOUBLING_REAL,distance,distance_min,zval, &
                         doubling_index,rmins,rmaxs)
 
-  ! calculates number of elements (NSPEC)
-  call count_elements(NEX_XI,NEX_ETA,NEX_PER_PROC_XI,NPROC,&
-                        NEX_PER_PROC_ETA,ratio_divide_central_cube,&
-                        NSPEC,NSPEC2D_XI,NSPEC2D_ETA, &
+  ! calculates number of elements (NSPEC_REGIONS)
+  call count_elements(NEX_XI,NEX_ETA,NEX_PER_PROC_XI,NPROC, &
+                        NEX_PER_PROC_ETA,ratio_divide_central_cube, &
+                        NSPEC_REGIONS, &
+                        NSPEC2D_XI,NSPEC2D_ETA, &
                         NSPEC2DMAX_XMIN_XMAX,NSPEC2DMAX_YMIN_YMAX,NSPEC2D_BOTTOM,NSPEC2D_TOP, &
                         NSPEC1D_RADIAL, &
                         NGLOB2DMAX_XMIN_XMAX,NGLOB2DMAX_YMIN_YMAX, &
                         ner,ratio_sampling_array,this_region_has_a_doubling, &
-                        ifirst_region,ilast_region,iter_region,iter_layer,&
+                        ifirst_region,ilast_region,iter_region,iter_layer, &
                         doubling,tmp_sum,tmp_sum_xi,tmp_sum_eta, &
                         NUMBER_OF_MESH_LAYERS,layer_offset,nspec2D_xi_sb,nspec2D_eta_sb, &
                         nb_lay_sb, nspec_sb, nglob_surf, &
                         CUT_SUPERBRICK_XI,CUT_SUPERBRICK_ETA, INCLUDE_CENTRAL_CUBE, &
                         last_doubling_layer, &
-                        DIFF_NSPEC1D_RADIAL,DIFF_NSPEC2D_XI,DIFF_NSPEC2D_ETA,&
-                        tmp_sum_nglob2D_xi, tmp_sum_nglob2D_eta,divider,nglob_edges_h,&
+                        DIFF_NSPEC1D_RADIAL,DIFF_NSPEC2D_XI,DIFF_NSPEC2D_ETA, &
+                        tmp_sum_nglob2D_xi, tmp_sum_nglob2D_eta,divider,nglob_edges_h, &
                         nglob_edge_v,to_remove)
 
-  ! calculates number of points (NGLOB)
-  call count_points(NEX_PER_PROC_XI,NEX_PER_PROC_ETA,ratio_divide_central_cube,&
+  ! calculates number of points (NGLOB_REGIONS)
+  call count_points(NEX_PER_PROC_XI,NEX_PER_PROC_ETA,ratio_divide_central_cube, &
                         NSPEC1D_RADIAL,NGLOB1D_RADIAL, &
-                        NGLOB2DMAX_XMIN_XMAX,NGLOB2DMAX_YMIN_YMAX,NGLOB,&
-                        nblocks_xi,nblocks_eta,ner,ratio_sampling_array,&
-                        this_region_has_a_doubling,&
+                        NGLOB2DMAX_XMIN_XMAX,NGLOB2DMAX_YMIN_YMAX, &
+                        NGLOB_REGIONS, &
+                        nblocks_xi,nblocks_eta,ner,ratio_sampling_array, &
+                        this_region_has_a_doubling, &
                         ifirst_region, ilast_region, iter_region, iter_layer, &
                         doubling, padding, tmp_sum, &
                         INCLUDE_CENTRAL_CUBE,NER_TOP_CENTRAL_CUBE_ICB,NEX_XI, &
                         NUMBER_OF_MESH_LAYERS,layer_offset, &
                         nb_lay_sb, nglob_vol, nglob_surf, nglob_edge, &
                         CUT_SUPERBRICK_XI,CUT_SUPERBRICK_ETA, &
-                        last_doubling_layer, cut_doubling, nglob_int_surf_xi, nglob_int_surf_eta,nglob_ext_surf,&
+                        last_doubling_layer, cut_doubling, nglob_int_surf_xi, nglob_int_surf_eta,nglob_ext_surf, &
                         normal_doubling, nglob_center_edge, nglob_corner_edge, nglob_border_edge)
 
   if (ATTENUATION) then
 !! DK DK July 2013: to save a huge amount of memory, when 3D attenuation is off it is sufficient to save a single point
 !! DK DK July 2013: per spectral element because the Q attenuation factor is then constant per layer of the geological model
     if (ATTENUATION_3D .or. ATTENUATION_1D_WITH_3D_STORAGE) then
-      ATT1     = NGLLX
-      ATT2     = NGLLY
-      ATT3     = NGLLZ
+      ATT1 = NGLLX
+      ATT2 = NGLLY
+      ATT3 = NGLLZ
     else
-      ATT1     = 1
-      ATT2     = 1
-      ATT3     = 1
+      ATT1 = 1
+      ATT2 = 1
+      ATT3 = 1
     endif
-    ATT4     = NSPEC(IREGION_CRUST_MANTLE)
-    ATT5     = NSPEC(IREGION_INNER_CORE)
+    ATT4 = NSPEC_REGIONS(IREGION_CRUST_MANTLE)
+    ATT5 = NSPEC_REGIONS(IREGION_INNER_CORE)
   else
      ATT1 = 1
      ATT2 = 1
@@ -264,13 +261,15 @@
 
   subroutine rcp_check_parameters()
 
-  use constants,only: &
+  use constants, only: &
     CUSTOM_REAL,SIZE_REAL,SIZE_DOUBLE,NUMFACES_SHARED,NUMCORNERS_SHARED, &
-    N_SLS,NGNOD,NGNOD2D,NGLLX,NGLLY
+    N_SLS,NGNOD,NGNOD2D,NGLLX,NGLLY,GRAVITY_INTEGRALS
 
   use shared_parameters
 
   implicit none
+  ! local parameter
+  integer :: nex_minimum
 
 ! checks parameters
 
@@ -350,10 +349,19 @@
 
   ! check that sphere can be cut into slices without getting negative Jacobian
   if (NCHUNKS == 6) then
-    if (NEX_XI < 48) &
-      stop 'NEX_XI must be greater than 48 to cut the sphere into slices with positive Jacobian'
-    if (NEX_ETA < 48) &
-      stop 'NEX_ETA must be greater than 48 to cut the sphere into slices with positive Jacobian'
+    ! sets minimum NEX allowed for simulation
+    if (TOPOGRAPHY) then
+      ! mesh with topography leads to negative Jacobian for NEX < 48, regardless if 1D or 3D model
+      nex_minimum = 48
+    else
+      ! for flat topography, NEX = 32 setting still okay
+      nex_minimum = 32
+    endif
+    ! checks nex
+    if (NEX_XI < nex_minimum) &
+      stop 'NEX_XI must be greater to cut the sphere into slices with positive Jacobian'
+    if (NEX_ETA < nex_minimum) &
+      stop 'NEX_ETA must be greater to cut the sphere into slices with positive Jacobian'
   endif
 
   ! check that topology is correct if more than two chunks
@@ -391,9 +399,14 @@
       stop 'NUMBER_OF_RUNS and NUMBER_OF_THIS_RUN must be 1 for NOISE TOMOGRAPHY simulation'
     if (ROTATE_SEISMOGRAMS_RT) &
       stop 'Do NOT rotate seismograms in the code, change ROTATE_SEISMOGRAMS_RT in Par_file for noise simulation'
-    if (SAVE_ALL_SEISMOS_IN_ONE_FILE .OR. USE_BINARY_FOR_LARGE_FILE) &
+    if (SAVE_ALL_SEISMOS_IN_ONE_FILE .or. USE_BINARY_FOR_LARGE_FILE) &
       stop 'Please set SAVE_ALL_SEISMOS_IN_ONE_FILE and USE_BINARY_FOR_LARGE_FILE to be .false. for noise simulation'
   endif
+
+!! DK DK for gravity integrals
+  ! in the case of GRAVITY_INTEGRALS we should always use double precision
+  if (GRAVITY_INTEGRALS .and. CUSTOM_REAL /= SIZE_DOUBLE) &
+    stop 'for GRAVITY_INTEGRALS use double precision i.e. configure the code with --enable-double-precision'
 
   end subroutine rcp_check_parameters
 
