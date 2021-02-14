@@ -12,7 +12,7 @@ Input for the mesher (and the solver) is provided through the parameter file `Pa
 
 In this chapter we will focus on simulations at the scale of the entire globe. Regional simulations will be addressed in Chapter [cha:Regional-Simulations]. The spectral-element mesh for a SPECFEM3D\_GLOBE simulation is based upon a mapping from the cube to the sphere called the *cubed sphere* (Sadourny 1972; Ronchi, Ianoco, and Paolucci 1996). This cubed-sphere mapping breaks the globe into 6 chunks, each of which is further subdivided in terms of \(n^{2}\) mesh slices, where \(n\ge1\) is a positive integer, for a total of \(6\times n^{2}\) slices (Figure [figure:mpi<sub>s</sub>lices]). Thus the minimum number of processors required for a global simulation is 6 (although it is theoretically possible to run more than one slice per processor).
 
-![](figures/mpi_slices.pdf) ![](figures/fullmesh_18.pdf) <div class="figcaption" style="text-align:justify;font-size:80%"><span style="color:#9A9A9A">Figure: Each of the 6 chunks that constitutes the cubed sphere is subdivided in terms of \(n^{2}\) slices of elements, where \(n\ge1\) is a positive integer, for a total of \(6\times n^{2}\) slices (and therefore processors). The figure on the left shows a mesh that is divided in terms of \(6\times5^{2}=150\) slices as indicated by the various colors. In this cartoon, each slice contains \(5\times5=25\) spectral elements at the Earth’s surface. The figure on the right shows a mesh that is divided over \(6\times18^{2}=1944\) processors as indicated by the various colors. Regional simulations can be accommodated by using only 1, 2 or 3 chunks of the cubed sphere. One-chunk simulations may involve a mesh with lateral dimensions smaller than \(90^{\circ}\), thereby accommodating smaller-scale simulations. <span data-label="figure:mpislices"></span></span></div>
+![](figures/mpi_slices.jpg) ![](figures/fullmesh_18.jpg) <div class="figcaption" style="text-align:justify;font-size:80%"><span style="color:#9A9A9A">Figure: Each of the 6 chunks that constitutes the cubed sphere is subdivided in terms of \(n^{2}\) slices of elements, where \(n\ge1\) is a positive integer, for a total of \(6\times n^{2}\) slices (and therefore processors). The figure on the left shows a mesh that is divided in terms of \(6\times5^{2}=150\) slices as indicated by the various colors. In this cartoon, each slice contains \(5\times5=25\) spectral elements at the Earth’s surface. The figure on the right shows a mesh that is divided over \(6\times18^{2}=1944\) processors as indicated by the various colors. Regional simulations can be accommodated by using only 1, 2 or 3 chunks of the cubed sphere. One-chunk simulations may involve a mesh with lateral dimensions smaller than \(90^{\circ}\), thereby accommodating smaller-scale simulations. <span data-label="figure:mpislices"></span></span></div>
 
 To run the mesher for a global simulation, the following parameters need to be set in the `Par_file` (the list below might be slightly obsolete or incomplete; for an up-to-date version, see comments in the default `Par_file` located in directory `DATA`:
 
@@ -74,13 +74,19 @@ Spherically symmetric isotropic AK135 model (Kennett, Engdahl, and Buland 1995) 
 <span>`1D_ref`</span>  
 A recent 1D Earth model developed by Kustowski, Dziewoński, and Ekstrom (2006). This model is the 1D background model for the 3D models s362ani, s362wmani, s362ani\_prem, and s29ea.
 
+<span>`1D_Sohl`</span>  
+1D Mars model developed by Sohl and Spohn (1997). This model is model A, mostly constrained by geophysical moment of inertia.
+
+<span>`VPREMOON`</span>  
+1D Moon model developed by Garcia et al. (2011). Uses modified seismic model, starting from table 6 (left side, not geodesic model) with velocity values for outer core and solid inner core based on Weber et al. (2011)
+
 For historical reasons and to provide benchmarks against normal-mode synthetics, the mesher accommodates versions of various 1D models with a single crustal layer with the properties of the original upper crust. These ‘one-crust’ models are:
 
-    1D_isotropic_prem_onecrust
-    1D_transversely_isotropic_prem_onecrust
-    1D_iasp91_onecrust
-    1D_1066a_onecrust
-    1D_ak135f_no_mud_onecrust
+      1D_isotropic_prem_onecrust
+      1D_transversely_isotropic_prem_onecrust
+      1D_iasp91_onecrust
+      1D_1066a_onecrust
+      1D_ak135f_no_mud_onecrust
 
   
 <span>`transversely_isotropic_prem_plus_3D_crust_2.0`</span>  
@@ -93,7 +99,7 @@ By default, the code uses 3D mantle model S20RTS (Ritsema, <span>Van Heijst</spa
 A global 3D mantle model (Ritsema et al. 2011) succeeding S20RTS with a higher resolution. S40RTS uses transversely isotropic PREM as a backgroun model and the 3D crustal model Crust2.0 (Bassin, Laske, and Masters 2000). We use the PREM radial attenuation model when `ATTENUATION` is incorporated.
 
 <span>`s362ani`</span>  
-A global shear-wave speed model developed by Kustowski, Dziewoński, and Ekstrom (2006). In this model, radial anisotropy is confined to the uppermost mantle. The model (and the corresponding mesh) incorporate tomography on the 650~km and 410~km discontinuities in the 1D reference model REF.
+A global shear-wave speed model developed by Kustowski, Dziewoński, and Ekstrom (2006). In this model, radial anisotropy is confined to the uppermost mantle. The model (and the corresponding mesh) incorporate tomography on the 650 km and 410 km discontinuities in the 1D reference model REF.
 
 <span>`s362wmani`</span>  
 A version of S362ANI with anisotropy allowed throughout the mantle.
@@ -118,10 +124,10 @@ For a user-specified, transversely isotropic 3D model given in spherical harmoni
 All model files reside in directory `DATA/full_sphericalharmonic_model/`. Note that to use the crustal model, one has to set the crustal type value `ITYPE_CRUSTAL_MODEL = ICRUST_CRUST_SH` in file `setup/constants.h`. This crustal model can be transversely isotropic as well.
 
 <span>`sgloberani_iso`</span>  
-Uses 3D mantle model SGLOBE-rani (Chang et al. 2015) with <span>*isotropic*</span> model perturbations and 3D crustal model Crust2.0 (Bassin, Laske, and Masters 2000). The model is parametrised horizontally in spherical harmonics up to `lmax=35` and with 21 depth splines for the radial direction. Note that SGLOBE-rani uses transversely isotropic PREM as a background model, and that we use the PREM radial attenuation model when `ATTENUATION` is incorporated.
+By default, the code uses 3D <span>*isotropic*</span> mantle model SGLOBE-rani (Chang et al. 2015) and the 3D crustal model includes perturbations from Crust2.0 (Bassin, Laske, and Masters 2000) as discussed in (Chang et al. 2015). The model is parametrised horizontally in spherical harmonics up to `lmax=35` and with 21 depth splines for the radial direction. Note that SGLOBE-rani uses transversely isotropic PREM as a background model, and that we use the PREM radial attenuation model when `ATTENUATION` is incorporated.
 
 <span>`sgloberani_aniso`</span>  
-Uses 3D mantle model SGLOBE-rani (Chang et al. 2015) with <span>*anisotropic*</span> model perturbations and 3D crustal model Crust2.0 (Bassin, Laske, and Masters 2000). We take model perturbations from 50km up to the surface. Note that SGLOBE-rani uses transversely isotropic PREM as a background model, and that we use the PREM radial attenuation model when `ATTENUATION` is incorporated.
+By default, the code uses 3D <span>*anisotropic*</span> mantle model SGLOBE-rani (Chang et al. 2015) and the 3D crustal model includes perturbations from Crust2.0 (Bassin, Laske, and Masters 2000) as discussed in (Chang et al. 2015). Note that SGLOBE-rani uses transversely isotropic PREM as a background model, and that we use the PREM radial attenuation model when `ATTENUATION` is incorporated.
 
   
 When a 3D mantle model is chosen in `Par_file`, the simulations are performed together with the 3D crustal model Crust2.0. Alternatively, Crust2.0 can be combined with a higher resolution European crustal model EUCrust07 (Tesauro, Kaban, and Cloetingh 2008). This can be done by setting the crustal type to `ICRUST_CRUSTMAPS` in the `constant.h` file. It is also possible to run simulations using a 3D mantle model with a 1D crustal model on top. This can be done by setting the model in `Par_file` to `<3D mantle>_1Dcrust`, e.g., `s20rts_1Dcrust, s362ani_1Dcrust`, etc. In this case, the 1D crustal model will be the one that is used in the 3D mantle model as a reference model (e.g., transversely isotropic PREM for s20rts, REF for s362ani, etc.).
@@ -153,15 +159,24 @@ Choose the desired record length of the synthetic seismograms (in minutes). This
 <span>`PARTIAL_PHYS_DISPERSION_ONLY` or `UNDO_ATTENUATION`</span>  
 To undo attenuation for sensitivity kernel calculations or forward runs with `SAVE_FORWARD` use one (and only one) of the two flags below. `UNDO_ATTENUATION` is much better (it is exact) and is simpler to use but it requires a significant amount of disk space for temporary storage. It has the advantage of requiring only two simulations for adjoint tomography instead of three in the case of `PARTIAL_PHYS_DISPERSION_ONLY`, i.e. for adjoint tomography it is globally significantly less expensive (each run is slightly more expensive, but only two runs are needed instead of three).
 When using `PARTIAL_PHYS_DISPERSION_ONLY`, to make the approximation reasonably OK you need to take the following steps:
-1/ To calculate synthetic seismograms, do a forward simulation with full attenuation for the model of interest. The goal is to get synthetics that match the data as closely as possible.
-2a/ Make measurements and produce adjoint sources by comparing the resulting synthetics with the data. In the simplest case of a cross-correlation traveltime measurement, use the time-reversed synthetic in the window of interest as the adjoint source.
-2b/ Do a second forward calculation with `PARTIAL_PHYS_DISPERSION_ONLY = .true.` and save the last snapshot.
-3/ Do an adjoint calculation using the adjoint source calculated in 1/, the forward wavefield reconstructed based on 2b/, use `PARTIAL_PHYS_DISPERSION_ONLY = .true.` for the adjoint wavefield, and save the kernel.
+
+1.  To calculate synthetic seismograms, do a forward simulation with full attenuation for the model of interest. The goal is to get synthetics that match the data as closely as possible.
+
+2.  Make measurements and produce adjoint sources by comparing the resulting synthetics with the data. In the simplest case of a cross-correlation traveltime measurement, use the time-reversed synthetic in the window of interest as the adjoint source.
+
+3.  Do a second forward calculation with `PARTIAL_PHYS_DISPERSION_ONLY = .true.` and save the last snapshot.
+
+4.  Do an adjoint calculation using the adjoint source calculated in 1/, the forward wavefield reconstructed based on 2b/, use `PARTIAL_PHYS_DISPERSION_ONLY = .true.` for the adjoint wavefield, and save the kernel.
+
 Thus the kernel calculation uses `PARTIAL_PHYS_DISPERSION_ONLY = .true.` for both the forward and the adjoint wavefields. This is in the spirit of the banana-donut kernels. But the data that are assimilated are based on the full 3D synthetic with attenuation.
 Another, equivalent way of explaining it is:
-1/ Calculate synthetics with full attenuation for the current model. Compare these to the data and measure frequency-dependent traveltime anomalies \(\Delta \tau(\omega)\), e.g.. based upon multi-tapering.
-2/ Calculate synthetics with `PARTIAL_PHYS_DISPERSION_ONLY = .true.` and construct adjoint sources by combining the seismograms from this run with the measurements from 1/. So in the expressions for the multi-taper adjoint source you use the measurements from 1/, but synthetics calculated with `PARTIAL_PHYS_DISPERSION_ONLY = .true.`.
-3/ Construct a kernel by calculating an adjoint wavefield based on the sources constructed in 2/ and convolving it with a forward wavefield with `PARTIAL_PHYS_DISPERSION_ONLY = .true.`. Again, both the forward and adjoint calculations use `PARTIAL_PHYS_DISPERSION_ONLY = .true.`.
+
+1.  Calculate synthetics with full attenuation for the current model. Compare these to the data and measure frequency-dependent traveltime anomalies \(\Delta \tau(\omega)\), e.g.. based upon multi-tapering.
+
+2.  Calculate synthetics with `PARTIAL_PHYS_DISPERSION_ONLY = .true.` and construct adjoint sources by combining the seismograms from this run with the measurements from 1/. So in the expressions for the multi-taper adjoint source you use the measurements from 1/, but synthetics calculated with `PARTIAL_PHYS_DISPERSION_ONLY = .true.`.
+
+3.  Construct a kernel by calculating an adjoint wavefield based on the sources constructed in 2/ and convolving it with a forward wavefield with `PARTIAL_PHYS_DISPERSION_ONLY = .true.`. Again, both the forward and adjoint calculations use `PARTIAL_PHYS_DISPERSION_ONLY = .true.`.
+
 Note that if you replace multi-taper measurements with cross-correlation measurements you will measure a cross-correlation traveltime anomaly in 1/, i.e., some delay time \(\Delta T\). Then you would calculate an adjoint wavefield with `PARTIAL_PHYS_DISPERSION_ONLY = .true.` and use the resulting time-reversed seismograms weighted by \(\Delta T\) as the adjoint source. This wavefield interacts with a forward wavefield calculated with `PARTIAL_PHYS_DISPERSION_ONLY = .true.`. If \(\Delta T=1\) one gets a banana-donut kernel, i.e., a kernel for the case in which there are no observed seismograms (no data), as explained for instance on page 5 of Zhou, Liu, and Tromp (2011).
 
 <span>`MOVIE_SURFACE`</span>  
@@ -436,6 +451,8 @@ Dahlen, F. A., and J. Tromp. 1998. *Theoretical Global Seismology*. Princeton, N
 
 Dziewoński, A. M., and D. L. Anderson. 1981. “Preliminary Reference Earth Model.” *Phys. Earth Planet. Inter.* 25 (4): 297–356.
 
+Garcia, R.F., J. Gagnepain-Beyneix, S. Chevrot, and P. Lognonné. 2011. “Very Preliminary Reference Moon Model.” *Phys. Earth Planet. Inter.* 188: 96–113.
+
 Gilbert, F., and A. M. Dziewoński. 1975. “An Application of Normal Mode Theory to the Retrieval of Structural Parameters and Source Mechanisms from Seismic Spectra.” *Philos. Trans. R. Soc. London A* 278: 187–269.
 
 Kennett, B. L. N., and E. R. Engdahl. 1991. “Traveltimes for Global Earthquake Location and Phase Identification.” *Geophys. J. Int.* 105: 429–65.
@@ -468,12 +485,16 @@ Sadourny, R. 1972. “Conservative Finite-Difference Approximations of the Primi
 
 Seriani, G<span>é</span>za, and Saulo P. Oliveira. 2007. “Optimal Blended Spectral-Element Operators for Acoustic Wave Modeling.” *Geophysics* 72 (5): SM95–M106. doi:[10.1190/1.2750715](http://dx.doi.org/10.1190/1.2750715).
 
+Sohl, F., and T. Spohn. 1997. “The Interior Structure of Mars: Implications from SNC Meteorites.” *J. Geophys. Res.* 102: 1613–35.
+
 Tesauro, M., M. K. Kaban, and S. A. P. L. Cloetingh. 2008. “EuCrust-07: A New Reference Model for the European Crust.” *Geophys. Res. Lett.* 35: L05313. doi:[10.1029/2007GL032244](http://dx.doi.org/10.1029/2007GL032244).
+
+Weber, R. C., P.-Y. Lin, E.J. Garnero, Q. Williams, and P. Lognonné. 2011. “Seismic Detection of the Lunar Core.” *Science* 331: 309–12.
 
 Zhou, Ying, Qinya Liu, and Jeroen Tromp. 2011. “Surface Wave Sensitivity: Mode Summation Versus Adjoint SEM.” *Geophys. J. Int.* 187 (3): 1560–76. doi:[10.1111/j.1365-246X.2011.05212.x](http://dx.doi.org/10.1111/j.1365-246X.2011.05212.x).
 
 -----
 > This documentation has been automatically generated by [pandoc](http://www.pandoc.org)
 > based on the User manual (LaTeX version) in folder doc/USER_MANUAL/
-> (Jul 21, 2020)
+> (Feb 14, 2021)
 

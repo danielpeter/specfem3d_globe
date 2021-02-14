@@ -22,11 +22,13 @@ The solver needs three input files in the `DATA` directory to run: the `Par_file
 
 -   the `RECEIVERS_CAN_BE_BURIED` and `PRINT_SOURCE_TIME_FUNCTION` flags
 
+-   the `USE_MONOCHROMATIC_CMT_SOURCE` flag
+
 Any other change to the `Par_file` implies rerunning both the mesher and the solver.
 
 For any particular earthquake, the `CMTSOLUTION` file that represents the point source may be obtained directly from the Harvard Centroid-Moment Tensor (CMT) web page . It looks like this:
 
-<span>![`CMTSOLUTION` file obtained from the Harvard CMT catalog. The top line is the initial estimate of the source, which is used as a starting point for the CMT solution. **M** is the moment tensor, \(M_{0}\)<span> </span>is the seismic moment, and \(M_{w}\) is the moment magnitude.<span data-label="fig:CMTSOLUTION-file"></span>](figures/Denali_CMT.pdf "fig:") <div class="figcaption" style="text-align:justify;font-size:80%"><span style="color:#9A9A9A">Figure: `CMTSOLUTION` file obtained from the Harvard CMT catalog. The top line is the initial estimate of the source, which is used as a starting point for the CMT solution. **M** is the moment tensor, \(M_{0}\)<span> </span>is the seismic moment, and \(M_{w}\) is the moment magnitude.<span data-label="fig:CMTSOLUTION-file"></span></span></div> </span>
+<span>![`CMTSOLUTION` file obtained from the Harvard CMT catalog. The top line is the initial estimate of the source, which is used as a starting point for the CMT solution. **M** is the moment tensor, \(M_{0}\)<span> </span>is the seismic moment, and \(M_{w}\) is the moment magnitude.<span data-label="fig:CMTSOLUTION-file"></span>](figures/Denali_CMT.jpg "fig:") <div class="figcaption" style="text-align:justify;font-size:80%"><span style="color:#9A9A9A">Figure: `CMTSOLUTION` file obtained from the Harvard CMT catalog. The top line is the initial estimate of the source, which is used as a starting point for the CMT solution. **M** is the moment tensor, \(M_{0}\)<span> </span>is the seismic moment, and \(M_{w}\) is the moment magnitude.<span data-label="fig:CMTSOLUTION-file"></span></span></div> </span>
 
 The `CMTSOLUTION` should be edited in the following way:
 
@@ -36,13 +38,15 @@ The `CMTSOLUTION` should be edited in the following way:
 
     to compile the code and then set the parameter `hdur` in `utils/convolve_source_timefunction.csh` to the desired half-duration.
 
+-   To use a monochromatic source time function instead, enable the flag `USE_MONOCHROMATIC_CMT_SOURCE` in `Par_file`. In this case, `half duration` will be interpreted as the period of the source time function. By default, the left side of the source time function is applied with a Hanning taper at a length of 200.0 s. This can be configured through `TAPER_MONOCHROMATIC_SOURCE` in `constants.h` file.
+
 -   The zero time of the simulation corresponds to the center of the triangle/Gaussian, or the centroid time of the earthquake. The start time of the simulation is \(t=-1.5*\texttt{half duration}\) (the 1.5 is to make sure the moment rate function is very close to zero when starting the simulation). To convert to absolute time \(t_{\mathrm{abs}}\), set
 
     \(t_{\mathrm{abs}}=t_{\mathrm{pde}}+\texttt{time shift}+t_{\mathrm{synthetic}}\)
 
     where \(t_{\mathrm{pde}}\) is the time given in the first line of the `CMTSOLUTION`, `time shift` is the corresponding value from the original `CMTSOLUTION` file and \(t_{\mathrm{synthetic}}\) is the time in the first column of the output seismogram.
 
-![Comparison of the shape of a triangle and the Gaussian function actually used.<span data-label="fig:gauss.vs.triangle"></span>](figures/gauss_vs_triangle_mod.pdf)
+![Comparison of the shape of a triangle and the Gaussian function actually used.<span data-label="fig:gauss.vs.triangle"></span>](figures/gauss_vs_triangle_mod.jpg)
 <div class="figcaption" style="text-align:justify;font-size:80%"><span style="color:#9A9A9A">Figure: Comparison of the shape of a triangle and the Gaussian function actually used.<span data-label="fig:gauss.vs.triangle"></span></span></div>
 
 If you know the earthquake source in strike/dip/rake format rather than in `CMTSOLUTION` format, use the C code `utils/strike_dip_rake_to_CMTSOLUTION.c` to convert it. The conversion formulas are given for instance in Aki and Richards (1980). Note that the Aki and Richards (1980) convention is slightly different from the Harvard `CMTSOLUTION` convention (the sign of some components is different). The C code outputs both.
@@ -54,6 +58,9 @@ In the current version of the code, the solver can run with a non-zero `time shi
 [To-simulate-a]To simulate a kinematic rupture, i.e., a finite-source event, represented in terms of \(N_{\mathrm{sources}}\) point sources, provide a `CMTSOLUTION` file that has \(N_{\mathrm{sources}}\) entries, one for each subevent (i.e., concatenate \(N_{\mathrm{sources}}\) `CMTSOLUTION` files to a single `CMTSOLUTION` file). At least one entry (not necessarily the first) must have a zero `time shift`, and all the other entries must have non-negative `time shift`. If none of the entries has a zero `time shift` in the `CMTSOLUTION` file, the smallest `time shift` is subtracted from all sources to initiate the simulation. Each subevent can have its own half duration, latitude, longitude, depth, and moment tensor (effectively, the local moment-density tensor).
 
 Note that the zero in the synthetics does NOT represent the hypocentral time or centroid time in general, but the timing of the *center* of the source triangle with zero `time shift` (Fig [fig:source<sub>t</sub>iming]).
+
+![Example of timing for three sources. The center of the first source triangle is defined to be time zero. Note that this is NOT in general the hypocentral time, or the start time of the source (marked as tstart). The parameter `time shift` in the `CMTSOLUTION` file would be t1(=0), t2, t3 in this case, and the parameter `half duration` would be hdur1, hdur2, hdur3 for the sources 1, 2, 3 respectively.<span data-label="fig:sourcetiming"></span>](figures/source_timing.jpg)
+<div class="figcaption" style="text-align:justify;font-size:80%"><span style="color:#9A9A9A">Figure: Example of timing for three sources. The center of the first source triangle is defined to be time zero. Note that this is NOT in general the hypocentral time, or the start time of the source (marked as tstart). The parameter `time shift` in the `CMTSOLUTION` file would be t1(=0), t2, t3 in this case, and the parameter `half duration` would be hdur1, hdur2, hdur3 for the sources 1, 2, 3 respectively.<span data-label="fig:sourcetiming"></span></span></div>
 
 Although it is convenient to think of each source as a triangle, in the simulation they are actually Gaussians (as they have better frequency characteristics). The relationship between the triangle and the Gaussian used is shown in Fig [fig:gauss.vs.triangle]. For finite fault simulations it is usually not advisable to use a zero half duration and convolve afterwards, since the half duration is generally fixed by the finite fault model.
 
@@ -83,12 +90,9 @@ The `FORCESOLUTION` file should be edited in the following way:
 
 Where necessary, set a `FORCESOLUTION` file in the same way you configure a `CMTSOLUTION` file with \(N_{\mathrm{sources}}\) entries, one for each subevent (i.e., concatenate \(N_{\mathrm{sources}}\) `FORCESOLUTION` files to a single `FORCESOLUTION` file). At least one entry (not necessarily the first) must have a zero `time shift`, and all the other entries must have non-negative `time shift`. Each subevent can have its own set of parameters `latitude`, `longitude`, `depth:`, `half duration`, etc.
 
-![Example of timing for three sources. The center of the first source triangle is defined to be time zero. Note that this is NOT in general the hypocentral time, or the start time of the source (marked as tstart). The parameter `time shift` in the `CMTSOLUTION` file would be t1(=0), t2, t3 in this case, and the parameter `half duration` would be hdur1, hdur2, hdur3 for the sources 1, 2, 3 respectively.<span data-label="fig:sourcetiming"></span>](figures/source_timing.pdf)
-<div class="figcaption" style="text-align:justify;font-size:80%"><span style="color:#9A9A9A">Figure: Example of timing for three sources. The center of the first source triangle is defined to be time zero. Note that this is NOT in general the hypocentral time, or the start time of the source (marked as tstart). The parameter `time shift` in the `CMTSOLUTION` file would be t1(=0), t2, t3 in this case, and the parameter `half duration` would be hdur1, hdur2, hdur3 for the sources 1, 2, 3 respectively.<span data-label="fig:sourcetiming"></span></span></div>
-
 The solver can calculate seismograms at any number of stations for basically the same numerical cost, so the user is encouraged to include as many stations as conceivably useful in the `STATIONS` file, which looks like this:
 
-![Sample `STATIONS` file. Station latitude and longitude should be provided in geographical coordinates. The width of the station label should be no more than 32 characters (see `MAX_LENGTH_STATION_NAME` in the `constants.h` file), and the network label should be no more than 8 characters (see `MAX_LENGTH_NETWORK_NAME` in the `constants.h` file).](figures/STATIONS_global_explained.pdf)
+![Sample `STATIONS` file. Station latitude and longitude should be provided in geographical coordinates. The width of the station label should be no more than 32 characters (see `MAX_LENGTH_STATION_NAME` in the `constants.h` file), and the network label should be no more than 8 characters (see `MAX_LENGTH_NETWORK_NAME` in the `constants.h` file).](figures/STATIONS_global_explained.jpg)
 <div class="figcaption" style="text-align:justify;font-size:80%"><span style="color:#9A9A9A">Figure: Sample `STATIONS` file. Station latitude and longitude should be provided in geographical coordinates. The width of the station label should be no more than 32 characters (see `MAX_LENGTH_STATION_NAME` in the `constants.h` file), and the network label should be no more than 8 characters (see `MAX_LENGTH_NETWORK_NAME` in the `constants.h` file).</span></div>
 
 Each line represents one station in the following format:
@@ -125,7 +129,7 @@ For the same model, one can rerun the solver for different events by simply chan
 Note on the simultaneous simulation of several earthquakes
 ----------------------------------------------------------
 
-![ Directory structure when simulating several earthquakes at once. To improve readability, only directories have been drawn.<span data-label="fig:simultaneousdirstruct"></span>](figures/simultaneous_dir_struct.pdf)
+![ Directory structure when simulating several earthquakes at once. To improve readability, only directories have been drawn.<span data-label="fig:simultaneousdirstruct"></span>](figures/simultaneous_dir_struct.jpg)
 <div class="figcaption" style="text-align:justify;font-size:80%"><span style="color:#9A9A9A">Figure:  Directory structure when simulating several earthquakes at once. To improve readability, only directories have been drawn.<span data-label="fig:simultaneousdirstruct"></span></span></div>
 
 Figure [fig:simultaneous<sub>d</sub>ir<sub>s</sub>truct] shows what the directory structure should looks like when simulating multiple earthquakes at ones.
@@ -157,5 +161,5 @@ Komatitsch, D., and J. Tromp. 2002. “Spectral-Element Simulations of Global Se
 -----
 > This documentation has been automatically generated by [pandoc](http://www.pandoc.org)
 > based on the User manual (LaTeX version) in folder doc/USER_MANUAL/
-> (Jul 21, 2020)
+> (Feb 14, 2021)
 
