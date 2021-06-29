@@ -3,10 +3,11 @@
 -   [Getting Started](#getting-started)
     -   [Configuring and compiling the source code](#configuring-and-compiling-the-source-code)
     -   [Using the GPU version of the code](#using-the-gpu-version-of-the-code)
-    -   [Compiling on an IBM BlueGene](#compiling-on-an-ibm-bluegene)
-    -   [Using a cross compiler](#using-a-cross-compiler)
     -   [Adding OpenMP support in addition to MPI](#adding-openmp-support-in-addition-to-mpi)
+    -   [Configuration summary](#configuration-summary)
+    -   [Compiling on an IBM BlueGene](#compiling-on-an-ibm-bluegene)
     -   [Compiling on an Intel Xeon Phi (Knights Landing KNL)](#compiling-on-an-intel-xeon-phi-knights-landing-knl)
+    -   [Using a cross compiler](#using-a-cross-compiler)
     -   [Visualizing the subroutine calling tree of the source code](#visualizing-the-subroutine-calling-tree-of-the-source-code)
     -   [Becoming a developer of the code, or making small modifications in the source code](#becoming-a-developer-of-the-code-or-making-small-modifications-in-the-source-code)
 
@@ -20,8 +21,6 @@ To get the SPECFEM3D\_GLOBE software package, type this:
 
     git clone --recursive --branch devel https://github.com/geodynamics/specfem3d_globe.git
 
-We recommend that you add <span>`ulimit -S -s unlimited`</span> to your <span>`.bash_profile`</span> file and/or <span>`limit stacksize unlimited `</span> to your <span>`.cshrc`</span> file to suppress any potential limit to the size of the Unix stack.
-
 Then, to configure the software for your system, run the `configure` shell script. This script will attempt to guess the appropriate configuration values for your system. However, at a minimum, it is recommended that you explicitly specify the appropriate command names for your Fortran compiler (another option is to define FC, CC and MPIF90 in your .bash\_profile or your .cshrc file):
 
         ./configure FC=gfortran CC=gcc MPIFC=mpif90
@@ -34,7 +33,7 @@ Before running the `configure` script, you should probably edit file `flags.gues
 The code makes use of Fortran 2008 features, e.g., the `contiguous` array attribute. We thus recommend using a gfortran version 4.6.0 or higher.
 
 <span>`Intel ifort compiler`</span>  
-See if you need to add `-assume byterecl` for your machine. **In the case of that compiler, we have noticed that initial release versions sometimes have bugs or issues that can lead to wrong results when running the code, thus we *strongly* recommend using a version for which at least one service pack or update has been installed.** *In particular, for version 17 of that compiler, users have reported problems (making the code crash at run time) with the `-assume buffered_io` option; if you notice problems, remove that option from file `flags.guess` or change it to `-assume nobuffered_io` and try again.*
+See if you need to add `-assume byterecl` for your machine. In the case of that compiler, we have noticed that initial release versions sometimes have bugs or issues that can lead to wrong results when running the code, thus we *strongly* recommend using a version for which at least one service pack or update has been installed. In particular, for version 17 of that compiler, users have reported problems (making the code crash at run time) with the `-assume buffered_io` option; if you notice problems, remove that option from file `flags.guess` or change it to `-assume nobuffered_io` and try again.
 
 <span>`IBM compiler`</span>  
 See if you need to add `-qsave` or `-qnosave` for your machine.
@@ -46,11 +45,88 @@ When compiling on an IBM machine with the `xlf` and `xlc` compilers, we suggest 
 
     ./configure FC=xlf90_r MPIFC=mpif90 CC=xlc_r CFLAGS="-O3 -q64" FCFLAGS="-O3 -q64"
 
-If you have problems configuring the code on a Cray machine, i.e. for instance if you get an error message from the `configure` script, try exporting these two variables: `MPI_INC=$CRAY_MPICH2_DIR/include and FCLIBS= `, and for more details if needed you can refer to the `utils/Cray_compiler_information` directory. You can also have a look at the configure script called `utils/Cray_compiler_information/configure_SPECFEM_for_Piz_Daint.bash`.
+If you have problems configuring the code on a Cray machine, i.e. for instance if you get an error message from the `configure` script, try exporting these two variables: `MPI_INC=$CRAY_MPICH2_DIR/include and FCLIBS= `, and for more details if needed you can refer to the `utils/Cray_compiler_information` directory. You can also have a look at the configure script called:
+`utils/Cray_compiler_information/configure_SPECFEM_for_Piz_Daint.bash`.
 
 On SGI systems, `flags.guess` automatically informs `configure` to insert “`TRAP_FPE=OFF`” into the generated `Makefile` in order to turn underflow trapping off.
 
 If you run very large meshes on a relatively small number of processors, the static memory size needed on each processor might become greater than 2 gigabytes, which is the upper limit for 32-bit addressing (dynamic memory allocation is always OK, even beyond the 2 GB limit; only static memory has a problem). In this case, on some compilers you may need to add ``` ``-mcmodel=medium ```” (if you do not use the Intel ifort / icc compiler) or ``` ``-mcmodel=medium -shared-intel ```” (if you use the Intel ifort / icc compiler) to the configure options of CFLAGS, FCFLAGS and LDFLAGS otherwise the compiler will display an error message (for instance `relocation truncated to fit: R_X86_64_PC32 against .bss` or something similar); on an IBM machine with the `xlf` and `xlc` compilers, using `-q64` is usually sufficient.
+
+We recommend that you add <span>`ulimit -S -s unlimited`</span> to your <span>`.bash_profile`</span> file and/or <span>`limit stacksize unlimited `</span> to your <span>`.cshrc`</span> file to suppress any potential limit to the size of the Unix stack.
+
+Using the GPU version of the code
+---------------------------------
+
+SPECFEM3D\_GLOBE now supports CUDA, OpenCL and HIP GPU acceleration. CUDA configuration can be enabled with `--with-cuda` flag and `CUDA_FLAGS=`, `CUDA_LIB=`, `CUDA_INC=` and ` MPI_INC=` variables like
+
+    ./configure --with-cuda CUDA_FLAGS= CUDA_LIB= CUDA_INC= MPI_INC= ..
+
+When compiling for specific GPU cards, you can enable the corresponding Nvidia GPU card architecture version with:
+
+      ./configure --with-cuda=cuda9 ..
+
+where for example `cuda4,cuda5,cuda6,cuda7,..` specifies the target GPU architecture of your card, (e.g., with CUDA 9 this refers to Volta V100 cards), rather than the installed version of the CUDA toolkit. Before CUDA version 5, one version supported basically one new architecture and needed a different kind of compilation. Since version 5, the compilation has stayed the same, but newer versions supported newer architectures. However at the moment, we still have one version linked to one specific architecture:
+
+    - CUDA 4 for Tesla,   cards like K10, Geforce GTX 650, ..
+    - CUDA 5 for Kepler,  like K20
+    - CUDA 6 for Kepler,  like K80
+    - CUDA 7 for Maxwell, like Quadro K2200
+    - CUDA 8 for Pascal,  like P100
+    - CUDA 9 for Volta,   like V100
+    - CUDA 10 for Turing, like GeForce RTX 2080
+    - CUDA 11 for Ampere, like A100
+
+So even if you have the new CUDA toolkit version 11, but you want to run on say a K20 GPU, then you would still configure with:
+
+      ./configure --with-cuda=cuda5
+
+The compilation with the cuda5 setting chooses then the right architecture (`-gencode=arch=compute_35,code=sm_35` for K20 cards).
+
+The same applies to compilation for AMD cards with HIP:
+
+      ./configure --with-hip ..
+
+or
+
+      ./configure --with-hip=MI8 ..
+
+where for example `MI8,MI25,MI50,MI100,..` specifies the target GPU architecture of your card.
+
+OpenCL can be enabled with the `--with-opencl` flag, and the compilation can be controlled through three variables: `OCL_LIB=`, `OCL_INC=` and `OCL_GPU_FLAGS=`.
+
+    ./configure --with-opencl OCL_LIB= OCL_INC= OCL_GPU_FLAGS=..
+
+Both CUDA and OpenCL environments can be compiled simultaneously by merging these two lines. For the runtime configuration, the `GPU_MODE` flag must be set to `.true.`. In addition, we use three parameters to select the environments and GPU:
+
+    GPU_RUNTIME = 0|1|2|3
+    GPU_PLATFORM = filter|*
+    GPU_DEVICE = filter|*
+
+`GPU_RUNTIME`  
+sets the runtime environments: \(1\) for CUDA, \(2\) for OpenCL, \(3\) for HIP and \(0\) for compile-time decision (hence, SPECFEM should have been compiled with only one of `--with-cuda`, `--with-opencl` or `--with-hip`).
+
+`GPU_PLATFORM` and `GPU_DEVICE`  
+are both (case-insensitive) filters on the platform and device name in OpenCL, device name only in CUDA. In multiprocessor (MPI)runs, each process will pick a GPU in this filtered subset, in round-robin. The star filter (`*`) will match the first platform and all its devices.
+
+`GPU_RUNTIME`, `GPU_PLATFORM` and `GPU_DEVICE` are not read if `GPU_MODE` is not activated. Regarding the code, `--with-opencl` defines the macro-processor flag `USE_OPENCL`, `--with-cuda` defines `USE_CUDA`, and `--with-hip` defines `USE_HIP`; and `GPU_RUNTIME` set the global variable `run_cuda`, `run_opencl` or `run_hip`. Texture support has not been validated in OpenCL, but works as expected in CUDA.
+
+Note about the CUDA/OpenCL/HIP kernel versions: the CUDA/OpenCL/HIP device kernels were created using a software package called BOAST (Videau, Marangozova-Martin, and Cronsioe 2013) by Brice Videau and Kevin Pouget from Grenoble, France. This source-to-source translation tool reads the kernel definitions (written in ruby) in directory `src/gpu/boast` and generates the corresponding device kernel files provided in directory `src/gpu/kernels.gen`.
+
+Adding OpenMP support in addition to MPI
+----------------------------------------
+
+OpenMP support can be enabled in addition to MPI. However, in many cases performance will not improve because our pure MPI implementation is already heavily optimized and thus the resulting code will in fact be slightly slower. A possible exception could be IBM BlueGene-type architectures.
+
+To enable OpenMP, add the flag `--enable-openmp` to the configuration:
+
+    ./configure --enable-openmp ..
+
+This will add the corresponding OpenMP flag for the chosen Fortran compiler.
+
+The DO-loop using OpenMP threads has a SCHEDULE property. The `OMP_SCHEDULE` environment variable can set the scheduling policy of that DO-loop. Tests performed by Marcin Zielinski at SARA (The Netherlands) showed that often the best scheduling policy is DYNAMIC with the size of the chunk equal to the number of OpenMP threads, but most preferably being twice as the number of OpenMP threads (thus chunk size = 8 for 4 OpenMP threads etc). If `OMP_SCHEDULE` is not set or is empty, the DO-loop will assume generic scheduling policy, which will slow down the job quite a bit.
+
+Configuration summary
+---------------------
 
 A summary of the most important configuration variables follows.
 
@@ -93,35 +169,10 @@ If your compiler has problems with the `use mpi` statements that are used in the
 
 We recommend that you ask for exclusive use of the compute nodes when running on a cluster or a supercomputer, i.e., make sure that no other users are running on the same nodes at the same time. Otherwise your run could run out of memory if the memory of some nodes is used by other users, in particular when undoing attenuation using the UNDO\_ATTENUATION option in DATA/Par\_file. To do so, ask your system administrator for the option to add to your batch submission script; it is for instance `#BSUB -x` with SLURM and `#$ -l exclusive=TRUE` with Sun Grid Engine (SGE).
 
-Using the GPU version of the code
----------------------------------
-
-SPECFEM3D\_GLOBE now supports OpenCL and NVIDIA CUDA GPU acceleration. OpenCL can be enabled with the `--with-opencl` flag, and the compilation can be controlled through three variables: `OCL_LIB=`, `OCL_INC=` and `OCL_GPU_FLAGS=`.
-
-    ./configure --with-opencl OCL_LIB= OCL_INC= OCL_GPU_FLAGS=..
-
-CUDA configuration can be enabled with `--with-cuda` flag and `CUDA_FLAGS=`, `CUDA_LIB=`, `CUDA_INC=` and ` MPI_INC=` variables.
-
-    ./configure --with-cuda=cuda5 CUDA_FLAGS= CUDA_LIB= CUDA_INC= MPI_INC= ..
-
-Both environments can be compiled simultaneously by merging these two lines. For the runtime configuration, the `GPU_MODE` flag must be set to `.true.`. In addition, we use three parameters to select the environments and GPU:
-
-    GPU_RUNTIME = 0|1|2
-    GPU_PLATFORM = filter|*
-    GPU_DEVICE = filter|*
-
-`GPU_RUNTIME`  
-sets the runtime environments: \(2\) for OpenCL, \(1\) for CUDA and 0 for compile-time decision (hence, SPECFEM should have been compiled with only one of `--with-opencl` or `--with-cuda`).
-
-`GPU_PLATFORM` and `GPU_DEVICE`  
-are both (case-insensitive) filters on the platform and device name in OpenCL, device name only in CUDA. In multiprocessor (MPI)runs, each process will pick a GPU in this filtered subset, in round-robin. The star filter (`*`) will match the first platform and all its devices.
-
-`GPU_RUNTIME`, `GPU_PLATFORM` and `GPU_DEVICE` are not read if `GPU_MODE` is not activated. Regarding the code, `--with-opencl` defines the macro-processor flag `USE_OPENCL` and `--with-cuda` defines `USE_CUDA`; and `GPU_RUNTIME` set the global variable `run_opencl` or `run_cuda`. Texture support has not been validated in OpenCL, but works as expected in CUDA.
-
-Note about the OpenCL version: the OpenCL calculation kernels were created by Brice Videau and Kevin Pouget from Grenoble, France, using their software package called BOAST (Videau, Marangozova-Martin, and Cronsioe 2013).
-
 Compiling on an IBM BlueGene
 ----------------------------
+
+Installation instructions for IBM BlueGene (from October 2012):
 
 Edit file `flags.guess` and put this for `FLAGS_CHECK`:
 
@@ -154,6 +205,30 @@ This trick can be useful for all hosts on which one needs to cross-compile.
 On BlueGene, one also needs to run the `xcreate_header_file` binary file manually rather than in the Makefile:
 
     bgrun -np 1 -mode VN -exe ./bin/xcreate_header_file
+
+Compiling on an Intel Xeon Phi (Knights Landing KNL)
+----------------------------------------------------
+
+In case you want to run simulations on a KNL chip, the compilation doesn’t require much more effort than with any other CPU system. All you could add is the flag `-xMIC-AVX512` to your Fortran flags in the `Makefile` and use `--enable-openmp` for configuration.
+
+Since there are different memory types available with a KNL, make sure to use fast memory allocations, i.e. MCDRAM, which has a higher memory bandwidth. Assuming you use a flat mode setup of the KNL chip, you could use the Linux tool `numactl` to specify which memory node to bind to. For example, check with
+
+    numactl --hardware
+
+which node contains CPU cores and which one only binds to MCDRAM (\(\sim\)16GB). In flat mode setup, most likely node 1 does. For a small example on a single KNL with 4 MPI processes and 16 OpenMP threads each, you would run the solver with a command like
+
+    OMP_NUM_THREADS=16 mpirun -np 4 numactl --membind=1 ./bin/xspecfem3D
+
+The ideal setup of MPI processes and OpenMP threads per KNL depends on your specific hardware and simulation setup. We see good results when using a combination of both, with a total number of threads slightly less than the total count of cores on the chip.
+
+As a side remark for developers, another possibility would be to add following compiler directives in the source code (in file `src/specfem3D/specfem3D_par.F90`):
+
+      real(kind=CUSTOM_REAL), dimension(:,:), allocatable :: &
+         displ_crust_mantle,veloc_crust_mantle,accel_crust_mantle
+    ! FASTMEM attribute: note this attribute needs compiler flag -lmemkind to work...
+    !DEC$ ATTRIBUTES FASTMEM :: displ_crust_mantle,veloc_crust_mantle,accel_crust_mantle
+
+These directives will work with Intel ifort compilers and will need the additional linker/compiler flag `-lmemkind` to work properly. We omitted these directives for now to avoid confusion with other possible simulation setups.
 
 Using a cross compiler
 ----------------------
@@ -195,54 +270,18 @@ Then:
 
 should work.
 
-Adding OpenMP support in addition to MPI
-----------------------------------------
-
-OpenMP support can be enabled in addition to MPI. However, in many cases performance will not improve because our pure MPI implementation is already heavily optimized and thus the resulting code will in fact be slightly slower. A possible exception could be IBM BlueGene-type architectures.
-
-To enable OpenMP, add the flag <span>--enable-openmp</span> to the configuration:
-
-    ./configure --enable-openmp ..
-
-This will add the corresponding OpenMP flag for the chosen Fortran compiler.
-
-The DO-loop using OpenMP threads has a SCHEDULE property. The OMP\_SCHEDULE environment variable can set the scheduling policy of that DO-loop. Tests performed by Marcin Zielinski at SARA (The Netherlands) showed that often the best scheduling policy is DYNAMIC with the size of the chunk equal to the number of OpenMP threads, but most preferably being twice as the number of OpenMP threads (thus chunk size = 8 for 4 OpenMP threads etc). If OMP\_SCHEDULE is not set or is empty, the DO-loop will assume generic scheduling policy, which will slow down the job quite a bit.
-
-Compiling on an Intel Xeon Phi (Knights Landing KNL)
-----------------------------------------------------
-
-In case you want to run simulations on a KNL chip, the compilation doesn’t require much more effort than with any other CPU system. All you could add is the flag `-xMIC-AVX512` to your Fortran flags in the `Makefile` and use `--enable-openmp` for configuration.
-
-Since there are different memory types available with a KNL, make sure to use fast memory allocations, i.e. MCDRAM, which has a higher memory bandwidth. Assuming you use a flat mode setup of the KNL chip, you could use the Linux tool `numactl` to specify which memory node to bind to. For example, check with
-
-    numactl --hardware
-
-which node contains CPU cores and which one only binds to MCDRAM (\(\sim\)16GB). In flat mode setup, most likely node 1 does. For a small example on a single KNL with 4 MPI processes and 16 OpenMP threads each, you would run the solver with a command like
-
-    OMP_NUM_THREADS=16 mpirun -np 4 numactl --membind=1 ./bin/xspecfem3D
-
-The ideal setup of MPI processes and OpenMP threads per KNL depends on your specific hardware and simulation setup. We see good results when using a combination of both, with a total number of threads slightly less than the total count of cores on the chip.
-
-As a side remark for developers, another possibility would be to add following compiler directives in the source code (in file `src/specfem3D/specfem3D_par.F90`):
-
-      real(kind=CUSTOM_REAL), dimension(:,:), allocatable :: &
-         displ_crust_mantle,veloc_crust_mantle,accel_crust_mantle
-    ! FASTMEM attribute: note this attribute needs compiler flag -lmemkind to work...
-    !DEC$ ATTRIBUTES FASTMEM :: displ_crust_mantle,veloc_crust_mantle,accel_crust_mantle
-
-These directives will work with Intel ifort compilers and will need the additional linker/compiler flag `-lmemkind` to work properly. We omitted these directives for now to avoid confusion with other possible simulation setups.
-
 Visualizing the subroutine calling tree of the source code
 ----------------------------------------------------------
 
 Packages such as `doxywizard` can be used to visualize the subroutine calling tree of the source code. `Doxywizard` is a GUI front-end for configuring and running `doxygen`.
 
+To visualize the call tree (calling tree) of the source code, you can see the Doxygen tool available in directory `doc/call_trees_of_the_source_code`.
+
 Becoming a developer of the code, or making small modifications in the source code
 ----------------------------------------------------------------------------------
 
-If you want to develop new features in the code, and/or if you want to make small changes, improvements, or bug fixes, you are very welcome to contribute. To do so, i.e. to access the development branch of the source code with read/write access (in a safe way, no need to worry too much about breaking the package, there is a robot called BuildBot that is in charge of checking and validating all new contributions and changes), please visit this Web page: <https://github.com/geodynamics/specfem3d/wiki>.
-
-To visualize the call tree (calling tree) of the source code, you can see the Doxygen tool available in directory `doc/call_trees_of_the_source_code`.
+If you want to develop new features in the code, and/or if you want to make small changes, improvements, or bug fixes, you are very welcome to contribute. To do so, i.e. to access the development branch of the source code with read/write access (in a safe way, no need to worry too much about breaking the package, there are CI tests based on BuildBot, Travis-CI and Jenkins in place that are checking and validating all new contributions and changes), please visit this Web page:
+<https://github.com/geodynamics/specfem3d_globe/wiki>
 
 References
 ----------
@@ -252,5 +291,5 @@ Videau, B., V. Marangozova-Martin, and J. Cronsioe. 2013. “BOAST: Bringing Opt
 -----
 > This documentation has been automatically generated by [pandoc](http://www.pandoc.org)
 > based on the User manual (LaTeX version) in folder doc/USER_MANUAL/
-> (Mar  5, 2021)
+> (Jun 29, 2021)
 
