@@ -19,11 +19,11 @@ Configuring and compiling the source code
 
 To get the SPECFEM3D\_GLOBE software package, type this:
 
-    git clone --recursive --branch devel https://github.com/geodynamics/specfem3d_globe.git
+      git clone --recursive --branch devel https://github.com/geodynamics/specfem3d_globe.git
 
 Then, to configure the software for your system, run the `configure` shell script. This script will attempt to guess the appropriate configuration values for your system. However, at a minimum, it is recommended that you explicitly specify the appropriate command names for your Fortran compiler (another option is to define FC, CC and MPIF90 in your .bash\_profile or your .cshrc file):
 
-        ./configure FC=gfortran CC=gcc MPIFC=mpif90
+      ./configure FC=gfortran CC=gcc MPIFC=mpif90
 
 You can replace the GNU compilers above (gfortran and gcc) with other compilers if you want to; for instance for Intel ifort and icc use FC=ifort CC=icc instead.
 
@@ -43,7 +43,7 @@ You will probably need to install `XCODE`.
 
 When compiling on an IBM machine with the `xlf` and `xlc` compilers, we suggest running the `configure` script with the following options:
 
-    ./configure FC=xlf90_r MPIFC=mpif90 CC=xlc_r CFLAGS="-O3 -q64" FCFLAGS="-O3 -q64"
+      ./configure FC=xlf90_r MPIFC=mpif90 CC=xlc_r CFLAGS="-O3 -q64" FCFLAGS="-O3 -q64"
 
 If you have problems configuring the code on a Cray machine, i.e. for instance if you get an error message from the `configure` script, try exporting these two variables: `MPI_INC=$CRAY_MPICH2_DIR/include and FCLIBS= `, and for more details if needed you can refer to the `utils/Cray_compiler_information` directory. You can also have a look at the configure script called:
 `utils/Cray_compiler_information/configure_SPECFEM_for_Piz_Daint.bash`.
@@ -59,7 +59,7 @@ Using the GPU version of the code
 
 SPECFEM3D\_GLOBE now supports CUDA, OpenCL and HIP GPU acceleration. CUDA configuration can be enabled with `--with-cuda` flag and `CUDA_FLAGS=`, `CUDA_LIB=`, `CUDA_INC=` and ` MPI_INC=` variables like
 
-    ./configure --with-cuda CUDA_FLAGS= CUDA_LIB= CUDA_INC= MPI_INC= ..
+      ./configure --with-cuda CUDA_FLAGS= CUDA_LIB= CUDA_INC= MPI_INC= ..
 
 When compiling for specific GPU cards, you can enable the corresponding Nvidia GPU card architecture version with:
 
@@ -67,14 +67,14 @@ When compiling for specific GPU cards, you can enable the corresponding Nvidia G
 
 where for example `cuda4,cuda5,cuda6,cuda7,..` specifies the target GPU architecture of your card, (e.g., with CUDA 9 this refers to Volta V100 cards), rather than the installed version of the CUDA toolkit. Before CUDA version 5, one version supported basically one new architecture and needed a different kind of compilation. Since version 5, the compilation has stayed the same, but newer versions supported newer architectures. However at the moment, we still have one version linked to one specific architecture:
 
-    - CUDA 4 for Tesla,   cards like K10, Geforce GTX 650, ..
-    - CUDA 5 for Kepler,  like K20
-    - CUDA 6 for Kepler,  like K80
-    - CUDA 7 for Maxwell, like Quadro K2200
-    - CUDA 8 for Pascal,  like P100
-    - CUDA 9 for Volta,   like V100
-    - CUDA 10 for Turing, like GeForce RTX 2080
-    - CUDA 11 for Ampere, like A100
+      - CUDA 4 for Tesla,   cards like K10, Geforce GTX 650, ..
+      - CUDA 5 for Kepler,  like K20
+      - CUDA 6 for Kepler,  like K80
+      - CUDA 7 for Maxwell, like Quadro K2200
+      - CUDA 8 for Pascal,  like P100
+      - CUDA 9 for Volta,   like V100
+      - CUDA 10 for Turing, like GeForce RTX 2080
+      - CUDA 11 for Ampere, like A100
 
 So even if you have the new CUDA toolkit version 11, but you want to run on say a K20 GPU, then you would still configure with:
 
@@ -82,13 +82,13 @@ So even if you have the new CUDA toolkit version 11, but you want to run on say 
 
 The compilation with the cuda5 setting chooses then the right architecture (`-gencode=arch=compute_35,code=sm_35` for K20 cards).
 
-SPECFEM3D\_GLOBE also supports CUDA-aware MPI. This code feature can be enabled by adding the `--enable-cuda-aware-mpi` flag to the configuration, like:
+SPECFEM3D\_GLOBE also supports CUDA-aware MPI. This code feature can be enabled by adding the flag `--enable-cuda-aware-mpi` to the configuration, like:
 
       ./configure --with-cuda=cuda9 --enable-cuda-aware-mpi ..
 
 Please make sure beforehand that your MPI installation supports CUDA-aware MPI. For example, with OpenMPI installed, check the output of the command
 
-    ompi_info --parsable --all | grep mpi_built_with_cuda_support:value
+      ompi_info --parsable --all | grep mpi_built_with_cuda_support:value
 
 Without a CUDA-aware MPI installation, the code will fall back to its default handling, i.e., passing MPI buffers through the CPU. In case available, test if this feature will improve the overall performance of your simulation.
 
@@ -104,13 +104,13 @@ where for example `MI8,MI25,MI50,MI100,..` specifies the target GPU architecture
 
 OpenCL can be enabled with the `--with-opencl` flag, and the compilation can be controlled through three variables: `OCL_LIB=`, `OCL_INC=` and `OCL_GPU_FLAGS=`.
 
-    ./configure --with-opencl OCL_LIB= OCL_INC= OCL_GPU_FLAGS=..
+      ./configure --with-opencl OCL_LIB= OCL_INC= OCL_GPU_FLAGS=..
 
 Both CUDA and OpenCL environments can be compiled simultaneously by merging these two lines. For the runtime configuration, the `GPU_MODE` flag must be set to `.true.`. In addition, we use three parameters to select the environments and GPU:
 
-    GPU_RUNTIME = 0|1|2|3
-    GPU_PLATFORM = filter|*
-    GPU_DEVICE = filter|*
+      GPU_RUNTIME = 0|1|2|3
+      GPU_PLATFORM = filter|*
+      GPU_DEVICE = filter|*
 
 `GPU_RUNTIME`  
 sets the runtime environments: \(1\) for CUDA, \(2\) for OpenCL, \(3\) for HIP and \(0\) for compile-time decision (hence, SPECFEM should have been compiled with only one of `--with-cuda`, `--with-opencl` or `--with-hip`).
@@ -129,7 +129,7 @@ OpenMP support can be enabled in addition to MPI. However, in many cases perform
 
 To enable OpenMP, add the flag `--enable-openmp` to the configuration:
 
-    ./configure --enable-openmp ..
+      ./configure --enable-openmp ..
 
 This will add the corresponding OpenMP flag for the chosen Fortran compiler.
 
@@ -146,7 +146,7 @@ Fortran compiler command name. By default, `configure` will execute the command 
 <span>`MPIFC`</span>  
 MPI Fortran command name. The default is `mpif90`. This must correspond to the same underlying compiler specified by `FC`; otherwise, you will encounter compilation or link errors when you attempt to build the code. If you are unsure about this, it is usually safe to set both `FC` and `MPIFC` to the MPI compiler command for your system:
 
-    ./configure FC=mpif90 MPIFC=mpif90
+      ./configure FC=mpif90 MPIFC=mpif90
 
 <!-- -->
 
@@ -195,7 +195,7 @@ Before running `configure`, select the XL Fortran compiler by typing `module loa
 
 Then, to configure the code, type this:
 
-    ./configure FC=bgxlf90_r MPIFC=mpixlf90_r CC=bgxlc_r LOCAL_PATH_IS_ALSO_GLOBAL=true
+      ./configure FC=bgxlf90_r MPIFC=mpixlf90_r CC=bgxlc_r LOCAL_PATH_IS_ALSO_GLOBAL=true
 
 To compile the code on an IBM BlueGene, Laurent Léger from IDRIS, France, suggests the following: compile the code with
 
@@ -206,7 +206,7 @@ Option “-Wl,-relax” must be added on many (but not all) BlueGene systems to 
 
 One then just needs to pass the right commands to the `configure` script:
 
-    ./configure --prefix=/path/to/SPECFEM3DG_SP --host=Babel --build=BGP \
+      ./configure --prefix=/path/to/SPECFEM3DG_SP --host=Babel --build=BGP \
           FC=bgxlf90_r MPIFC=mpixlf90_r CC=bgxlc_r  \
           LOCAL_PATH_IS_ALSO_GLOBAL=false
 
@@ -214,7 +214,7 @@ This trick can be useful for all hosts on which one needs to cross-compile.
 
 On BlueGene, one also needs to run the `xcreate_header_file` binary file manually rather than in the Makefile:
 
-    bgrun -np 1 -mode VN -exe ./bin/xcreate_header_file
+      bgrun -np 1 -mode VN -exe ./bin/xcreate_header_file
 
 Compiling on an Intel Xeon Phi (Knights Landing KNL)
 ----------------------------------------------------
@@ -223,7 +223,7 @@ In case you want to run simulations on a KNL chip, the compilation doesn’t req
 
 Since there are different memory types available with a KNL, make sure to use fast memory allocations, i.e. MCDRAM, which has a higher memory bandwidth. Assuming you use a flat mode setup of the KNL chip, you could use the Linux tool `numactl` to specify which memory node to bind to. For example, check with
 
-    numactl --hardware
+      numactl --hardware
 
 which node contains CPU cores and which one only binds to MCDRAM (\(\sim\)16GB). In flat mode setup, most likely node 1 does. For a small example on a single KNL with 4 MPI processes and 16 OpenMP threads each, you would run the solver with a command like
 
@@ -301,5 +301,5 @@ Videau, B., V. Marangozova-Martin, and J. Cronsioe. 2013. “BOAST: Bringing Opt
 -----
 > This documentation has been automatically generated by [pandoc](http://www.pandoc.org)
 > based on the User manual (LaTeX version) in folder doc/USER_MANUAL/
-> (Jul 15, 2021)
+> (Sep  7, 2021)
 

@@ -72,10 +72,20 @@ Spherically symmetric earth model 1066A (Gilbert and Dziewoński 1975). When `AT
 Spherically symmetric isotropic AK135 model (Kennett, Engdahl, and Buland 1995) modified to use the density and Q attenuation models of Montagner and Kennett (1995). That modified model is traditionally called AK135-F, see <http://rses.anu.edu.au/seismology/ak135/ak135f.html> for more details. As we do not want to use the 300 m-thick mud layer from that model nor the ocean layer, above the d120 discontinuity we switch back to the classical AK135 model of Kennett, Engdahl, and Buland (1995), i.e., we use AK135-F below and AK135 above.
 
 <span>`1D_ref`</span>  
-A recent 1D Earth model developed by Kustowski, Dziewoński, and Ekstrom (2006). This model is the 1D background model for the 3D models s362ani, s362wmani, s362ani\_prem, and s29ea.
+A 1D Earth model developed by Kustowski, Dziewoński, and Ekstrom (2006). This model is the 1D background model for the 3D models s362ani, s362wmani, s362ani\_prem, and s29ea.
+
+<span>`Ishii`</span>  
+Combines the 1D transversely isotropic PREM with the anisotropic inner core model defined by Ishii et al. (2002).
+
+for Mars:
 
 <span>`1D_Sohl`</span>  
 1D Mars model developed by Sohl and Spohn (1997). This model is model A, mostly constrained by geophysical moment of inertia.
+
+<span>`1D_case65TAY`</span>  
+1D Mars reference model developed by Plesa et al. (2021). The model is the 1D reference model for case 65 with a compositional model by Taylor.
+
+for Moon:
 
 <span>`VPREMOON`</span>  
 1D Moon model developed by Garcia et al. (2011). Uses modified seismic model, starting from table 6 (left side, not geodesic model) with velocity values for outer core and solid inner core based on Weber et al. (2011)
@@ -129,17 +139,39 @@ By default, the code uses 3D <span>*isotropic*</span> mantle model SGLOBE-rani (
 <span>`sgloberani_aniso`</span>  
 By default, the code uses 3D <span>*anisotropic*</span> mantle model SGLOBE-rani (Chang et al. 2015) and the 3D crustal model includes perturbations from Crust2.0 (Bassin, Laske, and Masters 2000) as discussed in (Chang et al. 2015). Note that SGLOBE-rani uses transversely isotropic PREM as a background model, and that we use the PREM radial attenuation model when `ATTENUATION` is incorporated.
 
+<span>`SPiRaL`</span>  
+A multiresolution global tomography model of seismic wave speeds and radial anisotropy variations in the crust and mantle developed by Simmons et al. (2021). Please see folder `DATA/spiral1.4` for further information on how to install the corresponding model files.
+
+<span>`GLAD_bkmns`</span>  
+A Block Mantle & Spherical Harmonics (BKMNS) expansion model developed by Ciardelli et al. (submitted.) for global crust/mantle 3D models GLAD-M25 and GLAD-M15. Please see folder `DATA/gladm25` for further information on how to install the corresponding model files.
+
+for Mars:
+
+<span>`1D_Sohl_3d_crust`</span>  
+This model adds a 3D crust on top of the 1D Mars model developed by Sohl and Spohn (1997). The crustal model is defined by the files in folder `DATA/crustmaps/marscrust*.cmap`
+
+<span>`1D_case65TAY_3d_crust`</span>  
+This model adds a 3D crust on top of the 1D Mars model developed by Plesa et al. (2021). The crustal model is defined by the files in folder `DATA/crustmaps/marscrust*.cmap`
+
   
-When a 3D mantle model is chosen in `Par_file`, the simulations are performed together with the 3D crustal model Crust2.0. Alternatively, Crust2.0 can be combined with a higher resolution European crustal model EUCrust07 (Tesauro, Kaban, and Cloetingh 2008). This can be done by setting the crustal type to `ICRUST_CRUSTMAPS` in the `constant.h` file. It is also possible to run simulations using a 3D mantle model with a 1D crustal model on top. This can be done by setting the model in `Par_file` to `<3D mantle>_1Dcrust`, e.g., `s20rts_1Dcrust, s362ani_1Dcrust`, etc. In this case, the 1D crustal model will be the one that is used in the 3D mantle model as a reference model (e.g., transversely isotropic PREM for s20rts, REF for s362ani, etc.).
+When a 3D mantle model is chosen in `Par_file`, the simulations are performed together with the associated 3D crustal model. For example, model `s362ani` would use by default crustal model Crust2.0. To select the higher-resolution Crust1.0 crustal model instead, one can append it as an ending to the model name, i.e., `***<3D mantle>***_crust1.0`, as for example `s362ani_crust1.0`. In a similar way, various 3D crustal models defined such as `***_crust1.0`, `***_crust2.0`, `***_crustmaps`, `***_epcrust`, `***_eucrust`, `***_crustSH`, `***_sglobecrust` and `***_crustSPiRaL` can be combined with different mantle models. Regional higher-resolution models, such as the European crustal models EPcrust (Molinari and Morelli 2011) and EUCrust-07 (Tesauro, Kaban, and Cloetingh 2008) are embedded by default into the global crustal model Crust1.0.
+
+It is also possible to run simulations using a 3D mantle model with a 1D crustal model on top. This can be done by setting the model in `Par_file` to `***<3D mantle>***_1Dcrust`, e.g., `s20rts_1Dcrust, s362ani_1Dcrust`, etc. In this case, the 1D crustal model will be the one that is used in the 3D mantle model as a reference model (e.g., transversely isotropic PREM for s20rts, REF for s362ani, etc.).
+
+Currently, the only anisotropic inner core model implemented is the one defined by Ishii et al. (2002). To use this anisotropic inner core model, one can append the ending `***<3D mantle>***_AIC` to the mantle model name. With the above crustal ending, as an example one could use `s362ani_crust1.0_AIC`.
 
 <span>`OCEANS`</span>  
 Set to `.true.` if the effect of the oceans on seismic wave propagation should be incorporated based upon the approximate treatment discussed in Komatitsch and Tromp (2002b). This feature is inexpensive from a numerical perspective, both in terms of memory requirements and CPU time. This approximation is accurate at periods of roughly 20 s and longer. At shorter periods the effect of water phases/reverberations is not taken into account, even when the flag is on.
 
 <span>`ELLIPTICITY`</span>  
-Set to `.true.` if the mesh should make the Earth model elliptical in shape according to Clairaut’s equation (Dahlen and Tromp 1998). This feature adds no cost to the simulation. After adding ellipticity, the mesh becomes elliptical and thus geocentric and geodetic/geographic latitudes and colatitudes differ (longitudes are unchanged). From Dahlen and Tromp (1998): “Spherically-symmetric Earth models all have the same hydrostatic surface ellipticity 1/299.8. This is 0.5 percent smaller than observed flattening of best-fitting ellipsoid 1/298.3. The discrepancy is referred to as the ”excess equatorial bulge of the Earth“, an early discovery of artificial satellite geodesy.” From Paul Melchior, IUGG General Assembly, Vienna, Austria, August 1991 Union lecture, available at www.agu.org/books: “It turns out that the spheroidal models constructed on the basis of the spherically-symmetric models (PREM, 1066A) by using the Clairaut differential equation to calculate the flattening in function of the radius vector imply hydrostaticity. These have surface ellipticity 1/299.8 and a corresponding dynamical flattening of .0033 (PREM). The actual ellipticty of the Earth for a best-fitting ellipsoid is 1/298.3 with a corresponding dynamical flattening of .0034.” Thus, flattening f = 1/299.8 is what is used in SPECFEM3D\_GLOBE, as it should. And thus eccentricity squared \(e^2 = 1 - (1-f)^2 = 1 - (1 - 1/299.8)^2 = 0.00665998813529\), and the correction factor used in the code to convert geographic latitudes to geocentric is \(1 - e^2 = (1-f)^2 = (1 - 1/299.8)^2 = 0.9933400118647\). As a comparison, the classical World Geodetic System reference ellipsoid WGS 84 (see e.g. <http://en.wikipedia.org/wiki/World_Geodetic_System>) has \(f = 1/298.2572236\).
+Set to `.true.` if the mesh should make the Earth model elliptical in shape according to Clairaut’s equation (Dahlen and Tromp 1998). This feature adds no cost to the simulation. After adding ellipticity, the mesh becomes elliptical and thus geocentric and geodetic/geographic latitudes and colatitudes differ (longitudes are unchanged). From Dahlen and Tromp (1998): “Spherically-symmetric Earth models all have the same hydrostatic surface ellipticity 1/299.8. This is 0.5 percent smaller than observed flattening of best-fitting ellipsoid 1/298.3. The discrepancy is referred to as the ”excess equatorial bulge of the Earth“, an early discovery of artificial satellite geodesy.” From Paul Melchior, IUGG General Assembly, Vienna, Austria, August 1991 Union lecture, available at www.agu.org/books: “It turns out that the spheroidal models constructed on the basis of the spherically-symmetric models (PREM, 1066A) by using the Clairaut differential equation to calculate the flattening in function of the radius vector imply hydrostaticity. These have surface ellipticity 1/299.8 and a corresponding dynamical flattening of .0033 (PREM). The actual ellipticty of the Earth for a best-fitting ellipsoid is 1/298.3 with a corresponding dynamical flattening of .0034.”
+
+Thus, flattening f = 1/299.8 is what is used in SPECFEM3D\_GLOBE, as it should. And eccentricity squared \(e^2 = 1 - (1-f)^2 = 1 - (1 - 1/299.8)^2 = 0.00665998813529\), and the correction factor used in the code to convert geographic latitudes to geocentric is \(1 - e^2 = (1-f)^2 = (1 - 1/299.8)^2 = 0.9933400118647\). As a comparison, the classical World Geodetic System reference ellipsoid WGS 84 (see e.g. <http://en.wikipedia.org/wiki/World_Geodetic_System>) has \(f = 1/298.2572236\).
+
+For Mars, a flattening factor 1/169.8 is used (based on Smith et al. 1999, Science, 284). For Moon, a flattening factor 1/901.0 is currently taken. These values can be modified in file `setup/constants.h`.
 
 <span>`TOPOGRAPHY`</span>  
-Set to `.true.` if topography and bathymetry should be incorporated based upon model ETOPO4 (NOAA 1988). This feature adds no cost to the simulation. It you want to use other topographic models, use the script download\_the\_whole\_topography\_database\_if\_you\_want\_other\_topographic\_models.bash provided in the root directory of the code and change the name of the topographic model to use in file `setup/constants.h.in` before configuring the code with the `configure` script.
+Set to `.true.` if topography and bathymetry should be incorporated based upon model ETOPO4 (NOAA 1988). This feature adds no cost to the simulation. If you want to use other topographic models, please see folder `DATA/topo_bathy/` for further infos and change the name of the topographic model to use in file `setup/constants.h` before re-compiling the code.
 
 <span>`GRAVITY`</span>  
 Set to `.true.` if self-gravitation should be incorporated in the Cowling approximation (Komatitsch and Tromp 2002b; Dahlen and Tromp 1998). Turning this feature on is relatively inexpensive, both from the perspective of memory requirements as well as in terms of computational speed.
@@ -443,6 +475,8 @@ Chaljub, E., Y. Capdeville, and J. P. Vilotte. 2003. “Solving Elastodynamics i
 
 Chang, S.-J., A.M.G. Ferreira, J. Ritsema, H.J. van Heijst, and J.H. Woodhouse. 2015. “Joint Inversion for Global Isotropic and Radially Anisotropic Mantle Structure Including Crustal Thickness Perturbations.” *J. Geophys. Res.* 120: 4278–4300.
 
+Ciardelli, C., E. Bozdag, D. Peter, and S. van der Lee. submitted. “SphGLLTools: A Toolbox for Visualization of Large Seismic Model Files Based on 3D Spectral-Element Simulations.” *Computers & Geosciences*.
+
 Cohen, Gary. 2002. *Higher-Order Numerical Methods for Transient Wave Equations*. Berlin, Germany: Springer-Verlag.
 
 Dahlen, F. A., and J. Tromp. 1998. *Theoretical Global Seismology*. Princeton, New-Jersey, USA: Princeton University Press.
@@ -454,6 +488,8 @@ Dziewoński, A. M., and D. L. Anderson. 1981. “Preliminary Reference Earth Mod
 Garcia, R.F., J. Gagnepain-Beyneix, S. Chevrot, and P. Lognonné. 2011. “Very Preliminary Reference Moon Model.” *Phys. Earth Planet. Inter.* 188: 96–113.
 
 Gilbert, F., and A. M. Dziewoński. 1975. “An Application of Normal Mode Theory to the Retrieval of Structural Parameters and Source Mechanisms from Seismic Spectra.” *Philos. Trans. R. Soc. London A* 278: 187–269.
+
+Ishii, M., J. Tromp, A. M. Dziewoński, and G. Ekström. 2002. “Joint Inversion of Normal Mode and Body Wave Data for Inner Core Anisotropy - 1. Laterally Homogeneous Anisotropy.” *J. Geophys. Res. Solid Earth* 107 (B12): 2379.
 
 Kennett, B. L. N., and E. R. Engdahl. 1991. “Traveltimes for Global Earthquake Location and Phase Identification.” *Geophys. J. Int.* 105: 429–65.
 
@@ -471,9 +507,13 @@ Komatitsch, D., J. Ritsema, and J. Tromp. 2002. “The Spectral-Element Method, 
 
 Kustowski, B., A. M. Dziewoński, and G. Ekstrom. 2006. “Modeling the Anisotropic Shear-Wave Velocity Structure in the Earth’s Mantle on Global and Regional Scales.” *EOS* 87 (52): Abstract S41E–E02.
 
+Molinari, I., and A. Morelli. 2011. “EPcrust: A Reference Crustal Model for the European Plate.” *Geophys. J. Int.* 185 (1): 352–64.
+
 Montagner, J. P., and B. L. N. Kennett. 1995. “How to Reconcile Body-Wave and Normal-Mode Reference Earth Models?” *Geophys. J. Int.* 122: 229–48.
 
 NOAA. 1988. *National Oceanic and Atmospheric Administration (NOAA) Product Information Catalog - ETOPO5 Earth Topography 5-Minute Digital Model*. Washington D.C., USA: U.S. Department of Commerce.
+
+Plesa, A.-C., E. Bozdag, A. Rivoldini, M. Knapmeyer, S. M. McLennan, S. Padovan, N. Tosi, et al. 2021. “Seismic Velocity Variations in a 3D Martian Mantle: Implications for the InSight Measurements.” *J. Geophys. Res. Planets* 126 (6): e2020JE006755.
 
 Ritsema, J., A. Deuss, H. J. <span>Van Heijst</span>, and J. H. Woodhouse. 2011. “S40RTS: A Degree-40 Shear-Velocity Model for the Mantle from New Rayleigh Wave Dispersion, Teleseismic Traveltime and Normal-Mode Splitting Function Measurements.” *Geophys. J. Int.* 184 (3): 1223–36. doi:[10.1111/j.1365-246X.2010.04884.x](http://dx.doi.org/10.1111/j.1365-246X.2010.04884.x).
 
@@ -484,6 +524,8 @@ Ronchi, C., R. Ianoco, and P. S. Paolucci. 1996. “The ‘Cubed Sphere’: A Ne
 Sadourny, R. 1972. “Conservative Finite-Difference Approximations of the Primitive Equations on Quasi-Uniform Spherical Grids.” *Monthly Weather Review* 100: 136–44.
 
 Seriani, G<span>é</span>za, and Saulo P. Oliveira. 2007. “Optimal Blended Spectral-Element Operators for Acoustic Wave Modeling.” *Geophysics* 72 (5): SM95–M106. doi:[10.1190/1.2750715](http://dx.doi.org/10.1190/1.2750715).
+
+Simmons, N. A., S. C. Myers, C. Morency, A. Chiang, and D. R. Knapp. 2021. “SPiRaL: A Multiresolution Global Tomography Model of Seismic Wave Speeds and Radial Anisotropy Variations in the Crust and Mantle.” *Geophysical Journal International* 227 (2): 1366–91.
 
 Sohl, F., and T. Spohn. 1997. “The Interior Structure of Mars: Implications from SNC Meteorites.” *J. Geophys. Res.* 102: 1613–35.
 
@@ -496,5 +538,5 @@ Zhou, Ying, Qinya Liu, and Jeroen Tromp. 2011. “Surface Wave Sensitivity: Mode
 -----
 > This documentation has been automatically generated by [pandoc](http://www.pandoc.org)
 > based on the User manual (LaTeX version) in folder doc/USER_MANUAL/
-> (Jul 15, 2021)
+> (Sep  7, 2021)
 
