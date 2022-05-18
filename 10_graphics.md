@@ -18,7 +18,9 @@ Use the serial code `combine_AVS_DX.f90` (type ‘`make combine_AVS_DX`’ and t
 Movies
 ------
 
-To make a surface or volume movie of the simulation, set parameters `MOVIE_SURFACE`, `MOVIE_VOLUME`, and `NTSTEP_BETWEEN_FRAMES` in the `Par_file`. Turning on the movie flags, in particular `MOVIE_VOLUME`, produces large output files. `MOVIE_VOLUME` files are saved in the `LOCAL_PATH` directory, whereas `MOVIE_SURFACE` output files are saved in the `OUTPUT_FILES` directory. We save the velocity field. The look of a movie is determined by the half-duration of the source. The half-duration should be large enough so that the movie does not contain frequencies that are not resolved by the mesh, i.e., it should not contain numerical noise. This can be accomplished by selecting a CMT `HALF_DURATION` \> 1.1 \(\times\) smallest period (see figure [fig:CMTSOLUTION-file]). When `MOVIE_SURFACE` = `.true.` or `MOVIE_VOLUME`<span> </span>`=`<span> </span>`.true.`, the half duration of each source in the `CMTSOLUTION` file is replaced by
+To make a surface or volume movie of the simulation, set parameters `MOVIE_SURFACE`, `MOVIE_VOLUME`, and `NTSTEP_BETWEEN_FRAMES` in the `Par_file`. Turning on the movie flags, in particular `MOVIE_VOLUME`, produces large output files. `MOVIE_VOLUME` files are saved in the `LOCAL_PATH` directory, whereas `MOVIE_SURFACE` output files are saved in the `OUTPUT_FILES` directory. We save the velocity field. The look of a movie is determined by the half-duration of the source. The half-duration should be large enough so that the movie does not contain frequencies that are not resolved by the mesh, i.e., it should not contain numerical noise. This can be accomplished by selecting a CMT `HALF_DURATION` \> 1.1 \(\times\) smallest period (see figure [fig:CMTSOLUTION-file]).
+
+When `MOVIE_SURFACE` = `.true.` or `MOVIE_VOLUME`<span> </span>`=`<span> </span>`.true.`, the half duration of each source in the `CMTSOLUTION` file is replaced by
 
 > \[\sqrt{(}\mathrm{\mathtt{HALF\_DURATIO}\mathtt{N}^{2}}+\mathrm{\mathtt{HDUR\_MOVI}\mathtt{E}^{2}})\] **NOTE:** If `HDUR_MOVIE` is set to 0.0, the code will select the appropriate value of 1.1 \(\times\) smallest period. As usual, for a point source one can set `HALF_DURATION` in the `Par_file` to be 0.0 and `HDUR_MOVIE` = 0.0 to get the highest frequencies resolved by the simulation, but for a finite source one would keep all the `HALF_DURATION`s as prescribed by the finite source model and set `HDUR_MOVIE` = 0.0.
 
@@ -62,9 +64,7 @@ Finite-Frequency Kernels
 
 The finite-frequency kernels computed as explained in Section [sec:Adjoint-simulation-finite] are saved in the `LOCAL_PATH` at the end of the simulation. Therefore, we first need to collect these files on the front end, combine them into one mesh file, and visualize them with some auxilliary programs. Examples of kernel simulations may be found in the `EXAMPLES` directory.
 
-1.  **Create slice files**
-
-    We will only discuss the case of one source-receiver pair, i.e., the so-called banana-doughnut kernels. Although it is possible to collect the kernel files from all slices onto the front end, it usually takes up too much storage space (at least tens of gigabytes). Since the sensitivity kernels are the strongest along the source-receiver great circle path, it is sufficient to collect only the slices that are along or close to the great circle path.
+1.  **Create slice files** We will only discuss the case of one source-receiver pair, i.e., the so-called banana-doughnut kernels. Although it is possible to collect the kernel files from all slices onto the front end, it usually takes up too much storage space (at least tens of gigabytes). Since the sensitivity kernels are the strongest along the source-receiver great circle path, it is sufficient to collect only the slices that are along or close to the great circle path.
 
     A Perl script `utils/Visualization/VTK_Paraview/global_slice_number.pl` can help to figure out the slice numbers that lie along the great circle path (both the minor and major arcs), as well as the slice numbers required to produce a full picture of the inner core if your kernel also illuminates the inner core.
 
@@ -84,11 +84,9 @@ The finite-frequency kernels computed as explained in Section [sec:Adjoint-simul
 
     3.  For cases with multiple sources and multiple receivers, you need to provide a slice file before proceeding to the next step.
 
-2.  **Collect the kernel files**
+2.  **Collect the kernel files** After obtaining the slice files, you can collect the corresponding kernel files from the given slices.
 
-    After obtaining the slice files, you can collect the corresponding kernel files from the given slices.
-
-    1.  To accomplish this, you can use or modify the scripts in `utils/collect_database `directory:
+    1.  To accomplish this, you can use or modify the scripts in `utils/collect_database` directory:
 
             copy_m(oc,ic)_globe_database.pl slice_file lsf_machine_file filename [jobid]
 
@@ -100,9 +98,7 @@ The finite-frequency kernels computed as explained in Section [sec:Adjoint-simul
 
     2.  After executing this script, all the necessary mesh topology files as well as the kernel array files are collected to the local directory on the front end.
 
-3.  **Combine kernel files into one mesh file**
-
-    We use an auxiliary program `combine_vol_data.f90` to combine the volumetric kernel files from all slices into one mesh file, and `combine_surf_data.f90 `to combine the surface kernel files.
+3.  **Combine kernel files into one mesh file** We use an auxiliary program `combine_vol_data.F90` to combine the volumetric kernel files from all slices into one mesh file, and `combine_surf_data.F90` to combine the surface kernel files.
 
     1.  Compile it in the global code directory:
 
@@ -124,10 +120,12 @@ The finite-frequency kernels computed as explained in Section [sec:Adjoint-simul
 
     2.  Use 1 for a high-resolution mesh, outputting all the GLL points to the mesh file, or use 0 for low resolution, outputting only the corner points of the elements to the mesh file. Use 0 for 2D surface kernel files and 1 for 3D volumetric kernel files.
 
-    3.  Use region = 1 for the mantle, region =2 for the outer core, region = 3 for the inner core, and region = 0 for all regions.
+    3.  Use region = 1 for the mantle, region = 2 for the outer core, region = 3 for the inner core, and region = 0 for all regions.
 
     4.  The output mesh file will have the name `reg_?_rho(alpha,beta)_kernel.mesh,` or` `
         `reg_?_Moho(d400,d670,CMB,ICB)_kernel.surf.`
+
+    You can also use the binaries `xcombine_vol_data_vtk` or `xcombine_vol_data_vtu` with the same argument list to directly output `.vtk` or `.vtu` files, respectively. This will make the following conversion step for `.mesh` files unnecessary.
 
 4.  **Convert mesh files into .vtu files**
 
@@ -137,13 +135,9 @@ The finite-frequency kernels computed as explained in Section [sec:Adjoint-simul
 
     2.  Notice that this program `mesh2vtu`, in the `utils/Visualization/VTK_Paraview/mesh2vtu` directory, uses the VTK run-time library for its execution. Therefore, make sure you have it properly installed.
 
-5.  **Copy over the source and receiver .vtk file**
+5.  **Copy over the source and receiver .vtk file** In the case of a single source and a single receiver, the simulation also generates the `OUTPUT_FILES/sr.vtk` file to describe the source and receiver locations, which can be viewed in Paraview in the next step.
 
-    In the case of a single source and a single receiver, the simulation also generates the `OUTPUT_FILES/sr.vtk` file to describe the source and receiver locations, which can be viewed in Paraview in the next step.
-
-6.  **View the mesh in ParaView**
-
-    Finally, we can view the mesh in ParaView .
+6.  **View the mesh in ParaView** Finally, we can view the mesh in ParaView .
 
     1.  Open ParaView.
 
@@ -171,5 +165,5 @@ For illustration purposes, Figure [fig:P-wave-speed-finite-frequency] shows P-wa
 -----
 > This documentation has been automatically generated by [pandoc](http://www.pandoc.org)
 > based on the User manual (LaTeX version) in folder doc/USER_MANUAL/
-> (Apr  1, 2022)
+> (May 18, 2022)
 
