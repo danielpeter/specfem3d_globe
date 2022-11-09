@@ -1,11 +1,11 @@
 **Table of Contents**
 
--   [Graphics](#graphics)
-    -   [Meshes](#meshes)
-    -   [Movies](#movies)
-        -   [Movie Surface](#movie-surface)
-        -   [Movie Volume](#movie-volume)
-    -   [Finite-Frequency Kernels](#finite-frequency-kernels)
+- [Graphics](#cha:graphics)
+  - [Meshes](#sec:Meshes)
+  - [Movies](#sec:Movies)
+    - [Movie Surface](#movie-surface)
+    - [Movie Volume](#sub:Movie-Volume)
+  - [Finite-Frequency Kernels](#sec:Finite-Frequency-Kernels)
 
 Graphics
 ========
@@ -13,16 +13,16 @@ Graphics
 Meshes
 ------
 
-Use the serial code `combine_AVS_DX.f90` (type ‘`make combine_AVS_DX`’ and then ‘`xcombine_AVS_DX`’) to generate AVS output files (in AVS UCD format) or OpenDX output files showing the mesh, the MPI partition (slices), the \(\nchunks\) chunks, the source and receiver location, etc. Use the AVS UCD files `AVS_continent_boundaries.inp` and `AVS_plate_boundaries.inp` or the OpenDX files `DX_continent_boundaries.dx` and `DX_plate_boundaries.dx` (that can be created using Perl scripts located in `utils/Visualization/opendx_AVS`) for reference.
+Use the serial code `combine_AVS_DX.f90` (type ‘`make combine_AVS_DX`’ and then ‘`xcombine_AVS_DX`’) to generate AVS output files (in AVS UCD format) or OpenDX output files showing the mesh, the MPI partition (slices), the $\nchunks$ chunks, the source and receiver location, etc. Use the AVS UCD files `AVS_continent_boundaries.inp` and `AVS_plate_boundaries.inp` or the OpenDX files `DX_continent_boundaries.dx` and `DX_plate_boundaries.dx` (that can be created using Perl scripts located in `utils/Visualization/opendx_AVS`) for reference.
 
 Movies
 ------
 
-To make a surface or volume movie of the simulation, set parameters `MOVIE_SURFACE`, `MOVIE_VOLUME`, and `NTSTEP_BETWEEN_FRAMES` in the `Par_file`. Turning on the movie flags, in particular `MOVIE_VOLUME`, produces large output files. `MOVIE_VOLUME` files are saved in the `LOCAL_PATH` directory, whereas `MOVIE_SURFACE` output files are saved in the `OUTPUT_FILES` directory. We save the velocity field. The look of a movie is determined by the half-duration of the source. The half-duration should be large enough so that the movie does not contain frequencies that are not resolved by the mesh, i.e., it should not contain numerical noise. This can be accomplished by selecting a CMT `HALF_DURATION` \> 1.1 \(\times\) smallest period (see figure [fig:CMTSOLUTION-file]).
+To make a surface or volume movie of the simulation, set parameters `MOVIE_SURFACE`, `MOVIE_VOLUME`, and `NTSTEP_BETWEEN_FRAMES` in the `Par_file`. Turning on the movie flags, in particular `MOVIE_VOLUME`, produces large output files. `MOVIE_VOLUME` files are saved in the `LOCAL_PATH` directory, whereas `MOVIE_SURFACE` output files are saved in the `OUTPUT_FILES` directory. We save the velocity field. The look of a movie is determined by the half-duration of the source. The half-duration should be large enough so that the movie does not contain frequencies that are not resolved by the mesh, i.e., it should not contain numerical noise. This can be accomplished by selecting a CMT `HALF_DURATION` \> 1.1 $\times$ smallest period (see figure [\[fig:CMTSOLUTION-file\]](#fig:CMTSOLUTION-file)).
 
-When `MOVIE_SURFACE` = `.true.` or `MOVIE_VOLUME`<span> </span>`=`<span> </span>`.true.`, the half duration of each source in the `CMTSOLUTION` file is replaced by
+When `MOVIE_SURFACE` = `.true.` or `MOVIE_VOLUME` `=` `.true.`, the half duration of each source in the `CMTSOLUTION` file is replaced by
 
-> \[\sqrt{(}\mathrm{\mathtt{HALF\_DURATIO}\mathtt{N}^{2}}+\mathrm{\mathtt{HDUR\_MOVI}\mathtt{E}^{2}})\] **NOTE:** If `HDUR_MOVIE` is set to 0.0, the code will select the appropriate value of 1.1 \(\times\) smallest period. As usual, for a point source one can set `HALF_DURATION` in the `Par_file` to be 0.0 and `HDUR_MOVIE` = 0.0 to get the highest frequencies resolved by the simulation, but for a finite source one would keep all the `HALF_DURATION`s as prescribed by the finite source model and set `HDUR_MOVIE` = 0.0.
+> $$\sqrt{(}\mathrm{\mathtt{HALF\_DURATIO}\mathtt{N}^{2}}+\mathrm{\mathtt{HDUR\_MOVI}\mathtt{E}^{2}})$$ **NOTE:** If `HDUR_MOVIE` is set to 0.0, the code will select the appropriate value of 1.1 $\times$ smallest period. As usual, for a point source one can set `HALF_DURATION` in the `Par_file` to be 0.0 and `HDUR_MOVIE` = 0.0 to get the highest frequencies resolved by the simulation, but for a finite source one would keep all the `HALF_DURATION`s as prescribed by the finite source model and set `HDUR_MOVIE` = 0.0.
 
 ### Movie Surface
 
@@ -35,21 +35,21 @@ When running `xspecfem3D` with the `MOVIE_SURFACE` flag turned on the code outpu
 
 When running xspecfem3D with the `MOVIE_VOLUME` flag turned on, the code outputs several files in `LOCAL_DIR`. As the files can be very large, there are several flags in the `Par_file` that control the region in space and time that is saved. These are: `MOVIE_TOP_KM`, `MOVIE_BOTTOM_KM`, `MOVIE_WEST_DEG`, `MOVIE_EAST_DEG`, `MOVIE_NORTH_DEG`, `MOVIE_SOUTH_DEG`, `MOVIE_START` and `MOVIE_STOP`. The code will save a given element if the center of the element is in the prescribed volume.
 
-<span>The Top/Bottom:</span>  
+The Top/Bottom:  
 Depth below the surface in kilometers, use `MOVIE_TOP` `=` `-100.0` to make sure the surface is stored.
 
-<span>West/East:</span>  
-Longitude, degrees East <span>[</span>-180.0/180.0]
+West/East:  
+Longitude, degrees East \[-180.0/180.0\]
 
-<span>North/South:</span>  
-Latitute, degrees North <span>[</span>-90.0/90.0]
+North/South:  
+Latitute, degrees North \[-90.0/90.0\]
 
-<span>Start/Stop:</span>  
-Frames will be stored at `MOVIE_START` `+` `i*NSTEP_BETWEEN_FRAMES`, where `i=(0,1,2..)` while `i*NSTEP_BETWEEN_FRAMES` `<=` `MOVIE_STOP`
+Start/Stop:  
+Frames will be stored at `MOVIE_START` `+` `i``*``NSTEP_BETWEEN_FRAMES`, where `i=(0,1,2..)` while `i``*``NSTEP_BETWEEN_FRAMES` `<=` `MOVIE_STOP`
 
 The code saves several files, and the output is saved by each processor. The first is `proc??????_movie3D_info.txt` which contains two numbers, first the number of points within the prescribed volume within this particular slice, and second the number of elements. The next files are `proc??????_movie3D_x.bin`, `proc??????_movie3D_y.bin`, `proc??????_movie3D_z.bin` which store the locations of the points in the 3D mesh.
 
-Finally the code stores the “value” at each of the points. Which value is determined by `MOVIE_VOLUME_TYPE` in the `Par_file`. Choose 1 to save the strain, 2 to save the time integral of strain, and 3 to save \(\mu\)<span>\*</span>time integral of strain in the subvolume. Choosing 4 causes the code to save the trace of the stress and the deviatoric stress in the whole volume (not the subvolume in space), at the time steps specified. The name of the output file will depend on the `MOVIE_VOLUME_TYPE` chosen.
+Finally the code stores the “value” at each of the points. Which value is determined by `MOVIE_VOLUME_TYPE` in the `Par_file`. Choose 1 to save the strain, 2 to save the time integral of strain, and 3 to save $\mu$\*time integral of strain in the subvolume. Choosing 4 causes the code to save the trace of the stress and the deviatoric stress in the whole volume (not the subvolume in space), at the time steps specified. The name of the output file will depend on the `MOVIE_VOLUME_TYPE` chosen.
 
 Setting `MOVIE_VOLUME_COARSE` `=` `.true.` will make the code save only the corners of the elements, not all the points within each element for `MOVIE_VOLUME_TYPE` `=` `1,2,3`.
 
@@ -62,9 +62,11 @@ A utility program to combine the files produced by `MOVIE_VOLUME_TYPE` `=` `1,2,
 Finite-Frequency Kernels
 ------------------------
 
-The finite-frequency kernels computed as explained in Section [sec:Adjoint-simulation-finite] are saved in the `LOCAL_PATH` at the end of the simulation. Therefore, we first need to collect these files on the front end, combine them into one mesh file, and visualize them with some auxilliary programs. Examples of kernel simulations may be found in the `EXAMPLES` directory.
+The finite-frequency kernels computed as explained in Section [\[sec:Adjoint-simulation-finite\]](#sec:Adjoint-simulation-finite) are saved in the `LOCAL_PATH` at the end of the simulation. Therefore, we first need to collect these files on the front end, combine them into one mesh file, and visualize them with some auxilliary programs. Examples of kernel simulations may be found in the `EXAMPLES` directory.
 
-1.  **Create slice files** We will only discuss the case of one source-receiver pair, i.e., the so-called banana-doughnut kernels. Although it is possible to collect the kernel files from all slices onto the front end, it usually takes up too much storage space (at least tens of gigabytes). Since the sensitivity kernels are the strongest along the source-receiver great circle path, it is sufficient to collect only the slices that are along or close to the great circle path.
+1.  **Create slice files**
+
+    We will only discuss the case of one source-receiver pair, i.e., the so-called banana-doughnut kernels. Although it is possible to collect the kernel files from all slices onto the front end, it usually takes up too much storage space (at least tens of gigabytes). Since the sensitivity kernels are the strongest along the source-receiver great circle path, it is sufficient to collect only the slices that are along or close to the great circle path.
 
     A Perl script `utils/Visualization/VTK_Paraview/global_slice_number.pl` can help to figure out the slice numbers that lie along the great circle path (both the minor and major arcs), as well as the slice numbers required to produce a full picture of the inner core if your kernel also illuminates the inner core.
 
@@ -84,7 +86,9 @@ The finite-frequency kernels computed as explained in Section [sec:Adjoint-simul
 
     3.  For cases with multiple sources and multiple receivers, you need to provide a slice file before proceeding to the next step.
 
-2.  **Collect the kernel files** After obtaining the slice files, you can collect the corresponding kernel files from the given slices.
+2.  **Collect the kernel files**
+
+    After obtaining the slice files, you can collect the corresponding kernel files from the given slices.
 
     1.  To accomplish this, you can use or modify the scripts in `utils/collect_database` directory:
 
@@ -98,7 +102,9 @@ The finite-frequency kernels computed as explained in Section [sec:Adjoint-simul
 
     2.  After executing this script, all the necessary mesh topology files as well as the kernel array files are collected to the local directory on the front end.
 
-3.  **Combine kernel files into one mesh file** We use an auxiliary program `combine_vol_data.F90` to combine the volumetric kernel files from all slices into one mesh file, and `combine_surf_data.F90` to combine the surface kernel files.
+3.  **Combine kernel files into one mesh file**
+
+    We use an auxiliary program `combine_vol_data.F90` to combine the volumetric kernel files from all slices into one mesh file, and `combine_surf_data.F90` to combine the surface kernel files.
 
     1.  Compile it in the global code directory:
 
@@ -107,7 +113,6 @@ The finite-frequency kernels computed as explained in Section [sec:Adjoint-simul
                            input_file_dir output_dir low/high-resolution-flag-0-or-1 [region]
 
         where `input_dir` is the directory where all the individual kernel files are stored, and `output_dir` is where the mesh file will be written. Give 0 for low resolution and 1 for high resolution. If region is not specified, all three regions (crust and mantle, outer core, inner core) will be collected, otherwise, only the specified region will be.
-
         Here is an example:
 
             ./xcombine_vol_data slices_major alpha_kernel input_topo_dir input_file_dir output_dir 1
@@ -135,35 +140,39 @@ The finite-frequency kernels computed as explained in Section [sec:Adjoint-simul
 
     2.  Notice that this program `mesh2vtu`, in the `utils/Visualization/VTK_Paraview/mesh2vtu` directory, uses the VTK run-time library for its execution. Therefore, make sure you have it properly installed.
 
-5.  **Copy over the source and receiver .vtk file** In the case of a single source and a single receiver, the simulation also generates the `OUTPUT_FILES/sr.vtk` file to describe the source and receiver locations, which can be viewed in Paraview in the next step.
+5.  **Copy over the source and receiver .vtk file**
 
-6.  **View the mesh in ParaView** Finally, we can view the mesh in ParaView .
+    In the case of a single source and a single receiver, the simulation also generates the `OUTPUT_FILES/sr.vtk` file to describe the source and receiver locations, which can be viewed in Paraview in the next step.
+
+6.  **View the mesh in ParaView**
+
+    Finally, we can view the mesh in ParaView .
 
     1.  Open ParaView.
 
-    2.  From the top menu, \(\rightarrow\), select `file.vtu`, and click the button.
+    2.  From the top menu, File $\rightarrow$ Open data, select `file.vtu`, and click the Accept button.
 
-        -   If the mesh file is of moderate size, it shows up on the screen; otherwise, only the outline is shown.
+        - If the mesh file is of moderate size, it shows up on the screen; otherwise, only the outline is shown.
 
-    3.  Click \(\rightarrow\) \(\rightarrow\) and select to display it.
+    3.  Click Display Tab $\rightarrow$ Display Style $\rightarrow$ Representation and select wireframe of surface to display it.
 
-    4.  To create a cross-section of the volumetric mesh, choose \(\rightarrow\) , and under , choose \(\rightarrow\) .
+    4.  To create a cross-section of the volumetric mesh, choose Filter $\rightarrow$ cut, and under Parameters Tab, choose Cut Function $\rightarrow$ plane.
 
     5.  Fill in center and normal information given by the standard output from `global_slice_number.pl` script.
 
-    6.  To change the color scale, go to \(\rightarrow\) \(\rightarrow\) and reselect lower and upper limits, or change the color scheme.
+    6.  To change the color scale, go to Display Tab $\rightarrow$ Color $\rightarrow$ Edit Color Map and reselect lower and upper limits, or change the color scheme.
 
-    7.  Now load in the source and receiver location file by \(\rightarrow\), select `sr.vt`k, and click the button. Choose \(\rightarrow\), and represent the points by ‘’.
+    7.  Now load in the source and receiver location file by File $\rightarrow$ Open data, select `sr.vt`k, and click the Accept button. Choose Filter $\rightarrow$ Glyph, and represent the points by ‘spheres’.
 
     8.  For more information about ParaView, see the ParaView Users Guide .
 
-For illustration purposes, Figure [fig:P-wave-speed-finite-frequency] shows P-wave speed finite-frequency kernels from cross-correlation traveltime and amplitude measurements for a P arrival recorded at an epicentral distance of \(60^{\circ}\) for a deep event.
+For illustration purposes, Figure [1.1](#fig:P-wave-speed-finite-frequency) shows P-wave speed finite-frequency kernels from cross-correlation traveltime and amplitude measurements for a P arrival recorded at an epicentral distance of $60^{\circ}$ for a deep event.
 
-![P-wave speed finite-frequency kernels from cross-correlation traveltime (top) and amplitude (bottom) measurements for a P arrival recorded at an epicentral distance of \(60^{\circ}\). The kernels together with the associated files and routines to reproduce them may be found in `EXAMPLES/global_PREM_kernels/`. <span data-label="fig:P-wave-speed-finite-frequency"></span>](figures/P_alpha_60d_17s.jpg)
-<div class="figcaption" style="text-align:justify;font-size:80%"><span style="color:#9A9A9A">Figure: P-wave speed finite-frequency kernels from cross-correlation traveltime (top) and amplitude (bottom) measurements for a P arrival recorded at an epicentral distance of \(60^{\circ}\). The kernels together with the associated files and routines to reproduce them may be found in `EXAMPLES/global_PREM_kernels/`. <span data-label="fig:P-wave-speed-finite-frequency"></span></span></div>
+![P-wave speed finite-frequency kernels from cross-correlation traveltime (top) and amplitude (bottom) measurements for a P arrival recorded at an epicentral distance of $60^{\circ}$. The kernels together with the associated files and routines to reproduce them may be found in `EXAMPLES/global_PREM_kernels/`. ](figures/P_alpha_60d_17s.jpg)
+<div class="figcaption" style="text-align:justify;font-size:80%"><span style="color:#9A9A9A">Figure: P-wave speed finite-frequency kernels from cross-correlation traveltime (top) and amplitude (bottom) measurements for a P arrival recorded at an epicentral distance of $60^{\circ}$. The kernels together with the associated files and routines to reproduce them may be found in `EXAMPLES/global_PREM_kernels/`. </span></div>
 
 -----
 > This documentation has been automatically generated by [pandoc](http://www.pandoc.org)
 > based on the User manual (LaTeX version) in folder doc/USER_MANUAL/
-> (May 18, 2022)
+> (Nov  9, 2022)
 
