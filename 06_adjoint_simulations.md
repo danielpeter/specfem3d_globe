@@ -33,11 +33,9 @@ In the case where a specific misfit function is minimized to invert for the eart
 
     4.  Also note that since time-reversal is done in the code itself, no explicit time-reversing is needed for the preparation of the adjoint sources, i.e., the adjoint sources are in the same forward time sense as the original recorded seismograms.
 
-2.  **Set the related parameters and run the adjoint simulation**
-    In the `DATA/Par_file`, set the two related parameters to be `SIMULATION_TYPE = 2` and `SAVE_FORWARD = .false.`. More conveniently, use the scripts `utils/change_simulation_type.pl` to modify the `Par_file` automatically (`change_simulation_type.pl -a`). Then run the solver to launch the adjoint simulation.
+2.  **Set the related parameters and run the adjoint simulation** In the `DATA/Par_file`, set the two related parameters to be `SIMULATION_TYPE = 2` and `SAVE_FORWARD = .false.`. More conveniently, use the scripts `utils/change_simulation_type.pl` to modify the `Par_file` automatically (`change_simulation_type.pl -a`). Then run the solver to launch the adjoint simulation.
 
-3.  **Collect the seismograms at the original source location**
-    After the adjoint simulation has completed successfully, get the seismograms from directory `OUTPUT_FILES`.
+3.  **Collect the seismograms at the original source location** After the adjoint simulation has completed successfully, get the seismograms from directory `OUTPUT_FILES`.
 
     - These adjoint seismograms are recorded at the locations of the original earthquake sources given by the `DATA/CMTSOLUTION` file, and have names of the form `NT.S?????.S??.sem` for the six-component strain tensor (`SNN,SEE,SZZ,SNE,SNZ,SEZ`) at these locations, and `NT.S?????.?X?.sem` for the three-component displacements (i.e., `MXN,MXE,MXZ`) recorded at these locations.
 
@@ -50,8 +48,7 @@ Adjoint Simulations for Finite-Frequency Kernels (Kernel Simulation)
 
 Finite-frequency sensitivity kernels are computed in two successive simulations (please refer to Qinya Liu and Tromp (2006) and Tromp, Komatitsch, and Liu (2008) for details).
 
-1.  **Run a forward simulation with the state variables saved at the end of the simulation**
-    Prepare the `CMTSOLUTION` and `STATIONS` files, set the parameters `SIMULATION_TYPE` `=` `1` and `SAVE_FORWARD =` `.true.` in the `Par_file` (`change_simulation_type -F`), and run the solver.
+1.  **Run a forward simulation with the state variables saved at the end of the simulation** Prepare the `CMTSOLUTION` and `STATIONS` files, set the parameters `SIMULATION_TYPE` `=` `1` and `SAVE_FORWARD =` `.true.` in the `Par_file` (`change_simulation_type -F`), and run the solver.
 
     - Notice that attenuation is not fully implemented yet for the computation of finite-frequency kernels; if `ATTENUATION = .true.` is set in the `Par_file`, only effects on phase shift are accounted for but not on amplitude of the signals. However, we suggest you use the same setting for `ATTENUATION` as for your forward simulations.
 
@@ -61,8 +58,7 @@ Finite-frequency sensitivity kernels are computed in two successive simulations 
 
     - For regional simulations, the files recording the absorbing boundary contribution are also written to the `LOCAL_PATH` when `SAVE_FORWARD = .true.`.
 
-2.  **Prepare the adjoint sources**
-    The adjoint sources need to be prepared the same way as described in Section [1.1](#sec:Adjoint-simulation-sources), item [\[enu:Prepare-the-adjoint\]](#enu:Prepare-the-adjoint).
+2.  **Prepare the adjoint sources** The adjoint sources need to be prepared the same way as described in Section [1.1](#sec:Adjoint-simulation-sources), item [\[enu:Prepare-the-adjoint\]](#enu:Prepare-the-adjoint).
 
     - In the case of traveltime finite-frequency kernel for one source-receiver pair, i.e., point source from the `CMTSOLUTION`, and one station in the `STATIONS_ADJOINT` list, we supply a sample program in `utils/adjoint_sources/traveltime` to cut a certain portion of the original displacement seismograms and convert them into the proper adjoint source to compute the finite-frequency kernel.
 
@@ -86,8 +82,7 @@ Finite-frequency sensitivity kernels are computed in two successive simulations 
 
     i.e., suppress file endings `.sem.ascii`. You will also need to create a file called `STATIONS_ADJOINT` in the `DATA/` directory in the root directory of the code. That file can be identical to the `DATA/STATIONS` file if you had a single station in `STATIONS`.
 
-3.  **Run the kernel simulation**
-    With the successful forward simulation and the adjoint source ready in `SEM/`, set `SIMULATION_TYPE = 3` and `SAVE_FORWARD = .false.` in the `Par_file` (e.g., use: `utils/change_simulation_type.pl -b`), and rerun the solver.
+3.  **Run the kernel simulation** With the successful forward simulation and the adjoint source ready in `SEM/`, set `SIMULATION_TYPE = 3` and `SAVE_FORWARD = .false.` in the `Par_file` (e.g., use: `utils/change_simulation_type.pl -b`), and rerun the solver.
 
     - The adjoint simulation is launched together with the back reconstruction of the original forward wavefield from the state variables saved from the previous forward simulation, and the finite-frequency kernels are computed by the interaction of the reconstructed forward wavefield and the adjoint wavefield.
 
@@ -99,14 +94,11 @@ Finite-frequency sensitivity kernels are computed in two successive simulations 
 
     - Note that if you set the flag `APPROXIMATE_HESS_KL = .true.` in the `constants.h` file and recompile the solver, the adjoint simulation also saves files `proc??????_reg_1_hess_kernel.bin` which can be used as preconditioners in the crust-mantle region for iterative inverse optimization schemes.
 
-4.  **Run the boundary kernel simulation**
-    If you set the `SAVE_BOUNDARY_MESH = .true.` in the `constants.h` file before the simulations, i.e., at the beginning of step 1, you will get not only the volumetric kernels as described in step 3, but also boundary kernels for the Earth’s internal discontinuities, such as Moho, 410-km discontinuity, 670-km discontinuity, CMB and ICB. These kernel files are also saved in the local scratch directory defined by `LOCAL_PATH `and have names such as `proc??????_reg_1(2)_Moho(d400,d670,CMB,ICB)_kernel.bin`. For a theoretical derivation of the boundary kernels, refer to Tromp, Tape, and Liu (2005), and for the visualization of the boundary kernels, refer to Section [\[sec:Finite-Frequency-Kernels\]](#sec:Finite-Frequency-Kernels).
+4.  **Run the boundary kernel simulation** If you set the `SAVE_BOUNDARY_MESH = .true.` in the `constants.h` file before the simulations, i.e., at the beginning of step 1, you will get not only the volumetric kernels as described in step 3, but also boundary kernels for the Earth’s internal discontinuities, such as Moho, 410-km discontinuity, 670-km discontinuity, CMB and ICB. These kernel files are also saved in the local scratch directory defined by `LOCAL_PATH `and have names such as `proc??????_reg_1(2)_Moho(d400,d670,CMB,ICB)_kernel.bin`. For a theoretical derivation of the boundary kernels, refer to Tromp, Tape, and Liu (2005), and for the visualization of the boundary kernels, refer to Section [\[sec:Finite-Frequency-Kernels\]](#sec:Finite-Frequency-Kernels).
 
-5.  **Run the anisotropic kernel simulation**
-    Instead of the kernels for the isotropic wave speeds, you can also compute the kernels for the 21 independent components $C_{IJ},\, I,J=1,...,6$ (using Voigt’s notation) of the elastic tensor in the (spherical) geographical coordinate system. This is done by setting `ANISOTROPIC_KL` `=` `.true.` in `constants.h` before step 3. The definition of the parameters $C_{IJ}$ in terms of the corresponding components $c_{ijkl},ijkl,i,j,k,l=1,2,3$ of the elastic tensor in spherical coordinates follows Chen and Tromp (2007). The computation of the anisotropic kernels is only implemented in the crust and mantle regions. The 21 anisotropic kernels are saved in the `LOCAL_PATH` in one file with the name of `proc??????_reg1_cijkl_kernel.bin` (with `proc??????` the processor number). The output kernels correspond to perturbation $\delta C_{IJ}$ of the elastic parameters and their unit is in $s/GPa/km^{3}$. For consistency, the output density kernels with this option turned on are for a perturbation $\delta\rho$ (and not $\frac{\delta\rho}{\rho}$) and their unit is in s / (kg/m$^{3}$) / km$^{3}$. These ‘primary’ anisotropic kernels can then be combined to obtain the kernels related to other descriptions of anisotropy. This can be done, for example, when combining the kernel files from slices into one mesh file (see Section [\[sec:Finite-Frequency-Kernels\]](#sec:Finite-Frequency-Kernels)).
+5.  **Run the anisotropic kernel simulation** Instead of the kernels for the isotropic wave speeds, you can also compute the kernels for the 21 independent components $C_{IJ},\, I,J=1,...,6$ (using Voigt’s notation) of the elastic tensor in the (spherical) geographical coordinate system. This is done by setting `ANISOTROPIC_KL` `=` `.true.` in `constants.h` before step 3. The definition of the parameters $C_{IJ}$ in terms of the corresponding components $c_{ijkl},ijkl,i,j,k,l=1,2,3$ of the elastic tensor in spherical coordinates follows Chen and Tromp (2007). The computation of the anisotropic kernels is only implemented in the crust and mantle regions. The 21 anisotropic kernels are saved in the `LOCAL_PATH` in one file with the name of `proc??????_reg1_cijkl_kernel.bin` (with `proc??????` the processor number). The output kernels correspond to perturbation $\delta C_{IJ}$ of the elastic parameters and their unit is in $s/GPa/km^{3}$. For consistency, the output density kernels with this option turned on are for a perturbation $\delta\rho$ (and not $\frac{\delta\rho}{\rho}$) and their unit is in s / (kg/m$^{3}$) / km$^{3}$. These ‘primary’ anisotropic kernels can then be combined to obtain the kernels related to other descriptions of anisotropy. This can be done, for example, when combining the kernel files from slices into one mesh file (see Section [\[sec:Finite-Frequency-Kernels\]](#sec:Finite-Frequency-Kernels)).
 
-6.  **Run the steady state kernel simulation**
-    For source encoded adjoint tomography, you can compute the stationary kernels by enabling the flag `STEADY_STATE_KERNEL`. The kernels will then be computed through the stationary part of the wavefield, as is shown in Figure [\[fig:Steady-state-kernel\]](#fig:Steady-state-kernel). The length of the stationary wavefield ($\Delta\tau$ in Figure [1.1](#fig:Steady-state-kernel)) can be speified with `STEADY_STATE_LENGTH_IN_MINUTES`. Please refer to Bachmann and Tromp (2020) for details.
+6.  **Run the steady state kernel simulation** For source encoded adjoint tomography, you can compute the stationary kernels by enabling the flag `STEADY_STATE_KERNEL`. The kernels will then be computed through the stationary part of the wavefield, as is shown in Figure [\[fig:Steady-state-kernel\]](#fig:Steady-state-kernel). The length of the stationary wavefield ($\Delta\tau$ in Figure [1.1](#fig:Steady-state-kernel)) can be speified with `STEADY_STATE_LENGTH_IN_MINUTES`. Please refer to Bachmann and Tromp (2020) for details.
 
     ![An illustration of computing steady state kernels. Instead of integrating the forward and adjoint wavefields from the beginning, a steady state kernel is computed by integrating the wavefields starting from the time when steady state is reached ($t_{ss}$).](figures/fig7.jpg)
 <div class="figcaption" style="text-align:justify;font-size:80%"><span style="color:#9A9A9A">Figure: An illustration of computing steady state kernels. Instead of integrating the forward and adjoint wavefields from the beginning, a steady state kernel is computed by integrating the wavefields starting from the time when steady state is reached ($t_{ss}$).</span></div>
@@ -137,5 +129,5 @@ Tromp, Jeroen, Carl Tape, and Qinya Liu. 2005. “Seismic Tomography, Adjoint Me
 -----
 > This documentation has been automatically generated by [pandoc](http://www.pandoc.org)
 > based on the User manual (LaTeX version) in folder doc/USER_MANUAL/
-> (Nov  9, 2022)
+> (Nov 21, 2022)
 

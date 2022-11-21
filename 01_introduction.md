@@ -9,23 +9,36 @@ Introduction
 ============
 
 The software package SPECFEM3D_GLOBE simulates three-dimensional global and regional seismic wave propagation and performs full waveform imaging (FWI) or adjoint tomography based upon the spectral-element method (SEM). The SEM is a continuous Galerkin technique (Jeroen Tromp, Komatitsch, and Liu 2008; Peter et al. 2011), which can easily be made discontinuous (Bernardi, Maday, and Patera 1994; E. Chaljub 2000; Kopriva, Woodruff, and Hussaini 2002; E. Chaljub, Capdeville, and Vilotte 2003; Legay, Wang, and Belytschko 2005; Kopriva 2006; Wilcox et al. 2010; Acosta Minolia and Kopriva 2011); it is then close to a particular case of the discontinuous Galerkin technique (Reed and Hill 1973; Lesaint and Raviart 1974; Arnold 1982; Johnson and Pitkäranta 1986; Bourdel, Mazet, and Helluy 1991; Falk and Richter 1999; Hu, Hussaini, and Rasetarinera 1999; Cockburn, Karniadakis, and Shu 2000; Giraldo, Hesthaven, and Warburton 2002; Rivière and Wheeler 2003; Monk and Richter 2005; Grote, Schneebeli, and Schötzau 2006; Ainsworth, Monk, and Muniz 2006; Bernacki, Lanteri, and Piperno 2006; Dumbser and Käser 2006; J. D. De Basabe, Sen, and Wheeler 2008; Puente, Ampuero, and Käser 2009; Wilcox et al. 2010; Jonás D. De Basabe and Sen 2010; Étienne et al. 2010), with optimized efficiency because of its tensorized basis functions (Wilcox et al. 2010; Acosta Minolia and Kopriva 2011). In particular, it can accurately handle very distorted mesh elements (Oliveira and Seriani 2011).
+
 It has very good accuracy and convergence properties (Maday and Patera 1989; G. Seriani and Priolo 1994; Deville, Fischer, and Mund 2002; Gary Cohen 2002; Jonás D. De Basabe and Sen 2007; G. Seriani and Oliveira 2008; Ainsworth and Wajid 2009, 2010; Melvin, Staniforth, and Thuburn 2012). The spectral element approach admits spectral rates of convergence and allows exploiting $hp$-convergence schemes. It is also very well suited to parallel implementation on very large supercomputers (Dimitri Komatitsch et al. 2003; Tsuboi et al. 2003; Dimitri Komatitsch, Labarta, and Michéa 2008; Carrington et al. 2008; D. Komatitsch, Vinnik, and Chevrot 2010) as well as on clusters of GPU accelerating graphics cards (Dimitri Komatitsch 2011; Michéa and Komatitsch 2010; Dimitri Komatitsch, Michéa, and Erlebacher 2009; Dimitri Komatitsch et al. 2010). Tensor products inside each element can be optimized to reach very high efficiency (Deville, Fischer, and Mund 2002), and mesh point and element numbering can be optimized to reduce processor cache misses and improve cache reuse (Dimitri Komatitsch, Labarta, and Michéa 2008). The SEM can also handle triangular (in 2D) or tetrahedral (in 3D) elements (Wingate and Boyd 1996; Taylor and Wingate 2000; D. Komatitsch et al. 2001; Gary Cohen 2002; Mercerat, Vilotte, and Sánchez-Sesma 2006) as well as mixed meshes, although with increased cost and reduced accuracy in these elements, as in the discontinuous Galerkin method.
+
 Note that in many geological models in the context of seismic wave propagation studies (except for instance for fault dynamic rupture studies, in which very high frequencies or supershear rupture need to be modeled near the fault, see e.g. (Benjemaa et al. 2007, 2009; Puente, Ampuero, and Käser 2009; Tago et al. 2010)) a continuous formulation is sufficient because material property contrasts are not drastic and thus conforming mesh doubling bricks can efficiently handle mesh size variations (D. Komatitsch and Tromp 2002a; Dimitri Komatitsch et al. 2004; Lee et al. 2008; Lee, Chan, et al. 2009; Lee, Komatitsch, et al. 2009). This is particularly true at the scale of the full Earth.
+
 For a detailed introduction to the SEM as applied to global and regional seismic wave propagation, please consult Jeroen Tromp, Komatitsch, and Liu (2008; Peter et al. 2011; D. Komatitsch and Vilotte 1998; D. Komatitsch and Tromp 1999, 2002a, 2002b; E. Chaljub 2000; D. Komatitsch, Ritsema, and Tromp 2002; E. Chaljub, Capdeville, and Vilotte 2003; Capdeville et al. 2003; E. Chaljub and Valette 2004; Emmanuel Chaljub et al. 2007). A detailed theoretical analysis of the dispersion and stability properties of the SEM is available in Gary Cohen (2002), Jonás D. De Basabe and Sen (2007), Géza Seriani and Oliveira (2007), G. Seriani and Oliveira (2008) and Melvin, Staniforth, and Thuburn (2012).
+
 Effects due to lateral variations in compressional-wave speed, shear-wave speed, density, a 3D crustal model, ellipticity, topography and bathymetry, the oceans, rotation, and self-gravitation are included. The package can accommodate full 21-parameter anisotropy (Chen and Tromp 2007) as well as lateral variations in attenuation (Savage, Komatitsch, and Tromp 2010). Adjoint capabilities and finite-frequency kernel simulations are also included (Jeroen Tromp, Komatitsch, and Liu 2008; Peter et al. 2011; Qinya Liu and Tromp 2006; Q. Liu and Tromp 2008; Fichtner et al. 2009; Virieux and Operto 2009).
+
 The SEM was originally developed in computational fluid dynamics (Patera 1984; Maday and Patera 1989) and has been successfully adapted to address problems in seismic wave propagation. Early seismic wave propagation applications of the SEM, utilizing Legendre basis functions and a perfectly diagonal mass matrix, include (G. Cohen, Joly, and Tordjman 1993), (Dimitri Komatitsch 1997), (Faccioli et al. 1997), (Casadei and Gabellini 1997), (D. Komatitsch and Vilotte 1998) and (D. Komatitsch and Tromp 1999), whereas applications involving Chebyshev basis functions and a nondiagonal mass matrix include (G. Seriani and Priolo 1994), (Priolo, Carcione, and Seriani 1994) and (G. Seriani, Priolo, and Pregarz 1995). In the Legendre version that we use in SPECFEM the mass matrix is purposely slightly inexact but diagonal (but can be made exact if needed, see (Teukolsky 2015)), while in the Chebyshev version it is exact but non diagonal.
+
 Beware that, in a spectral-element method, some spurious modes (that have some similarities with classical so-called "Hourglass modes" in finite-element techniques, although in the SEM they are not zero-energy modes) can appear in some (but not all) cases in the spectral element in which the source is located. Fortunately, they do not propagate away from the source element. However, this means that if you put a receiver in the same spectral element as a source, the recorded signals may in some cases be wrong, typically exhibiting some spurious oscillations, which are often even non causal. If that is the case, an easy option is to slightly change the mesh in the source region in order to get rid of these Hourglass-like spurious modes, as explained in (Duczek et al. 2014), in which this phenomenon is described in details, and in which practical solutions to avoid it are suggested.
+
 SPECFEM3D_GLOBE can now perform gravity field calculations in addition (or instead of) seismic wave propagation only. See flag `GRAVITY_INTEGRALS` in file `setup/constants.h.in`. Please also refer to R. Martin et al. (2017). And yes, that is the reason why there is a gravity observation satellite on the cover of the manual :-)
+
 All SPECFEM3D_GLOBE software is written in Fortran2003 with full portability in mind, and conforms strictly to the Fortran2003 standard. It uses no obsolete or obsolescent features of Fortran. The package uses parallel programming based upon the Message Passing Interface (MPI) (Gropp, Lusk, and Skjellum 1994; Pacheco 1997).
+
 SPECFEM3D_GLOBE won the Gordon Bell award for best performance at the SuperComputing 2003 conference in Phoenix, Arizona (USA) (see (Dimitri Komatitsch et al. 2003)). It was a finalist again in 2008 for a run at 0.16 petaflops (sustained) on 149,784 processors of the ‘Jaguar’ Cray XT5 system at Oak Ridge National Laboratories (USA) (Carrington et al. 2008). It also won the BULL Joseph Fourier supercomputing award in 2010.
+
 It reached the sustained one petaflop performance level for the first time in February 2013 on the Blue Waters Cray supercomputer at the National Center for Supercomputing Applications (NCSA), located at the University of Illinois at Urbana-Champaign (USA).
+
 The package includes support for GPU graphics card acceleration (Dimitri Komatitsch 2011; Michéa and Komatitsch 2010; Dimitri Komatitsch, Michéa, and Erlebacher 2009; Dimitri Komatitsch et al. 2010) and also supports OpenCL.
 
 Citation
 --------
 
 You can find all the references below in format in file `doc/USER_MANUAL/bibliography.bib`.
+
 If you use SPECFEM3D_GLOBE for your own research, please cite at least one of the following articles: (Dimitri Komatitsch et al. 2016, 2010, 2004; Jeroen Tromp, Komatitsch, and Liu 2008; Peter et al. 2011; Vai et al. 1999; Lee et al. 2008; Lee, Chan, et al. 2009; Lee, Komatitsch, et al. 2009; Dimitri Komatitsch, Michéa, and Erlebacher 2009; Wijk et al. 2004; Emmanuel Chaljub et al. 2007; Madec, Komatitsch, and Diaz 2009; D. Komatitsch, Vinnik, and Chevrot 2010; Carrington et al. 2008; Jeroen Tromp et al. 2010; D. Komatitsch, Ritsema, and Tromp 2002; D. Komatitsch and Tromp 2002a, 2002b, 1999) or (D. Komatitsch and Vilotte 1998).
+
 If you use the C-PML absorbing layer capabilities of the code, please cite at least one article written by the developers of the package, for instance:
 
 - (Xie et al. 2014),
@@ -53,9 +66,13 @@ If you use the kernel capabilities of the code, please cite at least one article
 - (Morency, Luo, and Tromp 2009).
 
 If you use this new version, which has non blocking MPI for much better performance for medium or large runs, please cite at least one of these five articles, in which results of 3D non blocking MPI runs are presented: (Dimitri Komatitsch et al. 2010; D. Komatitsch, Vinnik, and Chevrot 2010; Dimitri Komatitsch 2011; Peter et al. 2011; Carrington et al. 2008).
+
 If you use GPU graphics card acceleration please cite e.g. (Dimitri Komatitsch 2011), (Michéa and Komatitsch 2010), (Dimitri Komatitsch, Michéa, and Erlebacher 2009), and/or (Dimitri Komatitsch et al. 2010).
+
 If you work on geophysical applications, you may be interested in citing some of these application articles as well, among others: (Wijk et al. 2004; Ji et al. 2005; Krishnan et al. 2006a, 2006b; Lee et al. 2008; Lee, Chan, et al. 2009; Lee, Komatitsch, et al. 2009; Chevrot, Favier, and Komatitsch 2004; Favier, Chevrot, and Komatitsch 2004; Ritsema et al. 2002; Godinho et al. 2009; J. Tromp and Komatitsch 2000; Savage, Komatitsch, and Tromp 2010). If you use 3D mantle model S20RTS, please cite Ritsema, Van Heijst, and Woodhouse (1999).
+
 Domain decomposition is explained in detail in (Roland Martin et al. 2008), and excellent scaling up to 150,000 processor cores in shown for instance in (Carrington et al. 2008; Dimitri Komatitsch, Labarta, and Michéa 2008; Roland Martin et al. 2008; Dimitri Komatitsch et al. 2010; Dimitri Komatitsch 2011).
+
 The corresponding BibTeX entries may be found in file `doc/USER_MANUAL/bibliography.bib`.
 
 Support
@@ -279,5 +296,5 @@ Xie, Zhinan, René Matzen, Paul Cristini, Dimitri Komatitsch, and Roland Martin.
 -----
 > This documentation has been automatically generated by [pandoc](http://www.pandoc.org)
 > based on the User manual (LaTeX version) in folder doc/USER_MANUAL/
-> (Nov  9, 2022)
+> (Nov 21, 2022)
 
