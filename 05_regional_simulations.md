@@ -2,6 +2,9 @@
 
 - [Regional Simulations](#cha:Regional-Simulations)
   - [One-Chunk Simulations](#sec:One-Chunk-Simulations)
+    - [Mesh cutoff](#sec:Mesh-cutoff)
+    - [Absorbing boundaries](#sec:Absorbing-boundaries)
+    - [Mesh resolution](#sec:Mesh-resolution)
   - [References](#references)
 
 Regional Simulations
@@ -56,8 +59,46 @@ The number of processors or slices along the $\eta$ side of the chunk; we must h
 
 ![Close-up view of the upper mantle mesh shown in Figure [1.1](#fig:3D-spectral-element-mesh).<div class="figcaption" style="text-align:justify;font-size:80%"><span style="color:#9A9A9A">Figure: Close-up view of the upper mantle mesh shown in Figure [1.1</span></div>. Note that the element size in the crust (top layer) is 13 km $\times$ 13 km, and that the size of the spectral elements is doubled in the upper mantle. The velocity variation is captured by NGLL = 5 grid points in each direction of the elements (Komatitsch and Tromp 2002a, 2002b).](figures/fig5b.jpg)
 
+### Mesh cutoff
+
+By default, the mesher will create a full one-chunk mesh, i.e., for all three regions, crust/mantle, outer core and inner core respectively. The mesh thus goes down to the inner core, which for very small regional, or even local, simulations would not be needed. Furthermore, the default one-chunk mesh will place a first doubling layer below the Moho and a second one below the 771-km depth layer.
+
+To create more specific local meshes, an additional option `REGIONAL_MESH_CUTOFF` together with accompanying parameters have been been added to the `Par_file`:
+
 `REGIONAL_MESH_CUTOFF`  
-For regional simulations, choosing this flag will cut-off the mesh at a mesh layer below the given input depth, specified by `REGIONAL_MESH_CUTOFF_DEPTH`. By default, the mesher will create a full chunk mesh, i.e., for all three regions, crust/mantle, outer core and inner core respectively. Furthermore, it will place a first doubling layer below the Moho and a second one below the 771-km depth layer. Setting the flag `REGIONAL_MESH_ADD_2ND_DOUBLING` to `.true.` will move the second doubling layer below the 220-km depth layer, to also have a second mesh coarsening possibility for the cut-off mesh.
+For regional simulations, choosing this flag will cut-off the mesh at a mesh layer below the given input depth, specified by `REGIONAL_MESH_CUTOFF_DEPTH`.
+
+`REGIONAL_MESH_CUTOFF_DEPTH`  
+For cutoff meshes, determines the cutoff depth in km (possible selections are 24.4, 80, 220, 400, 600, 670, 771)
+
+`REGIONAL_MESH_ADD_2ND_DOUBLING`  
+Setting the flag to `.true.` will move the second doubling layer below the 220-km depth layer, to also have a second mesh coarsening possibility for the cut-off mesh.
+
+With these mesh cutoffs parameters, the mesher will remove elements from a standard one-chunk mesh below the cut-off depth. To further tweak and define local meshes, for example by adding multiple doubling layers (similar to the SPECFEM3D_Cartesian mesher), the following parameters can be added to the `Par_file` which only take effect if the flag `REGIONAL_MESH_CUTOFF` has been turned on:
+
+`USE_LOCAL_MESH`  
+Setting this flag to `.true.` will turn on the local mesh layout.
+
+`NUMBER_OF_LAYERS_CRUST`  
+For the local mesh layout, determines the number of element layers in the crust. The crustal Moho depth used will be the ficticious Moho depth, i.e., at either 40 or 35 km depth depending on the `RMOHO_STRETCH_ADJUSTMENT` setting in file `setup/constants.h`.
+
+`NUMBER_OF_LAYERS_MANTLE`  
+For the local mesh layout, determines the number of element layers in the mantle. The mantle depth is given by the `REGIONAL_MESH_CUTOFF_DEPTH` setting.
+
+`NDOUBLINGS`  
+Sets the number of doubling layers in the local mesh. A maximum of 5 doubling layers is accepted. For each doubling layer, the element layer number must be specified.
+
+`NZ_DOUBLING_1`  
+Sets the position of the first doubling layer (counting the mesh element layers from top down). Additional doubling layer position can be specified by adding `NZ_DOUBLING_2`, `NZ_DOUBLING_3`, .. up to `NZ_DOUBLING_5`.
+
+Applying such a local mesh layout will affect the time step size, and therefore requires the selection of an appropriate time step size. To override the default time step size estimation, one can explicitly specify the size by adding the `DT` parameter:
+
+`DT`  
+A user-specified value for the time step size (in seconds). This setting will override the meshers estimated time step size. To set an appropriate value, one can check in file `OUTPUT_FILES/output_mesher.txt` the output given by the mesher, where you will find a section on the verification of mesh parameters with a maximum suggested time step for the crust/mantle region.
+
+### Absorbing boundaries
+
+For regional simulations, the following options in the `Par_file` will add absorbing boundary conditions:
 
 `ABSORBING_CONDITIONS`  
 Set to `.true.` for regional simulations. For instance, see Komatitsch and Tromp (1999) for a description of the paraxial boundary conditions used. Note that these conditions are never perfect, and in particular surface waves may partially reflect off the artificial boundaries. Note also that certain arrivals, e.g., PKIKPPKIKP, will be missing from the synthetics.
@@ -77,7 +118,11 @@ Radius of the sponge region.
 ![An illustration of running simulation with sponge. This is a regional simulation that happens in the simulation region, the quality factor in the sponge region gradually transits to 30.](figures/fig6.jpg)
 <div class="figcaption" style="text-align:justify;font-size:80%"><span style="color:#9A9A9A">Figure: An illustration of running simulation with sponge. This is a regional simulation that happens in the simulation region, the quality factor in the sponge region gradually transits to 30.</span></div>
 
-When the width of the chunk is different from $90^{\circ}$ (or the number of elements is greater than 1248), the radial distribution of elements needs to be adjusted as well to maintain spectral elements that are as cube-like as possible. The code attempts to do this, but be sure to view the mesh with your favorite graphics package to make sure that the element are well behaved. Remember: a high-quality mesh is paramount for accurate simulations. In addition to a reorganization of the radial distribution of elements, the time stepping and period range in which the attenuation is applied is automatically determined. The minimum and maximum periods for attenuation are:
+### Mesh resolution
+
+When the width of the chunk is different from $90^{\circ}$ (or the number of elements is greater than 1248), the radial distribution of elements needs to be adjusted as well to maintain spectral elements that are as cube-like as possible. The code attempts to do this, but be sure to view the mesh with your favorite graphics package to make sure that the element are well behaved.
+
+Remember: a high-quality mesh is paramount for accurate simulations. In addition to a reorganization of the radial distribution of elements, the time stepping and period range in which the attenuation is applied is automatically determined. The minimum and maximum periods for attenuation are:
 
 $$\omega_{max}=\omega_{min}\times10^{W_{3}}$$
 
@@ -89,7 +134,7 @@ dt = $S_{c}$ Element Width in km ($r=$ICB) / Velocity ($r=$ICB)
 
 where $S_{c}$ is the stability condition (about 0.4). We use the radius at the inner core boundary because this is where the maximum velocity/element width occurs. Again, see `read_compute_parameters``.f90` for all the details.
 
-The approximate shortest period at which a regional simulation is accurate may be determined based upon the relation $$\mbox{shortest period (s)}\simeq(256/\nexxi)\times(\texttt{ANGULAR\_WIDTH\_XI\_IN\_DEGREES}/90)\times17.\label{eq:shortest_period_regional}$$
+The approximate shortest period at which a regional simulation is accurate may be determined based upon the empirical relation $$\mbox{shortest period (s)}\simeq(256/\nexxi)\times(\texttt{ANGULAR\_WIDTH\_XI\_IN\_DEGREES}/90)\times17.\label{eq:shortest_period_regional}$$
 
 References
 ----------
@@ -107,5 +152,5 @@ Ritsema, J., and H. J. Van Heijst. 2000. “Seismic Imaging of Structural Hetero
 -----
 > This documentation has been automatically generated by [pandoc](http://www.pandoc.org)
 > based on the User manual (LaTeX version) in folder doc/USER_MANUAL/
-> (Nov 21, 2022)
+> (Mar 12, 2023)
 
