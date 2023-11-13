@@ -29,12 +29,12 @@ Any other change to the `Par_file` implies rerunning both the mesher and the sol
 
 For any particular earthquake, the `CMTSOLUTION` file that represents the point source may be obtained directly from the Global Centroid-Moment Tensor (CMT) [web page](www.globalcmt.org). It looks like this:
 
-![image](figures/Denali_CMT.jpg)
-<div class="figcaption" style="text-align:justify;font-size:80%"><span style="color:#9A9A9A">Figure: image</span></div>
+![`CMTSOLUTION` file obtained from the Global CMT catalog. The top line is the initial estimate of the source, which is used as a starting point for the CMT solution. **M** is the moment tensor, $M_{0}$ is the seismic moment, and $M_{w}$ is the moment magnitude.](figures/Denali_CMT.jpg)
+<div class="figcaption" style="text-align:justify;font-size:80%"><span style="color:#9A9A9A">Figure: `CMTSOLUTION` file obtained from the Global CMT catalog. The top line is the initial estimate of the source, which is used as a starting point for the CMT solution. **M** is the moment tensor, $M_{0}$ is the seismic moment, and $M_{w}$ is the moment magnitude.</span></div>
 
 The `CMTSOLUTION` should be edited in the following way:
 
-- For point-source simulations (see finite sources, page ), setting the source half-duration parameter `half duration` equal to zero corresponds to simulating a step source-time function (Heaviside), i.e., to using a moment-rate function that is a delta function. If `half duration` is not set to zero, the code will use a smooth (pseudo) Heaviside source-time function with a corresponding Gaussian moment-rate function (i.e., a signal with a shape similar to a ‘smoothed triangle’, as explained in Komatitsch and Tromp (2002) and shown in Fig [1.1](#fig:gauss.vs.triangle)) with half-width `half duration`.
+- For point-source simulations (see finite sources, page ), setting the source half-duration parameter `half duration` equal to zero corresponds to simulating a step source-time function (Heaviside), i.e., to using a moment-rate function that is a delta function. If `half duration` is not set to zero, the code will use a smooth (pseudo) Heaviside source-time function with a corresponding Gaussian moment-rate function (i.e., a signal with a shape similar to a ‘smoothed triangle’, as explained in Komatitsch and Tromp (2002) and shown in Fig [1.2](#fig:gauss.vs.triangle)) with half-width `half duration`.
 
   Often, it is preferable to run the solver with `half duration` set to zero and convolve the resulting synthetic seismograms in post-processing after the run, because this way it is easy to use a variety of source-time functions (see Section [\[sec:Process-data-and-syn\]](#sec:Process-data-and-syn)). Komatitsch and Tromp (2002) determined that the noise generated in the simulation by using a step source time function may be safely filtered out afterward based upon a convolution with the desired source-time function and/or low-pass filtering. Use the postprocessing script `process_syn.pl` (see Section [\[sub:process_syn.pl\]](#sub:process_syn.pl)) with the `-h` flag, or the serial code `convolve_source_timefunction.f90` and the script `utils/convolve_source_timefunction.csh` for this purpose, or alternatively use signal-processing software packages such as [SAC](http://www.iris.edu/software/sac/). Type
 
@@ -61,12 +61,12 @@ In the current version of the code, the solver can run with a non-zero `time shi
 
 To simulate a kinematic rupture, i.e., a finite-source event, represented in terms of $N_{\mathrm{sources}}$ point sources, provide a `CMTSOLUTION` file that has $N_{\mathrm{sources}}$ entries, one for each subevent (i.e., concatenate $N_{\mathrm{sources}}$ `CMTSOLUTION` files to a single `CMTSOLUTION` file). At least one entry (not necessarily the first) must have a zero `time shift`, and all the other entries must have non-negative `time shift`. If none of the entries has a zero `time shift` in the `CMTSOLUTION` file, the smallest `time shift` is subtracted from all sources to initiate the simulation. Each subevent can have its own half duration, latitude, longitude, depth, and moment tensor (effectively, the local moment-density tensor).
 
-Note that the zero in the synthetics does NOT represent the hypocentral time or centroid time in general, but the timing of the *center* of the source triangle with zero `time shift` (Fig [1.2](#fig:source_timing)).
+Note that the zero in the synthetics does NOT represent the hypocentral time or centroid time in general, but the timing of the *center* of the source triangle with zero `time shift` (Fig [1.3](#fig:source_timing)).
 
 ![Example of timing for three sources. The center of the first source triangle is defined to be time zero. Note that this is NOT in general the hypocentral time, or the start time of the source (marked as tstart). The parameter `time shift` in the `CMTSOLUTION` file would be t1(=0), t2, t3 in this case, and the parameter `half duration` would be hdur1, hdur2, hdur3 for the sources 1, 2, 3 respectively.](figures/source_timing.jpg)
 <div class="figcaption" style="text-align:justify;font-size:80%"><span style="color:#9A9A9A">Figure: Example of timing for three sources. The center of the first source triangle is defined to be time zero. Note that this is NOT in general the hypocentral time, or the start time of the source (marked as tstart). The parameter `time shift` in the `CMTSOLUTION` file would be t1(=0), t2, t3 in this case, and the parameter `half duration` would be hdur1, hdur2, hdur3 for the sources 1, 2, 3 respectively.</span></div>
 
-Although it is convenient to think of each source as a triangle, in the simulation they are actually Gaussians (as they have better frequency characteristics). The relationship between the triangle and the Gaussian used is shown in Fig [1.1](#fig:gauss.vs.triangle). For finite fault simulations it is usually not advisable to use a zero half duration and convolve afterwards, since the half duration is generally fixed by the finite fault model.
+Although it is convenient to think of each source as a triangle, in the simulation they are actually Gaussians (as they have better frequency characteristics). The relationship between the triangle and the Gaussian used is shown in Fig [1.2](#fig:gauss.vs.triangle). For finite fault simulations it is usually not advisable to use a zero half duration and convolve afterwards, since the half duration is generally fixed by the finite fault model.
 
 The `FORCESOLUTION` file should be edited in the following way:
 
@@ -136,7 +136,7 @@ Note on the simultaneous simulation of several earthquakes
 ![ Directory structure when simulating several earthquakes at once. To improve readability, only directories have been drawn.](figures/simultaneous_dir_struct.jpg)
 <div class="figcaption" style="text-align:justify;font-size:80%"><span style="color:#9A9A9A">Figure:  Directory structure when simulating several earthquakes at once. To improve readability, only directories have been drawn.</span></div>
 
-Figure [1.3](#fig:simultaneous_dir_struct) shows what the directory structure should looks like when simulating multiple earthquakes at ones.
+Figure [1.4](#fig:simultaneous_dir_struct) shows what the directory structure should looks like when simulating multiple earthquakes at ones.
 
 - The simulation is launched within the root directory `EXAMPLE_ROOT_DIR` (usually `mpirun -np N ./bin/xspecfem3D`).
 
@@ -166,5 +166,5 @@ Meschede, M. A., C. L. Myhrvold, and J. Tromp. 2011. “Antipodal Focusing of Se
 -----
 > This documentation has been automatically generated by [pandoc](http://www.pandoc.org)
 > based on the User manual (LaTeX version) in folder doc/USER_MANUAL/
-> (Mar 21, 2023)
+> (Nov 13, 2023)
 
